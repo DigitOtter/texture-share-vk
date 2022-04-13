@@ -6,6 +6,8 @@
 #include "texture_share_vk/texture_share_vk.h"
 
 #include <SDL.h>
+#include <vector>
+
 
 class VkProgram
 {
@@ -24,6 +26,8 @@ class VkProgram
 		void VkInitDefaultRenderpass();
 		void VkInitFramebuffers();
 		void VkInitSyncStructures();
+
+		void VkInitExternals();
 
 		void Draw();
 

@@ -2,8 +2,6 @@
 #define SHARED_IMAGE_GL_H
 
 #include "texture_share_vk/platform/platform_gl.h"
-#include "texture_share_vk/shared_image_vk.h"
-
 
 class SharedImageGl
 {
@@ -13,14 +11,14 @@ class SharedImageGl
 
 		static bool InitializeGLExternal();
 
-		void InitializeWithExternal(const ExternalHandleVk::ShareHandles &share_handles,
+		void InitializeWithExternal(const ExternalHandle::ShareHandles &share_handles,
 		                            GLsizei width, GLsizei height, GLenum internal_format,
 		                            GLuint64 allocation_size);
 
 		void ReadImage(GLuint dstName​, GLenum dstTarget​, GLint dstLevel​, GLint dstX​, GLint dstY​, GLint dstZ​​);
 
 	private:
-		ExternalHandleVk::ShareHandles _share_handles;
+		ExternalHandle::ShareHandles _share_handles;
 
 		// Semaphores
 		GLuint _semaphore_read{0};

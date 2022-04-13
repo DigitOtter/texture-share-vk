@@ -1,9 +1,8 @@
 #ifndef SHARED_IMAGE_VK_H
 #define SHARED_IMAGE_VK_H
 
-#include "texture_share_vk/platform/platform.h"
+#include "texture_share_vk/platform/platform_vk.h"
 
-#include <vulkan/vulkan.hpp>
 
 class SharedImageVk
 {
@@ -16,13 +15,13 @@ class SharedImageVk
 		void Initialize(VkDevice device, VkPhysicalDevice physical_device, uint32_t image_width, uint32_t image_height);
 		void InitializeImageLayout(VkDevice device, VkQueue queue, VkCommandPool command_pool, VkCommandBuffer command_buffer);
 
-		inline const ExternalHandleVk::TYPE &ReadSemaphoreHandle() const
+		inline const ExternalHandle::TYPE &ReadSemaphoreHandle() const
 		{	return this->_share_handles.ext_read;	}
 
-		inline const ExternalHandleVk::TYPE &WriteSemaphoreHandle() const
+		inline const ExternalHandle::TYPE &WriteSemaphoreHandle() const
 		{	return this->_share_handles.ext_write;	}
 
-		inline const ExternalHandleVk::TYPE &ImageMemoryHandle() const
+		inline const ExternalHandle::TYPE &ImageMemoryHandle() const
 		{	return this->_share_handles.memory;	}
 
 		void Cleanup();
@@ -44,7 +43,7 @@ class SharedImageVk
 
 		SharedSemaphores _shared_semaphores;
 
-		ExternalHandleVk::ShareHandles _share_handles;
+		ExternalHandle::ShareHandles _share_handles;
 };
 
 #endif //SHARED_IMAGE_VK_H

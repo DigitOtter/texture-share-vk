@@ -3,7 +3,6 @@
 
 #include "texture_share_vk/shared_image_vk.h"
 
-#include <vulkan/vulkan.hpp>
 
 class TextureShareVk
 {

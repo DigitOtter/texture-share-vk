@@ -1,6 +1,7 @@
 #include "vk_program.h"
 
 #include "VkBootstrap.h"
+#include "texture_share_vk/texture_share_vk.h"
 
 #include <iostream>
 #include <SDL_vulkan.h>
@@ -40,6 +41,8 @@ void VkProgram::Init()
 	//load the core Vulkan structures
 	this->VulkanInit();
 
+	this->VkInitExternals();
+
 	this->VkInitSwapchain();
 	this->VkInitCommands();
 	this->VkInitDefaultRenderpass();
@@ -58,6 +61,13 @@ void VkProgram::VulkanInit()
 	        .request_validation_layers(true)
 	        .require_api_version(1, 1, 0)
 	        .use_default_debug_messenger()
+	        //.enable_extension(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME)
+	        //.enable_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)
+	        .enable_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)
+
+	        .enable_extension(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME)
+	        .enable_extension(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME)
+
 	        .build();
 
 	vkb::Instance vkb_inst = inst_ret.value();
@@ -74,10 +84,14 @@ void VkProgram::VulkanInit()
 	//We want a GPU that can write to the SDL surface and supports Vulkan 1.1
 	vkb::PhysicalDeviceSelector selector{ vkb_inst };
 	vkb::PhysicalDevice physical_device = selector
-	    .set_minimum_version(1, 1)
-	    .set_surface(this->_surface)
-	    .select()
-	    .value();
+	        .set_minimum_version(1, 1)
+	        .set_surface(this->_surface)
+	        .add_required_extension(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME)
+	        .add_required_extension(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME)
+	        .add_required_extension(ExternalHandleVk::HOST_SEMAPHORE_EXTENSION_NAME.data())
+	        .add_required_extension(ExternalHandleVk::HOST_MEMORY_EXTENSION_NAME.data())
+	        .select()
+	        .value();
 
 	//create the final Vulkan device
 	vkb::DeviceBuilder device_builder{ physical_device };
@@ -234,6 +248,14 @@ void VkProgram::VkInitSyncStructures()
 
 	VK_CHECK(vkCreateSemaphore(this->_device, &semaphore_create_info, nullptr, &this->_present_semaphore));
 	VK_CHECK(vkCreateSemaphore(this->_device, &semaphore_create_info, nullptr, &this->_render_semaphore));
+}
+
+void VkProgram::VkInitExternals()
+{
+	ExternalHandleVk::LoadVulkanHandleExtensions(this->_instance);
+	const bool res = ExternalHandleVk::LoadCompatibleSemaphorePropsInfo(this->_chosen_gpu);
+	if(!res)
+		throw std::runtime_error("External Semaphores unavailable for chosen physical device");
 }
 
 

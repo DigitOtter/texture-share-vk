@@ -7,7 +7,7 @@ bool SharedImageGl::InitializeGLExternal()
 	return true;
 }
 
-void SharedImageGl::InitializeWithExternal(const ExternalHandleVk::ShareHandles &share_handles,
+void SharedImageGl::InitializeWithExternal(const ExternalHandle::ShareHandles &share_handles,
                                            GLsizei width, GLsizei height, GLenum internal_format,
                                            GLuint64 allocation_size)
 {

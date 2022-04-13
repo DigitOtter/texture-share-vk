@@ -10,10 +10,15 @@ VkExportSemaphoreCreateInfo ExternalHandleVk::export_semaphore_create_info{};
 VkSemaphoreCreateInfo       ExternalHandleVk::semaphore_create_info{};
 
 
-void ExternalHandleVk::LoadVulkanHandleExtensions(VkInstance instance)
+bool ExternalHandleVk::LoadVulkanHandleExtensions(VkInstance instance)
 {
-	ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR = (PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceExternalSemaphorePropertiesKHR");
-	ExternalHandleVk::pvkGetMemoryFdKHR = (PFN_vkGetMemoryFdKHR)vkGetInstanceProcAddr(instance, "vkGetMemoryFdKHR");
+	if(!ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR)
+		ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR = (PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceExternalSemaphorePropertiesKHR");
+
+	if(!ExternalHandleVk::pvkGetMemoryFdKHR)
+		ExternalHandleVk::pvkGetMemoryFdKHR = (PFN_vkGetMemoryFdKHR)vkGetInstanceProcAddr(instance, "vkGetMemoryFdKHR");
+
+	return ExternalHandleVk::pvkGetMemoryFdKHR && ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR;
 }
 
 bool ExternalHandleVk::LoadCompatibleSemaphorePropsInfo(VkPhysicalDevice physical_device)
@@ -72,7 +77,7 @@ ExternalHandleVk::MEMORY_GET_INFO_T ExternalHandleVk::CreateMemoryGetInfoKHR(VkD
 		        VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT};
 }
 
-void ExternalHandleVk::GetMemoryKHR(VkDevice device, MEMORY_GET_INFO_T *info, TYPE *memory)
+void ExternalHandleVk::GetMemoryKHR(VkDevice device, MEMORY_GET_INFO_T *info, ExternalHandle::TYPE *memory)
 {
 	VK_CHECK(ExternalHandleVk::pvkGetMemoryFdKHR(device, info, memory));
 }

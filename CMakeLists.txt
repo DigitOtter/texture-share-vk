@@ -25,6 +25,7 @@ find_package(Boost REQUIRED COMPONENTS date_time)
 find_package(OpenGL REQUIRED)
 
 add_subdirectory("third_party/vk-bootstrap")
+add_subdirectory("third_party/volk")
 
 
 if(WIN32)
@@ -77,19 +78,26 @@ target_link_libraries(${LIBRARY_NAME}
 
 	PRIVATE
 		vk-bootstrap::vk-bootstrap
+		#volk::volk
 )
 
 ##########################################
 ## OpenGL Library
 add_library(TextureShareOpenGL SHARED ${OPENGL_LIB_SRC_FILES})
 
+target_include_directories(TextureShareOpenGL
+	PUBLIC
+		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+
+	PRIVATE
+)
+
 target_link_libraries(TextureShareOpenGL
 	PUBLIC
-		${LIBRARY_NAME}
 		OpenGL::OpenGL
 
 	PRIVATE
-		vk-bootstrap::vk-bootstrap
 )
 
 ##########################################
@@ -102,6 +110,7 @@ if(NOT "${EXEC_SRC_FILES}" STREQUAL "")
 		${LIBRARY_NAME}
 		SDL2::SDL2
 		vk-bootstrap::vk-bootstrap
+		#volk::volk
 	)
 endif()
 

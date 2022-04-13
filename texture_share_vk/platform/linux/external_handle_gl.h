@@ -11,13 +11,13 @@
 class ExternalHandleGl
 {
 	public:
-		using TYPE = ExternalHandleVk::TYPE;
-		static constexpr TYPE INVALID_VALUE = ExternalHandleVk::INVALID_VALUE;
+		using TYPE = ExternalHandle::TYPE;
+		static constexpr TYPE INVALID_VALUE = ExternalHandle::INVALID_VALUE;
 
 		static constexpr GLenum GL_HANDLE_TYPE = GL_HANDLE_TYPE_OPAQUE_FD_EXT;
 
-		static void ImportSemaphoreExt(GLuint gl_semaphore, GLenum gl_handle_type, ExternalHandleVk::TYPE ext_semaphore_handle);
-		static void ImportMemoryExt(GLuint memory, GLuint64 size, GLenum handle_type, ExternalHandleVk::TYPE ext_semaphore_handle);
+		static void ImportSemaphoreExt(GLuint gl_semaphore, GLenum gl_handle_type, ExternalHandle::TYPE ext_semaphore_handle);
+		static void ImportMemoryExt(GLuint memory, GLuint64 size, GLenum handle_type, ExternalHandle::TYPE ext_semaphore_handle);
 
 	private:
 

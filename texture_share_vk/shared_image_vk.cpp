@@ -2,6 +2,8 @@
 
 #include "texture_share_vk/logging.h"
 
+#include <functional>
+
 
 SharedImageVk::SharedImageVk(VkDevice device)
     : device(device)
