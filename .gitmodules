@@ -1,3 +1,6 @@
 [submodule "third_party/vk-bootstrap"]
 	path = third_party/vk-bootstrap
 	url = https://github.com/charles-lunarg/vk-bootstrap
+[submodule "third_party/volk"]
+	path = third_party/volk
+	url = https://github.com/zeux/volk
