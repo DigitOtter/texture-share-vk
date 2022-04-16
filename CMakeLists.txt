@@ -24,6 +24,8 @@ find_package(Vulkan REQUIRED)
 find_package(Boost REQUIRED COMPONENTS date_time)
 find_package(OpenGL REQUIRED)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 add_subdirectory("third_party/vk-bootstrap")
 add_subdirectory("third_party/volk")
 
@@ -41,8 +43,10 @@ set(OPENGL_LIB_SRC_FILES
 
 set(LIB_SRC_FILES
 	"texture_share_vk/platform/${PLATFORM_DIRECTORY}/external_handle_vk.cpp"
+	"texture_share_vk/shared_image_handle_vk.cpp"
 	"texture_share_vk/shared_image_vk.cpp"
 	"texture_share_vk/texture_share_vk.cpp"
+	"texture_share_vk/vk_helpers.cpp"
 )
 
 # List executable source files here
@@ -76,8 +80,9 @@ target_link_libraries(${LIBRARY_NAME}
 		Boost::boost
 		Boost::date_time
 
-	PRIVATE
 		vk-bootstrap::vk-bootstrap
+
+	PRIVATE
 		#volk::volk
 )
 
@@ -109,7 +114,6 @@ if(NOT "${EXEC_SRC_FILES}" STREQUAL "")
 	target_link_libraries("${EXECUTABLE_NAME}"
 		${LIBRARY_NAME}
 		SDL2::SDL2
-		vk-bootstrap::vk-bootstrap
 		#volk::volk
 	)
 endif()
@@ -154,6 +158,9 @@ install(EXPORT ${LIB_EXPORT_NAME}
 	DESTINATION ${INSTALL_CONFIGDIR}
 	FILE "${LIB_EXPORT_NAME}.cmake"
 	NAMESPACE "${NAMESPACE_NAME}::")
+
+install(EXPORT vk-bootstrap-targets
+	DESTINATION "${INSTALL_CONFIGDIR}/vk-bootstrap")
 
 # create version and config files
 include(CMakePackageConfigHelpers)

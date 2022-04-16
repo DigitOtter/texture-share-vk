@@ -7,26 +7,26 @@
 class SharedImageVk
 {
 	public:
-		static constexpr uint64_t DEFAULT_FENCE_TIMEOUT = 100000000000;
-
-		SharedImageVk(VkDevice device);
+		SharedImageVk(VkDevice device = VK_NULL_HANDLE);
 		~SharedImageVk();
 
-		void Initialize(VkDevice device, VkPhysicalDevice physical_device, uint32_t image_width, uint32_t image_height);
-		void InitializeImageLayout(VkDevice device, VkQueue queue, VkCommandPool command_pool, VkCommandBuffer command_buffer);
+		SharedImageVk(const SharedImageVk &other) = delete;
+		SharedImageVk &operator=(const SharedImageVk &other) = delete;
 
-		inline const ExternalHandle::TYPE &ReadSemaphoreHandle() const
-		{	return this->_share_handles.ext_read;	}
+		SharedImageVk(SharedImageVk &&other);
+		SharedImageVk &operator=(SharedImageVk &&other);
 
-		inline const ExternalHandle::TYPE &WriteSemaphoreHandle() const
-		{	return this->_share_handles.ext_write;	}
+		void Initialize(VkDevice device, VkPhysicalDevice physical_device,
+		                uint32_t image_width, uint32_t image_height,
+		                VkFormat image_format = VK_FORMAT_R8G8B8A8_UNORM);
+		void InitializeImageLayout(VkDevice device, VkQueue queue, VkCommandBuffer command_buffer);
 
-		inline const ExternalHandle::TYPE &ImageMemoryHandle() const
-		{	return this->_share_handles.memory;	}
+		ExternalHandle::ShareHandles ExportHandles();
 
 		void Cleanup();
 
-	private:
+	//private:
+	public:
 		VkDevice       device           {VK_NULL_HANDLE};
 		VkImage        image            {VK_NULL_HANDLE};
 		VkDeviceMemory memory           {VK_NULL_HANDLE};
@@ -35,6 +35,10 @@ class SharedImageVk
 		VkSampler      sampler          {VK_NULL_HANDLE};
 		VkImageView    view             {VK_NULL_HANDLE};
 
+		uint32_t image_width  = 0;
+		uint32_t image_height = 0;
+		VkFormat image_format = VK_FORMAT_R8G8B8A8_UNORM;
+
 		struct SharedSemaphores
 		{
 			VkSemaphore ext_read  {VK_NULL_HANDLE};
@@ -42,8 +46,6 @@ class SharedImageVk
 		};
 
 		SharedSemaphores _shared_semaphores;
-
-		ExternalHandle::ShareHandles _share_handles;
 };
 
 #endif //SHARED_IMAGE_VK_H

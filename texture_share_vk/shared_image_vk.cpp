@@ -1,6 +1,7 @@
 #include "texture_share_vk/shared_image_vk.h"
 
 #include "texture_share_vk/logging.h"
+#include "texture_share_vk/vk_helpers.h"
 
 #include <functional>
 
@@ -9,115 +10,55 @@ SharedImageVk::SharedImageVk(VkDevice device)
     : device(device)
 {}
 
+SharedImageVk::SharedImageVk(SharedImageVk &&other)
+{
+	memcpy(this, &other, sizeof(SharedImageVk));
+	other.device = VK_NULL_HANDLE;
+}
+
+SharedImageVk &SharedImageVk::operator=(SharedImageVk &&other)
+{
+	memcpy(this, &other, sizeof(SharedImageVk));
+	other.device = VK_NULL_HANDLE;
+
+	return *this;
+}
+
 SharedImageVk::~SharedImageVk()
 {
 	this->Cleanup();
 }
 
-uint32_t get_memory_type(VkPhysicalDevice physical_device, uint32_t bits, VkMemoryPropertyFlags properties, VkBool32 *memory_type_found = nullptr)
+void SharedImageVk::Initialize(VkDevice device, VkPhysicalDevice physical_device,
+                               uint32_t image_width, uint32_t image_height,
+                               VkFormat image_format)
 {
-	VkPhysicalDeviceMemoryProperties memory_properties;
-	vkGetPhysicalDeviceMemoryProperties(physical_device, &memory_properties);
+	this->device = device;
 
-	for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
-	{
-		if ((bits & 1) == 1)
-		{
-			if ((memory_properties.memoryTypes[i].propertyFlags & properties) == properties)
-			{
-				if (memory_type_found)
-				{
-					*memory_type_found = true;
-				}
-				return i;
-			}
-		}
-		bits >>= 1;
-	}
-
-	if (memory_type_found)
-	{
-		*memory_type_found = false;
-		return 0;
-	}
-	else
-	{
-		throw std::runtime_error("Could not find a matching memory type");
-	}
-}
-
-/** @brief Initialize an image memory barrier with no image transfer ownership */
-inline VkImageMemoryBarrier create_image_memory_barrier()
-{
-	VkImageMemoryBarrier image_memory_barrier{};
-	image_memory_barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	return image_memory_barrier;
-}
-
-
-void immediate_submit(VkDevice device, VkQueue queue, VkCommandPool command_pool, VkCommandBuffer command_buffer, const std::function<void(VkCommandBuffer command_buffer)> &f, VkSemaphore signalSemaphore)
-{
-	f(command_buffer);
-
-	if (command_buffer == VK_NULL_HANDLE)
-		return;
-
-	VK_CHECK(vkEndCommandBuffer(command_buffer));
-
-	VkSubmitInfo submit_info{};
-	submit_info.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submit_info.commandBufferCount = 1;
-	submit_info.pCommandBuffers    = &command_buffer;
-	if (signalSemaphore)
-	{
-		submit_info.pSignalSemaphores    = &signalSemaphore;
-		submit_info.signalSemaphoreCount = 1;
-	}
-
-	// Create fence to ensure that the command buffer has finished executing
-	VkFenceCreateInfo fence_info{};
-	fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fence_info.flags = 0;
-
-	VkFence fence;
-	VK_CHECK(vkCreateFence(device, &fence_info, nullptr, &fence));
-
-	// Submit to the queue
-	VkResult result = vkQueueSubmit(queue, 1, &submit_info, fence);
-	// Wait for the fence to signal that command buffer has finished executing
-	VK_CHECK(vkWaitForFences(device, 1, &fence, VK_TRUE, SharedImageVk::DEFAULT_FENCE_TIMEOUT));
-
-	vkDestroyFence(device, fence, nullptr);
-
-	if (command_pool)
-		vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
-}
-
-void SharedImageVk::Initialize(VkDevice device, VkPhysicalDevice physical_device, uint32_t image_width, uint32_t image_height)
-{
-	// Create semaphores. Ensure FindCompatibleSemaphoreProps() was already run before
-	VK_CHECK(vkCreateSemaphore(device, &ExternalHandleVk::ExternalSemaphoreCreateInfo(), nullptr,
-	                           &this->_shared_semaphores.ext_read));
-	VK_CHECK(vkCreateSemaphore(device, &ExternalHandleVk::ExternalSemaphoreCreateInfo(), nullptr,
-	                           &this->_shared_semaphores.ext_write));
+	// Create semaphores. Ensure ExternalHandleVk::FindCompatibleSemaphoreProps() was already run before
+	this->_shared_semaphores.ext_read  = ExternalHandleVk::CreateExternalSemaphore(device);
+	this->_shared_semaphores.ext_write = ExternalHandleVk::CreateExternalSemaphore(device);
 
 	// Allocate image memory
 	VkExternalMemoryImageCreateInfo external_memory_image_create_info{VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO};
-	external_memory_image_create_info.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+	external_memory_image_create_info.handleTypes = ExternalHandleVk::EXTERNAL_MEMORY_HANDLE_TYPE;
 	VkImageCreateInfo imageCreateInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
 	imageCreateInfo.pNext         = &external_memory_image_create_info;
 	imageCreateInfo.imageType     = VK_IMAGE_TYPE_2D;
-	imageCreateInfo.format        = VK_FORMAT_R8G8B8A8_UNORM;
+	imageCreateInfo.format        = image_format;
 	imageCreateInfo.mipLevels     = 1;
 	imageCreateInfo.arrayLayers   = 1;
 	imageCreateInfo.samples       = VK_SAMPLE_COUNT_1_BIT;
 	imageCreateInfo.extent.depth  = 1;
 	imageCreateInfo.extent.width  = image_width;
 	imageCreateInfo.extent.height = image_height;
-	imageCreateInfo.usage         = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	imageCreateInfo.usage         = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+	        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	VK_CHECK(vkCreateImage(device, &imageCreateInfo, nullptr, &this->image));
+
+	this->image_height = image_height;
+	this->image_width = image_width;
+	this->image_format = image_format;
 
 	VkMemoryRequirements memReqs{};
 	vkGetImageMemoryRequirements(device, this->image, &memReqs);
@@ -128,13 +69,10 @@ void SharedImageVk::Initialize(VkDevice device, VkPhysicalDevice physical_device
 	VkMemoryAllocateInfo memAllocInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &exportAllocInfo};
 
 	memAllocInfo.allocationSize = this->allocationSize = memReqs.size;
-	memAllocInfo.memoryTypeIndex                               = get_memory_type(physical_device, memReqs.memoryTypeBits,
+	memAllocInfo.memoryTypeIndex                               = VkHelpers::GetMemoryType(physical_device, memReqs.memoryTypeBits,
 	                                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	VK_CHECK(vkAllocateMemory(device, &memAllocInfo, nullptr, &this->memory));
 	VK_CHECK(vkBindImageMemory(device, this->image, this->memory, 0));
-
-	VkMemoryGetFdInfoKHR memoryFdInfo = ExternalHandleVk::CreateMemoryGetInfoKHR(this->memory);
-	ExternalHandleVk::GetMemoryKHR(device, &memoryFdInfo, &this->_share_handles.memory);
 
 	// Create sampler
 	VkSamplerCreateInfo samplerCreateInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
@@ -157,16 +95,16 @@ void SharedImageVk::Initialize(VkDevice device, VkPhysicalDevice physical_device
 	vkCreateImageView(device, &viewCreateInfo, nullptr, &this->view);
 }
 
-void SharedImageVk::InitializeImageLayout(VkDevice device, VkQueue queue, VkCommandPool command_pool, VkCommandBuffer command_buffer)
+void SharedImageVk::InitializeImageLayout(VkDevice device, VkQueue queue, VkCommandBuffer command_buffer)
 {
-	immediate_submit(device, queue, command_pool, command_buffer,
+	VkHelpers::ImmediateSubmit(device, queue, command_buffer,
 	            [&](VkCommandBuffer image_command_buffer) {
-		VkImageMemoryBarrier image_memory_barrier  = create_image_memory_barrier();
+		VkImageMemoryBarrier image_memory_barrier  = VkHelpers::CreateImageMemoryBarrier();
 		image_memory_barrier.image                 = this->image;
 		image_memory_barrier.srcAccessMask         = 0;
 		image_memory_barrier.dstAccessMask         = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		image_memory_barrier.oldLayout             = VK_IMAGE_LAYOUT_UNDEFINED;
-		image_memory_barrier.newLayout             = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		image_memory_barrier.newLayout             = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL; //VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		VkImageSubresourceRange &subresource_range = image_memory_barrier.subresourceRange;
 		subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
 		subresource_range.levelCount               = 1;
@@ -184,11 +122,24 @@ void SharedImageVk::InitializeImageLayout(VkDevice device, VkQueue queue, VkComm
 	this->_shared_semaphores.ext_write);
 }
 
+ExternalHandle::ShareHandles SharedImageVk::ExportHandles()
+{
+	ExternalHandle::ShareHandles handles;
+	const auto memoryFdInfo = ExternalHandleVk::CreateMemoryGetInfoKHR(this->memory);
+	ExternalHandleVk::GetMemoryKHR(device, &memoryFdInfo, &handles.memory);
+
+	handles.ext_read = ExternalHandleVk::GetSemaphoreKHR(this->device, this->_shared_semaphores.ext_read);
+	handles.ext_write = ExternalHandleVk::GetSemaphoreKHR(this->device, this->_shared_semaphores.ext_write);
+
+	return handles;
+}
+
 void SharedImageVk::Cleanup()
 {
 	if(this->device)
 	{
 		vkDeviceWaitIdle(this->device);
+
 		vkDestroySemaphore(this->device, this->_shared_semaphores.ext_read, nullptr);
 		vkDestroySemaphore(this->device, this->_shared_semaphores.ext_write, nullptr);
 		vkDestroyImage(this->device, this->image, nullptr);

@@ -1,5 +1,7 @@
 #include "texture_share_vk/opengl/shared_image_gl.h"
 
+#include <utility>
+
 
 bool SharedImageGl::InitializeGLExternal()
 {
@@ -7,11 +9,11 @@ bool SharedImageGl::InitializeGLExternal()
 	return true;
 }
 
-void SharedImageGl::InitializeWithExternal(const ExternalHandle::ShareHandles &share_handles,
+void SharedImageGl::InitializeWithExternal(ExternalHandle::ShareHandles &&share_handles,
                                            GLsizei width, GLsizei height, GLenum internal_format,
                                            GLuint64 allocation_size)
 {
-	this->_share_handles = share_handles;
+	this->_share_handles = std::move(share_handles);
 
 	//glDisable(GL_DEPTH_TEST);
 
@@ -41,7 +43,7 @@ void SharedImageGl::InitializeWithExternal(const ExternalHandle::ShareHandles &s
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void SharedImageGl::ReadImage(GLuint dstName​, GLenum dstTarget​, GLint dstLevel​, GLint dstX​, GLint dstY​, GLint dstZ​​)
+void SharedImageGl::ReadImage(GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ)
 {
 	//glCopyImageSubData(this->_color, GLenum srcTarget​, GLint srcLevel​, GLint srcX​, GLint srcY​, GLint srcZ​, GLuint dstName​, GLenum dstTarget​, GLint dstLevel​, GLint dstX​, GLint dstY​, GLint dstZ​, GLsizei srcWidth​, GLsizei srcHeight​, GLsizei srcDepth​);
 }

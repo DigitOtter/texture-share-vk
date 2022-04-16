@@ -11,11 +11,11 @@ class SharedImageGl
 
 		static bool InitializeGLExternal();
 
-		void InitializeWithExternal(const ExternalHandle::ShareHandles &share_handles,
+		void InitializeWithExternal(ExternalHandle::ShareHandles &&share_handles,
 		                            GLsizei width, GLsizei height, GLenum internal_format,
 		                            GLuint64 allocation_size);
 
-		void ReadImage(GLuint dstName​, GLenum dstTarget​, GLint dstLevel​, GLint dstX​, GLint dstY​, GLint dstZ​​);
+		void ReadImage(GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ);
 
 	private:
 		ExternalHandle::ShareHandles _share_handles;

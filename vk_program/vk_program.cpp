@@ -2,21 +2,11 @@
 
 #include "VkBootstrap.h"
 #include "texture_share_vk/texture_share_vk.h"
+#include "texture_share_vk/vk_helpers.h"
 
 #include <iostream>
 #include <SDL_vulkan.h>
 
-
-#define VK_CHECK(x)                                                 \
-	do                                                              \
-    {                                                               \
-	    VkResult err = x;                                           \
-	    if (err)                                                    \
-        {                                                           \
-	        std::cout <<"Detected Vulkan error: " << err << std::endl; \
-	        abort();                                                \
-	    }                                                           \
-	} while (0);
 
 VkProgram::~VkProgram()
 {
@@ -41,13 +31,42 @@ void VkProgram::Init()
 	//load the core Vulkan structures
 	this->VulkanInit();
 
-	this->VkInitExternals();
-
 	this->VkInitSwapchain();
 	this->VkInitCommands();
 	this->VkInitDefaultRenderpass();
 	this->VkInitFramebuffers();
 	this->VkInitSyncStructures();
+
+	for(VkImage &image : this->_swapchain_images)
+	{
+		VkHelpers::ImmediateSubmit(this->_device, this->_graphics_queue, this->_main_command_buffer,
+		                           [&](VkCommandBuffer image_command_buffer) {
+			                            VkImageMemoryBarrier image_memory_barrier  = VkHelpers::CreateImageMemoryBarrier();
+										image_memory_barrier.image                 = image;
+										image_memory_barrier.srcAccessMask         = 0;
+										image_memory_barrier.dstAccessMask         = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+										image_memory_barrier.oldLayout             = VK_IMAGE_LAYOUT_UNDEFINED;
+										image_memory_barrier.newLayout             = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; //VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+										VkImageSubresourceRange &subresource_range = image_memory_barrier.subresourceRange;
+										subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+										subresource_range.levelCount               = 1;
+										subresource_range.layerCount               = 1;
+
+										vkCmdPipelineBarrier(
+										    image_command_buffer,
+										    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+										    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+										    0,
+										    0, nullptr,
+										    0, nullptr,
+										    1, &image_memory_barrier);},
+		                                VK_NULL_HANDLE);
+	}
+
+	sleep(2);
+
+	this->VkInitExternals();
+	this->VkInitSharedImage();
 
 	this->_is_initialized = true;
 }
@@ -59,10 +78,10 @@ void VkProgram::VulkanInit()
 	//make the Vulkan instance, with basic debug features
 	auto inst_ret = builder.set_app_name("Vulkan Texture Share Test")
 	        .request_validation_layers(true)
-	        .require_api_version(1, 1, 0)
+	        .require_api_version(1, 2, 0)
 	        .use_default_debug_messenger()
-	        //.enable_extension(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME)
-	        //.enable_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)
+	        .enable_extension(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)
+
 	        .enable_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)
 
 	        .enable_extension(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME)
@@ -80,16 +99,26 @@ void VkProgram::VulkanInit()
 	// get the surface of the window we opened with SDL
 	SDL_Vulkan_CreateSurface(this->_window, this->_instance, &this->_surface);
 
+	VkPhysicalDeviceVulkan12Features features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, nullptr};
+	features.timelineSemaphore = true;
+
 	//use vkbootstrap to select a GPU.
-	//We want a GPU that can write to the SDL surface and supports Vulkan 1.1
+	//We want a GPU that can write to the SDL surface and supports Vulkan 1.2
 	vkb::PhysicalDeviceSelector selector{ vkb_inst };
 	vkb::PhysicalDevice physical_device = selector
-	        .set_minimum_version(1, 1)
+	        .set_minimum_version(1, 2)
 	        .set_surface(this->_surface)
+
 	        .add_required_extension(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME)
 	        .add_required_extension(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME)
+
+	        .add_required_extension(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME)
+
 	        .add_required_extension(ExternalHandleVk::HOST_SEMAPHORE_EXTENSION_NAME.data())
 	        .add_required_extension(ExternalHandleVk::HOST_MEMORY_EXTENSION_NAME.data())
+
+	        .set_required_features_12(features)
+
 	        .select()
 	        .value();
 
@@ -112,12 +141,14 @@ void VkProgram::VkInitSwapchain()
 	vkb::SwapchainBuilder swapchain_builder{ this->_chosen_gpu, this->_device, this->_surface };
 
 	vkb::Swapchain vkb_swapchain = swapchain_builder
-	    .use_default_format_selection()
-	    //use vsync present mode
-	    .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
-	    .set_desired_extent(this->_window_extent.width, this->_window_extent.height)
-	    .build()
-	    .value();
+	        .use_default_format_selection()
+	        //use vsync present mode
+	        .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+	        .set_desired_extent(this->_window_extent.width, this->_window_extent.height)
+	        .use_default_image_usage_flags()
+	        .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+	        .build()
+	        .value();
 
 	//store swapchain and its related images
 	this->_swapchain = vkb_swapchain.swapchain;
@@ -252,12 +283,20 @@ void VkProgram::VkInitSyncStructures()
 
 void VkProgram::VkInitExternals()
 {
-	ExternalHandleVk::LoadVulkanHandleExtensions(this->_instance);
-	const bool res = ExternalHandleVk::LoadCompatibleSemaphorePropsInfo(this->_chosen_gpu);
-	if(!res)
+	if(!ExternalHandleVk::LoadVulkanHandleExtensions(this->_instance))
+		throw std::runtime_error("Failed to load extension functions");
+
+	if(!ExternalHandleVk::LoadCompatibleSemaphorePropsInfo(this->_chosen_gpu))
 		throw std::runtime_error("External Semaphores unavailable for chosen physical device");
 }
 
+void VkProgram::VkInitSharedImage()
+{
+	this->_shared_image.Initialize(this->_device, this->_chosen_gpu,
+	                               this->_window_extent.width, this->_window_extent.height);
+	this->_shared_image.InitializeImageLayout(this->_device, this->_graphics_queue, this->_main_command_buffer);
+	sleep(2);
+}
 
 void VkProgram::Draw()
 {
@@ -269,6 +308,28 @@ void VkProgram::Draw()
 	uint32_t swapchain_image_index;
 	VK_CHECK(vkAcquireNextImageKHR(this->_device, this->_swapchain, 1000000000, this->_present_semaphore, nullptr, &swapchain_image_index));
 
+	VkHelpers::ImmediateSubmit(this->_device, this->_graphics_queue, this->_main_command_buffer,
+	                           [&](VkCommandBuffer image_command_buffer) {
+		                            VkImageMemoryBarrier image_memory_barrier  = VkHelpers::CreateImageMemoryBarrier();
+									image_memory_barrier.image                 = this->_swapchain_images[swapchain_image_index];
+									image_memory_barrier.srcAccessMask         = 0;
+									image_memory_barrier.dstAccessMask         = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+									image_memory_barrier.oldLayout             = VK_IMAGE_LAYOUT_UNDEFINED;
+									image_memory_barrier.newLayout             = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; //VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+									VkImageSubresourceRange &subresource_range = image_memory_barrier.subresourceRange;
+									subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+									subresource_range.levelCount               = 1;
+									subresource_range.layerCount               = 1;
+
+									vkCmdPipelineBarrier(
+									    image_command_buffer,
+									    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+									    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+									    0,
+									    0, nullptr,
+									    0, nullptr,
+									    1, &image_memory_barrier);},
+	                                VK_NULL_HANDLE);
 
 	//now that we are sure that the commands finished executing, we can safely reset the command buffer to begin recording again.
 	VK_CHECK(vkResetCommandBuffer(this->_main_command_buffer, 0));
@@ -312,6 +373,32 @@ void VkProgram::Draw()
 	//finalize the render pass
 	vkCmdEndRenderPass(cmd);
 	//finalize the command buffer (we can no longer add commands, but it can now be executed)
+
+//	VkHelpers::CmdPipelineMemoryBarrierColorImage(cmd, this->_shared_image.image,
+//	                                              VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+//	                                              VK_ACCESS_NONE, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
+//	VkClearColorValue img_clr{};
+//	img_clr.float32[0] = 1.0f;
+//	img_clr.float32[1] = 1.0f;
+//	img_clr.float32[2] = 0.0f;
+//	img_clr.float32[3] = 1.0f;
+//	VkHelpers::CmdClearColorImage(cmd, this->_shared_image.image, img_clr, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+//	VkHelpers::CmdPipelineMemoryBarrierColorImage(cmd, this->_shared_image.image,
+//	                                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+//	                                              VK_ACCESS_NONE, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
+	VkHelpers::CmdPipelineMemoryBarrierColorImage(cmd, this->_swapchain_images[swapchain_image_index],
+	                                              VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+	                                              VK_ACCESS_NONE, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
+	this->DrawSharedImage(this->_swapchain_images[swapchain_image_index], cmd);
+
+	VkHelpers::CmdPipelineMemoryBarrierColorImage(cmd, this->_swapchain_images[swapchain_image_index],
+	                                              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+	                                              VK_ACCESS_NONE, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
 	VK_CHECK(vkEndCommandBuffer(cmd));
 
 	//prepare the submission to the queue.
@@ -360,12 +447,44 @@ void VkProgram::Draw()
 	this->_frame_number++;
 }
 
+void VkProgram::DrawSharedImage(VkImage swapchain_image, VkCommandBuffer command_buffer)
+{
+	VkImageCopy img_copy{};
+	VkImageSubresourceLayers subresource_layers{VK_IMAGE_ASPECT_COLOR_BIT};
+	subresource_layers.mipLevel = 0;
+	subresource_layers.baseArrayLayer = 0;
+	subresource_layers.layerCount = 1;
+
+	img_copy.srcSubresource = subresource_layers;
+	img_copy.dstSubresource = subresource_layers;
+	img_copy.extent = VkExtent3D{this->_window_extent.width, this->_window_extent.height, 1};
+
+	vkCmdCopyImage(command_buffer,
+	               this->_shared_image.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+	               swapchain_image,           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+	               1, &img_copy);
+}
+
 void VkProgram::Cleanup()
+{
+	if(this->_is_initialized)
+	{
+		this->VkCleanup();
+
+		SDL_DestroyWindow(this->_window);
+
+		this->_is_initialized = false;
+	}
+}
+
+void VkProgram::VkCleanup()
 {
 	if(this->_is_initialized)
 	{
 		//make sure the gpu has stopped doing its things
 		vkDeviceWaitIdle(this->_device);
+
+		this->_shared_image.Cleanup();
 
 		vkDestroyCommandPool(this->_device, this->_command_pool, nullptr);
 
@@ -391,8 +510,6 @@ void VkProgram::Cleanup()
 		vkDestroyDevice(this->_device, nullptr);
 		vkb::destroy_debug_utils_messenger(this->_instance, this->_debug_messenger);
 		vkDestroyInstance(this->_instance, nullptr);
-
-		SDL_DestroyWindow(this->_window);
 
 		this->_is_initialized = false;
 	}

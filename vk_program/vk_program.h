@@ -28,10 +28,19 @@ class VkProgram
 		void VkInitSyncStructures();
 
 		void VkInitExternals();
+		void VkInitSharedImage();
+
+		void SetExternalHandle(SharedImageHandleVk *shared_image_handle);
 
 		void Draw();
 
+		void DrawSharedImage(VkImage swapchain_image, VkCommandBuffer command_buffer);
+
 		void Cleanup();
+		void VkCleanup();
+
+		constexpr SharedImageVk &GetSharedImage()
+		{	return this->_shared_image;	}
 
 	private:
 		SDL_Window *_window = nullptr;
@@ -63,6 +72,8 @@ class VkProgram
 		VkSemaphore _present_semaphore;
 		VkSemaphore _render_semaphore;
 		VkFence _render_fence;
+
+		SharedImageVk _shared_image;
 };
 
 #endif //VK_PROGRAM_H
