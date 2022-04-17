@@ -36,6 +36,11 @@ else()
 	set(PLATFORM_DIRECTORY "linux")
 endif()
 
+
+set(IPC_MEMORY_LIB_SRC_FILES
+	"texture_share_vk/ipc_memory.cpp"
+)
+
 set(OPENGL_LIB_SRC_FILES
 	"texture_share_vk/opengl/shared_image_gl.cpp"
 	"texture_share_vk/platform/${PLATFORM_DIRECTORY}/external_handle_gl.cpp"
@@ -49,6 +54,11 @@ set(LIB_SRC_FILES
 	"texture_share_vk/vk_helpers.cpp"
 )
 
+set(VK_D_SRC_FILES
+	"texture_share_vk/ipc_memory_processor_vk.cpp"
+	"texture_share_vk/texture_share_daemon.cpp"
+)
+
 # List executable source files here
 set(EXEC_SRC_FILES
 	"vk_program/main.cpp"
@@ -57,6 +67,29 @@ set(EXEC_SRC_FILES
 
 # List testing files here
 set(TEST_SRC_FILES
+)
+
+
+##########################################
+## IPC Memory Library
+add_library(IPCMemory SHARED ${IPC_MEMORY_LIB_SRC_FILES})
+add_library("${NAMESPACE_NAME}::IPCMemory" ALIAS IPCMemory)
+target_compile_options(IPCMemory PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
+
+target_include_directories(IPCMemory
+	PUBLIC
+		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+
+	PRIVATE
+)
+
+target_link_libraries(IPCMemory
+	PUBLIC
+		Boost::boost
+		Boost::date_time
+
+	PRIVATE
 )
 
 
@@ -89,6 +122,9 @@ target_link_libraries(${LIBRARY_NAME}
 ##########################################
 ## OpenGL Library
 add_library(TextureShareOpenGL SHARED ${OPENGL_LIB_SRC_FILES})
+add_library("${NAMESPACE_NAME}::TextureShareOpenGL" ALIAS TextureShareOpenGL)
+target_compile_options(TextureShareOpenGL PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
+
 
 target_include_directories(TextureShareOpenGL
 	PUBLIC
@@ -104,6 +140,18 @@ target_link_libraries(TextureShareOpenGL
 
 	PRIVATE
 )
+
+##########################################
+## Shared Images Daemon
+add_executable(SharedImagesDaemon ${VK_D_SRC_FILES})
+target_compile_options(SharedImagesDaemon PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
+
+target_link_libraries(SharedImagesDaemon
+	PUBLIC
+		"${NAMESPACE_NAME}::${LIBRARY_NAME}"
+		"${NAMESPACE_NAME}::IPCMemory"
+)
+
 
 ##########################################
 ## Executable

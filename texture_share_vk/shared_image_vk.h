@@ -22,6 +22,7 @@ class SharedImageVk
 		void InitializeImageLayout(VkDevice device, VkQueue queue, VkCommandBuffer command_buffer);
 
 		ExternalHandle::ShareHandles ExportHandles();
+		ExternalHandle::SharedImageInfo ExportImageInfo();
 
 		void Cleanup();
 

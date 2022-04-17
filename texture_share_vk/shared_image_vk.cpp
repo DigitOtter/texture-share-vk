@@ -134,6 +134,13 @@ ExternalHandle::ShareHandles SharedImageVk::ExportHandles()
 	return handles;
 }
 
+ExternalHandle::SharedImageInfo SharedImageVk::ExportImageInfo()
+{
+	return ExternalHandle::SharedImageInfo{this->ExportHandles(),
+		        this->image_width, this->image_height,
+		        ExternalHandleVk::GetImageFormat(this->image_format)};
+}
+
 void SharedImageVk::Cleanup()
 {
 	if(this->device)
