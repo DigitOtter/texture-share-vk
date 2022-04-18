@@ -18,6 +18,45 @@ IpcMemory::IpcData &IpcMemory::IpcData::operator=(IpcData &&other)
 	return *this;
 }
 
+IpcMemory::IpcCmdData::IpcCmdData(IpcCmdData &&other)
+    : cmd_request(),
+      cmd_type(std::move(other.cmd_type)),
+      image_name_old(std::move(other.image_name_old)),
+      image_name_new(std::move(other.image_name_new)),
+      imge_width(std::move(other.imge_width)),
+      imge_height(std::move(other.imge_height)),
+      image_format(std::move(other.image_format)),
+      cmd_processed(std::move(other.cmd_processed))
+{}
+
+IpcMemory::IpcCmdData &IpcMemory::IpcCmdData::operator=(IpcCmdData &&other)
+{
+	this->cmd_type = std::move(other.cmd_type);
+	this->image_name_old = std::move(other.image_name_old);
+	this->image_name_new = std::move(other.image_name_new);
+	this->imge_width = std::move(other.imge_width);
+	this->imge_height = std::move(other.imge_height);
+	this->image_format = std::move(other.image_format);
+	this->cmd_processed = std::move(other.cmd_processed);
+
+	return *this;
+}
+
+IpcMemory::ImageData::ImageData(ImageData &&other)
+    : shared_image_info(std::move(other.shared_image_info)),
+      handle_access(),
+      connected_procs_count(std::move(other.connected_procs_count))
+{}
+
+IpcMemory::ImageData &IpcMemory::ImageData::operator=(ImageData &&other)
+{
+	this->shared_image_info = std::move(other.shared_image_info);
+	this->connected_procs_count = std::move(other.connected_procs_count);
+
+	return *this;
+}
+
+
 IpcMemory::IpcMemory(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
     : _lock_memory_segment_name(ipc_cmd_memory_segment),
       _map_memory_segment_name(ipc_map_memory_segment),
@@ -151,42 +190,4 @@ void IpcMemory::SetHandleRequestCmd(const std::string &image_name)
 
 	this->_lock_data->cmd_data.cmd_processed = 0;
 	this->_lock_data->cmd_data.cmd_type = IPC_CMD_HANDLE_REQUEST;
-}
-
-IpcMemory::IpcCmdData::IpcCmdData(IpcCmdData &&other)
-    : cmd_request(),
-      cmd_type(std::move(other.cmd_type)),
-      image_name_old(std::move(other.image_name_old)),
-      image_name_new(std::move(other.image_name_new)),
-      imge_width(std::move(other.imge_width)),
-      imge_height(std::move(other.imge_height)),
-      image_format(std::move(other.image_format)),
-      cmd_processed(std::move(other.cmd_processed))
-{}
-
-IpcMemory::IpcCmdData &IpcMemory::IpcCmdData::operator=(IpcCmdData &&other)
-{
-	this->cmd_type = std::move(other.cmd_type);
-	this->image_name_old = std::move(other.image_name_old);
-	this->image_name_new = std::move(other.image_name_new);
-	this->imge_width = std::move(other.imge_width);
-	this->imge_height = std::move(other.imge_height);
-	this->image_format = std::move(other.image_format);
-	this->cmd_processed = std::move(other.cmd_processed);
-
-	return *this;
-}
-
-IpcMemory::ImageData::ImageData(ImageData &&other)
-    : shared_image_info(std::move(other.shared_image_info)),
-      handle_access(),
-      connected_procs_count(std::move(other.connected_procs_count))
-{}
-
-IpcMemory::ImageData &IpcMemory::ImageData::operator=(ImageData &&other)
-{
-	this->shared_image_info = std::move(other.shared_image_info);
-	this->connected_procs_count = std::move(other.connected_procs_count);
-
-	return *this;
 }
