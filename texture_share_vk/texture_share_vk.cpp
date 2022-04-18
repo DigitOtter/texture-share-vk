@@ -17,13 +17,14 @@ void TextureShareVk::InitializeVulkan()
 
 void TextureShareVk::CleanupVulkan()
 {
-	if(this->_vk_struct.device != VK_NULL_HANDLE)
+	if(this->_vk_struct.instance != VK_NULL_HANDLE)
 	{
 		VkHelpers::CleanupCommandBuffer(this->_vk_struct.device, this->_command_pool, this->_command_buffer);
 		VkHelpers::CleanupCommandPool(this->_vk_struct.device, this->_command_pool);
 		VkHelpers::CleanupTextureShareVkInstance(this->_vk_struct);
 
 		this->_vk_struct.device = VK_NULL_HANDLE;
+		this->_vk_struct.instance = VK_NULL_HANDLE;
 	}
 }
 
@@ -57,4 +58,9 @@ SharedImageHandleVk TextureShareVk::CreateImageHandle(ExternalHandle::ShareHandl
 	image_info.format = ExternalHandleVk::GetImageFormat(format);
 
 	return this->CreateImageHandle(std::move(image_info), layout);
+}
+
+bool TextureShareVk::IsVulkanInitialized() const
+{
+	return this->_vk_struct.instance != VK_NULL_HANDLE;
 }

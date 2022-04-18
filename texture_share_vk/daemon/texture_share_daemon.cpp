@@ -5,8 +5,10 @@
 #include <thread>
 
 
-TextureShareDaemon::TextureShareDaemon(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
-    : _vk_memory(ipc_cmd_memory_segment, ipc_map_memory_segment)
+TextureShareDaemon::TextureShareDaemon(const std::string &ipc_cmd_memory_segment,
+                                       const std::string &ipc_map_memory_segment)
+    : _vk_memory(ipc_cmd_memory_segment,
+                 ipc_map_memory_segment)
 {}
 
 void TextureShareDaemon::Initialize()

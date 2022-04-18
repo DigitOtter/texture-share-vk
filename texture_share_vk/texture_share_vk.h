@@ -5,6 +5,7 @@
 #include "texture_share_vk/shared_image_vk.h"
 #include "texture_share_vk/vk_helpers.h"
 
+
 class TextureShareVk
 {
 	public:
@@ -22,6 +23,11 @@ class TextureShareVk
 		                                      uint32_t width, uint32_t height,
 		                                      VkFormat format = DEFAULT_FORMAT,
 		                                      VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+		bool IsVulkanInitialized() const;
+
+		constexpr VkInstance VulkanInstance()
+		{	return this->_vk_struct.instance;	}
 
 		constexpr VkQueue GraphicsQueue()
 		{	return this->_vk_struct.graphics_queue;	}

@@ -103,17 +103,25 @@ class IpcMemory
 		std::string _lock_memory_segment_name = DEFAULT_IPC_CMD_MEMORY_NAME.data();
 		std::string _map_memory_segment_name = DEFAULT_IPC_MAP_MEMORY_NAME.data();
 
-		boost::interprocess::managed_shared_memory _lock_memory_segment =
-		        boost::interprocess::managed_shared_memory(boost::interprocess::create_only, this->_lock_memory_segment_name.c_str(), sizeof(IpcData));
+		struct shmem_remover
+		{
+			shmem_remover(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
+			              const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data())
+			{
+				boost::interprocess::shared_memory_object::remove(ipc_cmd_memory_segment.c_str());
+				boost::interprocess::shared_memory_object::remove(ipc_map_memory_segment.c_str());
+			}
+		} _shmem_remover;
 
-		IpcData *_lock_data = this->_lock_memory_segment.construct<IpcData>(boost::interprocess::unique_instance)(IpcData());
+		boost::interprocess::managed_shared_memory _lock_memory_segment;
 
-		boost::interprocess::managed_shared_memory _map_memory_segment =
-		        boost::interprocess::managed_shared_memory(boost::interprocess::create_only, this->_map_memory_segment_name.c_str(), 65536);
+		IpcData *_lock_data = nullptr;
 
-		shmem_allocator_t _map_allocator = shmem_allocator_t(this->_map_memory_segment.get_segment_manager());
+		boost::interprocess::managed_shared_memory _map_memory_segment;
 
-		shmem_map_t *_image_map = this->_map_memory_segment.construct<shmem_map_t>(boost::interprocess::unique_instance)(ImageNameCompare(), this->_map_allocator);
+		shmem_allocator_t _map_allocator;
+
+		shmem_map_t *_image_map = nullptr;
 
 	private:
 		void SetImageNameCmd(const std::string &image_name, const std::string &old_image_name,
