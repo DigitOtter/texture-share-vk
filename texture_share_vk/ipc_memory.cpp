@@ -63,11 +63,11 @@ IpcMemory::IpcMemory(const std::string &ipc_cmd_memory_segment, const std::strin
       _shmem_remover(ipc_cmd_memory_segment, ipc_map_memory_segment),
       _lock_memory_segment(bipc::managed_shared_memory(bipc::create_only,
                                                        this->_lock_memory_segment_name.c_str(),
-                                                       sizeof(IpcData)+1024)),
+                                                       sizeof(IpcData) + 1024)),
       _lock_data(this->_lock_memory_segment.construct<IpcData>(bipc::unique_instance)(IpcData())),
       _map_memory_segment(bipc::managed_shared_memory(bipc::create_only,
                                                       this->_map_memory_segment_name.c_str(),
-                                                      65536)),
+                                                      sizeof(shmem_map_t) + 10*sizeof(map_value_t) + 1024)),
       _map_allocator(shmem_allocator_t(this->_map_memory_segment.get_segment_manager())),
       _image_map(this->_map_memory_segment.construct<shmem_map_t>(bipc::unique_instance)(ImageNameCompare(),
                                                                                          this->_map_allocator))
