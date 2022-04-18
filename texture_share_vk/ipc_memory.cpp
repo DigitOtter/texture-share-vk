@@ -18,6 +18,11 @@ IpcMemory::IpcData &IpcMemory::IpcData::operator=(IpcData &&other)
 	return *this;
 }
 
+IpcMemory::IpcMemory(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
+    : _lock_memory_segment_name(ipc_cmd_memory_segment),
+      _map_memory_segment_name(ipc_map_memory_segment)
+{}
+
 IpcMemory::~IpcMemory()
 {
 	if(this->_lock_data)

@@ -11,13 +11,14 @@ class IpcMemoryProcessorVk
         : public IpcMemory
 {
 	public:
-		IpcMemoryProcessorVk() = default;
+		IpcMemoryProcessorVk(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
+		                     const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data());
 		~IpcMemoryProcessorVk();
 
 		void InitializeVulkan();
 		void CleanupVulkan();
 
-		bool ProcessCmd(uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
+		char ProcessCmd(uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
 
 	private:
 		TextureShareVk _vk_data;

@@ -17,12 +17,12 @@
 class IpcMemory
 {
 	protected:
-		static constexpr std::string_view DEFAULT_IPC_LOCK_MEMORY_NAME = "SharedTextureLockMemory";
-		static constexpr std::string_view DEFAULT_IPC_MAP_MEMORY_NAME = "SharedTextureMapMemory";
-
 		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 500*1000;
 
 	public:
+		static constexpr std::string_view DEFAULT_IPC_CMD_MEMORY_NAME = "SharedTextureCmdMemory";
+		static constexpr std::string_view DEFAULT_IPC_MAP_MEMORY_NAME = "SharedTextureMapMemory";
+
 		using IMAGE_NAME_T = std::array<char, 1024>;
 
 		enum IpcCmdType
@@ -73,7 +73,8 @@ class IpcMemory
 			ImageData &operator=(ImageData &&);
 		};
 
-		IpcMemory() = default;
+		IpcMemory(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
+		          const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data());
 		~IpcMemory();
 
 		bool IsCmdRequestPresent() const;
@@ -99,7 +100,7 @@ class IpcMemory
 		using shmem_allocator_t = boost::interprocess::allocator<map_value_t, boost::interprocess::managed_shared_memory::segment_manager>;
 		using shmem_map_t = boost::interprocess::map<const IMAGE_NAME_T, ImageData, ImageNameCompare, shmem_allocator_t>;
 
-		std::string _lock_memory_segment_name = DEFAULT_IPC_LOCK_MEMORY_NAME.data();
+		std::string _lock_memory_segment_name = DEFAULT_IPC_CMD_MEMORY_NAME.data();
 		std::string _map_memory_segment_name = DEFAULT_IPC_MAP_MEMORY_NAME.data();
 
 		boost::interprocess::managed_shared_memory _lock_memory_segment =

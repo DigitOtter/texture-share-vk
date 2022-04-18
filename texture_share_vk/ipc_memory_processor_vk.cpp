@@ -5,6 +5,10 @@
 
 namespace bipc = boost::interprocess;
 
+IpcMemoryProcessorVk::IpcMemoryProcessorVk(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
+    : IpcMemory(ipc_cmd_memory_segment, ipc_map_memory_segment)
+{}
+
 IpcMemoryProcessorVk::~IpcMemoryProcessorVk()
 {
 
@@ -30,15 +34,17 @@ void IpcMemoryProcessorVk::CleanupVulkan()
 	this->_vk_data.CleanupVulkan();
 }
 
-bool IpcMemoryProcessorVk::ProcessCmd(uint64_t micro_sec_wait_time)
+char IpcMemoryProcessorVk::ProcessCmd(uint64_t micro_sec_wait_time)
 {
 	// Check that command is locked by requester before proceeding
 	if(auto cmd_lock = bipc::scoped_lock(this->_lock_data->cmd_data.cmd_request, bipc::try_to_lock); !!cmd_lock)
 	{
-		this->_lock_data->cmd_data.cmd_processed = -1;
-		return false;
+		constexpr char ret_val = -1;
+		this->_lock_data->cmd_data.cmd_processed = ret_val;
+		return ret_val;
 	}
 
+	// Lock map memory access
 	bipc::scoped_lock lock(this->_lock_data->map_access, bipc::try_to_lock);
 	if(!lock)
 	{
@@ -46,26 +52,30 @@ bool IpcMemoryProcessorVk::ProcessCmd(uint64_t micro_sec_wait_time)
 
 		if(!lock)
 		{
-			this->_lock_data->cmd_data.cmd_processed = -2;
-			return false;
+			constexpr char ret_val = -2;
+			this->_lock_data->cmd_data.cmd_processed = ret_val;
+			return ret_val;
 		}
 	}
 
+	// Process cmd
+	char ret_val;
 	switch(this->_lock_data->cmd_data.cmd_type)
 	{
 		case IPC_CMD_HANDLE_REQUEST:
-			this->_lock_data->cmd_data.cmd_processed = this->ProcessHandleRequestCmd(this->_lock_data->cmd_data);
+			ret_val = this->ProcessHandleRequestCmd(this->_lock_data->cmd_data);
 			break;
 
 		case IPC_CMD_NAME_CHANGE:
-			this->_lock_data->cmd_data.cmd_processed = this->ProcessNameChangeCmd(this->_lock_data->cmd_data);
+			ret_val = this->ProcessNameChangeCmd(this->_lock_data->cmd_data);
 			break;
 
 		default:
-			this->_lock_data->cmd_data.cmd_processed = -3;
+			ret_val = -3;
 	}
 
-	return this->_lock_data->cmd_data.cmd_processed > 0;
+	this->_lock_data->cmd_data.cmd_processed = ret_val;
+	return ret_val;
 }
 
 char IpcMemoryProcessorVk::ProcessNameChangeCmd(IpcCmdData &ipc_cmd)

@@ -1,11 +1,25 @@
 #ifndef TEXTURE_SHARE_DAEMON_H
 #define TEXTURE_SHARE_DAEMON_H
 
-#include <boost/interprocess/managed_shared_memory.hpp>
+#include "texture_share_vk/ipc_memory_processor_vk.h"
 
 class TextureShareDaemon
 {
+		static constexpr uint64_t DEFAULT_WAIT_TIME_MICRO_S = 1000;
+	public:
+		TextureShareDaemon(const std::string &ipc_cmd_memory_segment = IpcMemoryProcessorVk::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
+		                   const std::string &ipc_map_memory_segment = IpcMemoryProcessorVk::DEFAULT_IPC_MAP_MEMORY_NAME.data());
+		~TextureShareDaemon() = default;
 
+		void Initialize();
+
+		int Loop();
+		int Loop(volatile bool &run);
+
+		int Cleanup();
+
+	private:
+		IpcMemoryProcessorVk _vk_memory;
 };
 
 #endif // TEXTURE_SHARE_DAEMON_H
