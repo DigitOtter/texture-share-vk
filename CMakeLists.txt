@@ -55,8 +55,9 @@ set(LIB_SRC_FILES
 )
 
 set(VK_D_SRC_FILES
-	"texture_share_vk/ipc_memory_processor_vk.cpp"
-	"texture_share_vk/texture_share_daemon.cpp"
+	"texture_share_vk/daemon/ipc_memory_processor_vk.cpp"
+	"texture_share_vk/daemon/texture_share_daemon.cpp"
+	"texture_share_vk/daemon/main.cpp"
 )
 
 # List executable source files here

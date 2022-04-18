@@ -1,7 +1,7 @@
 #ifndef TEXTURE_SHARE_DAEMON_H
 #define TEXTURE_SHARE_DAEMON_H
 
-#include "texture_share_vk/ipc_memory_processor_vk.h"
+#include "texture_share_vk/daemon/ipc_memory_processor_vk.h"
 
 class TextureShareDaemon
 {

@@ -1,4 +1,4 @@
-#include "texture_share_vk/texture_share_daemon.h"
+#include "texture_share_vk/daemon/texture_share_daemon.h"
 
 #include <chrono>
 #include <iostream>
@@ -41,21 +41,4 @@ int TextureShareDaemon::Cleanup()
 	this->_vk_memory.CleanupVulkan();
 
 	return 0;
-}
-
-
-int main(int argc, char *argv[])
-{
-	TextureShareDaemon tex_share_d;
-
-	tex_share_d.Initialize();
-
-	const auto res = tex_share_d.Loop();
-
-	const auto cleanup_res = tex_share_d.Cleanup();
-
-	if(res >= 0)
-		return cleanup_res;
-
-	return res;
 }
