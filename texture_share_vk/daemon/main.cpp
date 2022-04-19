@@ -14,9 +14,10 @@ void signalHandler(int signal)
 int main(int argc, char *argv[])
 {
 	signal(SIGINT, &signalHandler);
-	run = false;
+	run = true;
 
-	TextureShareDaemon tex_share_d;
+	TextureShareDaemon tex_share_d(argc > 1 ? argv[1] : IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
+	                               argc > 2 ? argv[2] : IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data());
 
 	tex_share_d.Initialize();
 

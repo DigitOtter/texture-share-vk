@@ -25,12 +25,15 @@ class TextureShareVkClient
 		               VkFormat image_format);
 
 		void SendImageBlit(VkImage send_image, VkImageLayout send_image_layout,
-		                   VkFence fence = VK_NULL_HANDLE);
+		                   VkFence fence = VK_NULL_HANDLE,
+		                   uint64_t micro_sec_wait_time = IpcMemory::DEFAULT_CMD_WAIT_TIME);
 		void RecvImageBlit(VkImage recv_image, VkImageLayout recv_image_layout,
-		                   VkFence fence = VK_NULL_HANDLE);
+		                   VkFence fence = VK_NULL_HANDLE,
+		                   uint64_t micro_sec_wait_time = IpcMemory::DEFAULT_CMD_WAIT_TIME);
 
 		void ClearImage(VkClearColorValue clear_color,
-		                VkFence fence = VK_NULL_HANDLE);
+		                VkFence fence = VK_NULL_HANDLE,
+		                uint64_t micro_sec_wait_time = IpcMemory::DEFAULT_CMD_WAIT_TIME);
 
 
 	private:

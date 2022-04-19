@@ -5,6 +5,7 @@
 
 #include <boost/interprocess/allocators/allocator.hpp>
 #include <boost/interprocess/containers/map.hpp>
+#include <boost/interprocess/ipc/message_queue.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
 #include <boost/interprocess/sync/interprocess_mutex.hpp>
 #include <boost/interprocess/sync/interprocess_sharable_mutex.hpp>
@@ -16,10 +17,8 @@
 
 class IpcMemory
 {
-	protected:
-		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 500*1000;
-
 	public:
+		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 500*1000;
 		static constexpr std::string_view DEFAULT_IPC_CMD_MEMORY_NAME = "SharedTextureCmdMemory";
 		static constexpr std::string_view DEFAULT_IPC_MAP_MEMORY_NAME = "SharedTextureMapMemory";
 
@@ -27,25 +26,34 @@ class IpcMemory
 
 		enum IpcCmdType
 		{
-			IPC_CMD_NAME_CHANGE,
+			IPC_CMD_IMAGE_INIT,
+			IPC_CMD_RENAME,
 			IPC_CMD_HANDLE_REQUEST,
 		};
 
-		struct IpcCmdData
+		struct IpcCmdImageInit
 		{
-			boost::interprocess::interprocess_mutex cmd_request;
 			IpcCmdType cmd_type;
-			IMAGE_NAME_T image_name_old{"\0"};
-			IMAGE_NAME_T image_name_new{"\0"};
+			uint32_t cmd_num;
+			IMAGE_NAME_T image_name{"\0"};
 			uint32_t imge_width = 0;
 			uint32_t imge_height = 0;
 			ExternalHandle::ImageFormat image_format = ExternalHandle::IMAGE_FORMAT_MAX_ENUM;
-			volatile char cmd_processed = 0;
+		};
 
-			IpcCmdData() = default;
+		struct IpcCmdRename
+		{
+			IpcCmdType cmd_type;
+			uint32_t cmd_num;
+			IMAGE_NAME_T image_name_new{"\0"};
+			IMAGE_NAME_T image_name_old{"\0"};
+		};
 
-			IpcCmdData(IpcCmdData &&);
-			IpcCmdData &operator=(IpcCmdData &&);
+		struct IpcCmdRequestImageHandles
+		{
+			IpcCmdType cmd_type;
+			uint32_t cmd_num;
+			IMAGE_NAME_T image_name{"\0"};
 		};
 
 		struct IpcData
@@ -53,7 +61,9 @@ class IpcMemory
 			// Manage access to image map
 			boost::interprocess::interprocess_sharable_mutex map_access;
 
-			IpcCmdData cmd_data;
+			boost::interprocess::interprocess_mutex cmd_request_access;
+			uint32_t next_cmd_num = 1;
+			uint32_t processed_cmd_num = 0;
 
 			IpcData() = default;
 
@@ -64,7 +74,7 @@ class IpcMemory
 		struct ImageData
 		{
 			ExternalHandle::SharedImageInfo shared_image_info{};
-			boost::interprocess::interprocess_mutex handle_access;
+			boost::interprocess::interprocess_sharable_mutex handle_access;
 			uint32_t connected_procs_count = 0;
 
 			ImageData() = default;
@@ -85,16 +95,24 @@ class IpcMemory
 
 		static bool SharedMemoryExists(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data());
 
-		bool IsCmdRequestPresent() const;
-		const IpcCmdType &CmdRequestType() const;
-
-		bool SubmitWaitImageNameCmd(const std::string &image_name, const std::string &old_image_name = "",
-		                            uint32_t image_width = 0, uint32_t image_height = 0, ExternalHandle::ImageFormat image_format = ExternalHandle::IMAGE_FORMAT_MAX_ENUM,
+		bool SubmitWaitImageInitCmd(const std::string &image_name,
+		                            uint32_t image_width, uint32_t image_height, ExternalHandle::ImageFormat image_format,
 		                            uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
 
+		bool SubmitWaitImageRenameCmd(const std::string &image_name, const std::string &old_image_name = "",
+		                              uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
+
 		ExternalHandle::SharedImageInfo SubmitWaitExternalHandleCmd(const std::string &image_name, uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
+		ImageData *GetImageData(const std::string &image_name, uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME) const;
 
 	protected:
+		static constexpr size_t IPC_QUEUE_MSG_SIZE = std::max(std::max(
+		                                                      sizeof(IpcCmdImageInit),
+		                                                      sizeof(IpcCmdRename)),
+		                                                      sizeof(IpcCmdRequestImageHandles));
+
+		static constexpr unsigned int IPC_QUEUE_MSG_PRIORITY_DEFAULT = 50;
+
 		struct ImageNameCompare
 		{
 				bool operator() (const IMAGE_NAME_T &x, const IMAGE_NAME_T &y) const
@@ -121,20 +139,14 @@ class IpcMemory
 			}
 		} _shmem_remover;
 
-		boost::interprocess::managed_shared_memory _lock_memory_segment;
+		boost::interprocess::message_queue _cmd_memory_segment;
 
-		IpcData *_lock_data = nullptr;
 
 		boost::interprocess::managed_shared_memory _map_memory_segment;
-
 		shmem_allocator_t _map_allocator;
 
+		IpcData *_lock_data = nullptr;
 		shmem_map_t *_image_map = nullptr;
-
-	private:
-		void SetImageNameCmd(const std::string &image_name, const std::string &old_image_name,
-		                     uint32_t image_width, uint32_t image_height, ExternalHandle::ImageFormat image_format);
-		void SetHandleRequestCmd(const std::string &image_name);
 };
 
 #endif // IPC_MEMORY_H

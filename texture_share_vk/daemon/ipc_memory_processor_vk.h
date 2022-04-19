@@ -24,8 +24,9 @@ class IpcMemoryProcessorVk
 		TextureShareVk _vk_data;
 		std::map<IpcMemory::IMAGE_NAME_T, SharedImageVk> _image_data;
 
-		char ProcessNameChangeCmd(IpcCmdData &ipc_cmd);
-		char ProcessHandleRequestCmd(IpcCmdData &ipc_cmd);
+		char ProcessRenameCmd(const IpcCmdRename &ipc_cmd);
+		char ProcessImageInitCmd(const IpcCmdImageInit &ipc_cmd);
+		char ProcessHandleRequestCmd(const IpcCmdRequestImageHandles &ipc_cmd);
 };
 
 #endif // IPC_MEMORY_PROCESSOR_VK_H
