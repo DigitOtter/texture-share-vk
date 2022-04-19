@@ -34,6 +34,16 @@ void IpcMemoryProcessorVk::CleanupVulkan()
 
 char IpcMemoryProcessorVk::ProcessCmd(uint64_t micro_sec_wait_time)
 {
+	// Process cmd
+	char ret_val;
+	unsigned char buffer[IpcMemory::IPC_QUEUE_MSG_SIZE];
+	size_t recv_size;
+	unsigned int prio;
+
+	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
+	if(!this->_cmd_memory_segment.timed_receive(buffer, sizeof(buffer), recv_size, prio, stop_time))
+		return -3;
+
 	// Lock map memory access
 	bipc::scoped_lock lock(this->_lock_data->map_access, bipc::try_to_lock);
 	if(!lock)
@@ -46,16 +56,6 @@ char IpcMemoryProcessorVk::ProcessCmd(uint64_t micro_sec_wait_time)
 			return ret_val;
 		}
 	}
-
-	// Process cmd
-	char ret_val;
-	unsigned char buffer[IpcMemory::IPC_QUEUE_MSG_SIZE];
-	size_t recv_size;
-	unsigned int prio;
-
-	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
-	if(!this->_cmd_memory_segment.timed_receive(buffer, sizeof(buffer), recv_size, prio, stop_time))
-		return -3;
 
 	uint32_t cmd_num = 0;
 	switch(*reinterpret_cast<const IpcCmdType*>(buffer))
@@ -141,5 +141,9 @@ char IpcMemoryProcessorVk::ProcessHandleRequestCmd(const IpcCmdRequestImageHandl
 		return -8;
 
 	map_data->second.shared_image_info = img_data->second.ExportImageInfo();
+	std::cout << "Image handle: " << map_data->second.shared_image_info.handles.memory << std::endl;
+	std::cout << "Read handle: " << map_data->second.shared_image_info.handles.ext_read << std::endl;
+	std::cout << "Write handle: " << map_data->second.shared_image_info.handles.ext_write << std::endl;
+
 	return 1;
 }

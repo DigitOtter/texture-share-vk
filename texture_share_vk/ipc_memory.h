@@ -117,7 +117,7 @@ class IpcMemory
 		{
 				bool operator() (const IMAGE_NAME_T &x, const IMAGE_NAME_T &y) const
 				{
-					return strcmp(x.data(), y.data()) >= 0;
+					return strcmp(x.data(), y.data()) < 0;
 				}
 		};
 

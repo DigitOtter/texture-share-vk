@@ -7,7 +7,8 @@
 class TextureShareVkClient
 {
 	public:
-		TextureShareVkClient();
+		TextureShareVkClient(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
+		                     const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data());
 		~TextureShareVkClient();
 
 		void InitializeVulkan();

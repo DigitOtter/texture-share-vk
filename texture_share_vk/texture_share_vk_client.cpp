@@ -9,6 +9,34 @@
 
 namespace bipc = boost::interprocess;
 
+TextureShareVkClient::TextureShareVkClient(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
+    : _ipc_memory(bipc::open_or_create,
+                  ipc_cmd_memory_segment,
+                  ipc_map_memory_segment)
+{}
+
+TextureShareVkClient::~TextureShareVkClient()
+{
+	// TODO: Remove reference to image from daemon (?)
+}
+
+void TextureShareVkClient::InitializeVulkan()
+{
+	this->_vk_data.InitializeVulkan();
+}
+
+void TextureShareVkClient::InitializeVulkan(VkInstance instance, VkDevice device, VkPhysicalDevice physical_device, VkQueue graphics_queue, uint32_t graphics_queue_index, bool import_only)
+{
+	this->_vk_data.InitializeVulkan(instance, device, physical_device,
+	                                graphics_queue, graphics_queue_index,
+	                                import_only);
+}
+
+void TextureShareVkClient::CleanupVulkan()
+{
+	this->_vk_data.CleanupVulkan();
+}
+
 void TextureShareVkClient::InitDaemon(const std::string &ipc_cmd_memory_segment,
                                       const std::string &ipc_map_memory_segment)
 {
@@ -28,6 +56,7 @@ void TextureShareVkClient::InitImage(const std::string &image_name,
 	}
 
 	ExternalHandle::SharedImageInfo image_info = this->_ipc_memory.SubmitWaitExternalHandleCmd(image_name);
+	sleep(1);
 	this->_shared_image = this->_vk_data.CreateImageHandle(std::move(image_info));
 
 	this->_img_data = this->_ipc_memory.GetImageData(image_name);

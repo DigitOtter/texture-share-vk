@@ -11,7 +11,12 @@ TextureShareVk::~TextureShareVk()
 void TextureShareVk::InitializeVulkan()
 {
 	this->_vk_struct = VkHelpers::CreateTextureShareVkInstance();
+
+	// Destroy vulkan if not importing
 	this->_cleanup_vk = true;
+
+	ExternalHandleVk::LoadVulkanHandleExtensions(this->_vk_struct.instance);
+	ExternalHandleVk::LoadCompatibleSemaphorePropsInfo(this->_vk_struct.physical_device);
 
 	this->InitCommandBuffer();
 }
@@ -30,6 +35,9 @@ void TextureShareVk::InitializeVulkan(VkInstance instance, VkDevice device,
 
 	// Destroy vulkan if not importing
 	this->_cleanup_vk = !import_only;
+
+	ExternalHandleVk::LoadVulkanHandleExtensions(this->_vk_struct.instance);
+	ExternalHandleVk::LoadCompatibleSemaphorePropsInfo(this->_vk_struct.physical_device);
 
 	this->InitCommandBuffer();
 }

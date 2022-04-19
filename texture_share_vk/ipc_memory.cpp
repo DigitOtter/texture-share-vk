@@ -66,7 +66,7 @@ IpcMemory::IpcMemory(bipc::open_or_create_t,
                      const std::string &ipc_map_memory_segment)
     : _lock_memory_segment_name(ipc_cmd_memory_segment),
       _map_memory_segment_name(ipc_map_memory_segment),
-      _shmem_remover(ipc_cmd_memory_segment, ipc_map_memory_segment),
+      _shmem_remover("", ""),
       _cmd_memory_segment(bipc::open_or_create, ipc_cmd_memory_segment.c_str(),
                           100, IPC_QUEUE_MSG_SIZE),
       _map_memory_segment(bipc::managed_shared_memory(bipc::open_or_create,

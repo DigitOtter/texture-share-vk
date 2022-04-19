@@ -26,9 +26,9 @@ int TextureShareDaemon::Loop(volatile bool &run)
 {
 	while(run)
 	{
-		const auto ret_val = this->_vk_memory.ProcessCmd();
+		const auto ret_val = this->_vk_memory.ProcessCmd(1 * 1000 * 1000);
 
-		//if(ret_val != -3)
+		if(ret_val != -3)
 		    std::cerr << "Processes command with result: " << (int)ret_val << std::endl;
 	}
 
