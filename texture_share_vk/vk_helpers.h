@@ -33,7 +33,7 @@ class VkHelpers
 		};
 
 		static TextureShareVkStruct CreateTextureShareVkInstance();
-		static void CleanupTextureShareVkInstance(TextureShareVkStruct vk_struct);
+		static void CleanupTextureShareVkInstance(TextureShareVkStruct vk_struct, bool destroy_instance = true, bool destroy_device = true);
 
 		static VkCommandPool CreateCommandPool(VkDevice device, uint32_t queue_family_index);
 		static void CleanupCommandPool(VkDevice device, VkCommandPool command_pool);

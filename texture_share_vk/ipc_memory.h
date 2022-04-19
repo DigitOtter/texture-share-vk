@@ -75,7 +75,15 @@ class IpcMemory
 
 		IpcMemory(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
 		          const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data());
+		IpcMemory(boost::interprocess::create_only_t,
+		          const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
+		          const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data());
+		IpcMemory(boost::interprocess::open_or_create_t,
+		          const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
+		          const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data());
 		~IpcMemory();
+
+		static bool SharedMemoryExists(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data());
 
 		bool IsCmdRequestPresent() const;
 		const IpcCmdType &CmdRequestType() const;

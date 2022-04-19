@@ -51,6 +51,7 @@ set(LIB_SRC_FILES
 	"texture_share_vk/shared_image_handle_vk.cpp"
 	"texture_share_vk/shared_image_vk.cpp"
 	"texture_share_vk/texture_share_vk.cpp"
+	"texture_share_vk/texture_share_vk_client.cpp"
 	"texture_share_vk/vk_helpers.cpp"
 )
 
@@ -70,6 +71,19 @@ set(EXEC_SRC_FILES
 set(TEST_SRC_FILES
 )
 
+##########################################
+## Configure header
+set(TSV_DAEMON_NAME "SharedImagesDaemon")
+if(NOT WIN32)
+	set(TSV_DAEMON_DIR "${CMAKE_INSTALL_PREFIX}/bin")
+else()
+	if(SIZEOF_VOID_P_CODE IS 4)
+		set(TSV_DAEMON_DIR "${CMAKE_INSTALL_PREFIX}/bin/32bit")
+	else()
+		set(TSV_DAEMON_DIR "${CMAKE_INSTALL_PREFIX}/bin/64bit")
+	endif()
+endif()
+configure_file("texture_share_vk/platform/config.h.in" "${CMAKE_BINARY_DIR}/include/texture_share_vk/platform/config.h" @ONLY)
 
 ##########################################
 ## IPC Memory Library
@@ -81,6 +95,7 @@ target_include_directories(IPCMemory
 	PUBLIC
 		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
 
 	PRIVATE
 )
@@ -104,6 +119,7 @@ target_include_directories(${LIBRARY_NAME}
 	PUBLIC
 		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
 
 	PRIVATE
 )
@@ -115,6 +131,8 @@ target_link_libraries(${LIBRARY_NAME}
 		Boost::date_time
 
 		vk-bootstrap::vk-bootstrap
+
+		"${NAMESPACE_NAME}::IPCMemory"
 
 	PRIVATE
 		#volk::volk
@@ -131,6 +149,7 @@ target_include_directories(TextureShareOpenGL
 	PUBLIC
 		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
 
 	PRIVATE
 )
@@ -144,10 +163,10 @@ target_link_libraries(TextureShareOpenGL
 
 ##########################################
 ## Shared Images Daemon
-add_executable(SharedImagesDaemon ${VK_D_SRC_FILES})
-target_compile_options(SharedImagesDaemon PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
+add_executable(${TSV_DAEMON_NAME} ${VK_D_SRC_FILES})
+target_compile_options(${TSV_DAEMON_NAME} PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
 
-target_link_libraries(SharedImagesDaemon
+target_link_libraries(${TSV_DAEMON_NAME}
 	PUBLIC
 		"${NAMESPACE_NAME}::${LIBRARY_NAME}"
 		"${NAMESPACE_NAME}::IPCMemory"
@@ -187,7 +206,7 @@ endif()
 ##########################################
 ## Install library files
 set(INSTALL_CONFIGDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
-install(TARGETS ${LIBRARY_NAME}
+install(TARGETS ${LIBRARY_NAME} IPCMemory
 	EXPORT ${LIB_EXPORT_NAME}
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -196,7 +215,7 @@ install(TARGETS ${LIBRARY_NAME}
 	PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${HEADER_DIRECTORY})
 
 # Install headers
-install(DIRECTORY ${HEADER_DIRECTORY}
+install(DIRECTORY ${HEADER_DIRECTORY} "${CMAKE_BINARY_DIR}/include/${HEADER_DIRECTORY}"
 	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${HEADER_DIRECTORY}"
 	FILES_MATCHING
 		PATTERN "*.h"
@@ -229,8 +248,11 @@ install(FILES	"${CMAKE_CURRENT_BINARY_DIR}/${LIB_CONFIG_NAME}.cmake"
 
 ##########################################
 ## Install executable
+install(TARGETS ${TSV_DAEMON_NAME}
+	RUNTIME DESTINATION ${TSV_DAEMON_DIR})
+
 if(TARGET ${EXECUTABLE_NAME})
 	install(TARGETS ${EXECUTABLE_NAME}
-	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 

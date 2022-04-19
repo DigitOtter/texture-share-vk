@@ -64,14 +64,29 @@ VkHelpers::TextureShareVkStruct VkHelpers::CreateTextureShareVkInstance()
 	return vk_struct;
 }
 
-void VkHelpers::CleanupTextureShareVkInstance(TextureShareVkStruct vk_struct)
+void VkHelpers::CleanupTextureShareVkInstance(TextureShareVkStruct vk_struct, bool destroy_instance, bool destroy_device)
 {
 	//make sure the gpu has stopped doing its things
-	vkDeviceWaitIdle(vk_struct.device);
+	if(vk_struct.device != VK_NULL_HANDLE)
+		vkDeviceWaitIdle(vk_struct.device);
 
-	vkDestroyDevice(vk_struct.device, nullptr);
-	vkb::destroy_debug_utils_messenger(vk_struct.instance, vk_struct.debug_messenger);
-	vkDestroyInstance(vk_struct.instance, nullptr);
+	if(destroy_device && vk_struct.device != VK_NULL_HANDLE)
+	{
+		vkDestroyDevice(vk_struct.device, nullptr);
+		vk_struct.device = VK_NULL_HANDLE;
+	}
+
+	if(vk_struct.debug_messenger != VK_NULL_HANDLE)
+	{
+		vkb::destroy_debug_utils_messenger(vk_struct.instance, vk_struct.debug_messenger);
+		vk_struct.debug_messenger = VK_NULL_HANDLE;
+	}
+
+	if(destroy_instance && vk_struct.instance != VK_NULL_HANDLE)
+	{
+		vkDestroyInstance(vk_struct.instance, nullptr);
+	}
+	vk_struct.instance = VK_NULL_HANDLE;
 }
 
 VkCommandPool VkHelpers::CreateCommandPool(VkDevice device, uint32_t queue_family_index)

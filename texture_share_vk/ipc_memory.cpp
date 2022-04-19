@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <thread>
+#include <boost/interprocess/segment_manager.hpp>
 
 namespace bipc = boost::interprocess;
 
@@ -56,8 +57,16 @@ IpcMemory::ImageData &IpcMemory::ImageData::operator=(ImageData &&other)
 	return *this;
 }
 
+IpcMemory::IpcMemory(const std::string &ipc_cmd_memory_segment,
+                     const std::string &ipc_map_memory_segment)
+    : IpcMemory(bipc::create_only,
+                ipc_cmd_memory_segment,
+                ipc_map_memory_segment)
+{}
 
-IpcMemory::IpcMemory(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
+IpcMemory::IpcMemory(bipc::create_only_t,
+                     const std::string &ipc_cmd_memory_segment,
+                     const std::string &ipc_map_memory_segment)
     : _lock_memory_segment_name(ipc_cmd_memory_segment),
       _map_memory_segment_name(ipc_map_memory_segment),
       _shmem_remover(ipc_cmd_memory_segment, ipc_map_memory_segment),
@@ -66,6 +75,24 @@ IpcMemory::IpcMemory(const std::string &ipc_cmd_memory_segment, const std::strin
                                                        sizeof(IpcData) + 1024)),
       _lock_data(this->_lock_memory_segment.construct<IpcData>(bipc::unique_instance)(IpcData())),
       _map_memory_segment(bipc::managed_shared_memory(bipc::create_only,
+                                                      this->_map_memory_segment_name.c_str(),
+                                                      sizeof(shmem_map_t) + 10*sizeof(map_value_t) + 1024)),
+      _map_allocator(shmem_allocator_t(this->_map_memory_segment.get_segment_manager())),
+      _image_map(this->_map_memory_segment.construct<shmem_map_t>(bipc::unique_instance)(ImageNameCompare(),
+                                                                                         this->_map_allocator))
+{}
+
+IpcMemory::IpcMemory(bipc::open_or_create_t,
+                     const std::string &ipc_cmd_memory_segment,
+                     const std::string &ipc_map_memory_segment)
+    : _lock_memory_segment_name(ipc_cmd_memory_segment),
+      _map_memory_segment_name(ipc_map_memory_segment),
+      _shmem_remover(ipc_cmd_memory_segment, ipc_map_memory_segment),
+      _lock_memory_segment(bipc::managed_shared_memory(bipc::open_or_create,
+                                                       this->_lock_memory_segment_name.c_str(),
+                                                       sizeof(IpcData) + 1024)),
+      _lock_data(this->_lock_memory_segment.construct<IpcData>(bipc::unique_instance)(IpcData())),
+      _map_memory_segment(bipc::managed_shared_memory(bipc::open_or_create,
                                                       this->_map_memory_segment_name.c_str(),
                                                       sizeof(shmem_map_t) + 10*sizeof(map_value_t) + 1024)),
       _map_allocator(shmem_allocator_t(this->_map_memory_segment.get_segment_manager())),
@@ -90,6 +117,21 @@ IpcMemory::~IpcMemory()
 		this->_lock_data->map_access.unlock();
 
 	bipc::shared_memory_object::remove(this->_lock_memory_segment_name.c_str());
+}
+
+bool IpcMemory::SharedMemoryExists(const std::string &ipc_cmd_memory_segment)
+{
+	// Hack to check if shared memory is already created
+	try
+	{
+		bipc::managed_shared_memory mem_seg = bipc::managed_shared_memory(bipc::open_only, ipc_cmd_memory_segment.c_str());
+	}
+	catch(const bipc::interprocess_exception &)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 bool IpcMemory::IsCmdRequestPresent() const

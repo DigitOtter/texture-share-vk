@@ -15,6 +15,10 @@ class TextureShareVk
 		~TextureShareVk();
 
 		void InitializeVulkan();
+		void InitializeVulkan(VkInstance instance, VkDevice device,
+		                      VkPhysicalDevice physical_device, VkQueue graphics_queue,
+		                      uint32_t graphics_queue_index,
+		                      bool import_only = true);
 		void CleanupVulkan();
 
 		SharedImageVk CreateImage(uint32_t width, uint32_t height, VkFormat format = DEFAULT_FORMAT);
@@ -37,9 +41,12 @@ class TextureShareVk
 
 	private:
 		VkHelpers::TextureShareVkStruct _vk_struct{};
+		bool _cleanup_vk = true;
 
 		VkCommandPool _command_pool{VK_NULL_HANDLE};
 		VkCommandBuffer _command_buffer{VK_NULL_HANDLE};
+
+		void InitCommandBuffer();
 };
 
 #endif //TEXTURE_SHARE_VK_H
