@@ -76,7 +76,8 @@ set(TEST_SRC_FILES
 ## Configure header
 set(TSV_DAEMON_NAME "SharedImagesDaemon")
 if(NOT WIN32)
-	set(TSV_DAEMON_DIR "${CMAKE_INSTALL_PREFIX}/bin")
+	set(TSV_DAEMON_DIR "${CMAKE_INSTALL_FULL_BINDIR}")
+	set(TSV_DAEMON_SOCKET_DIR "${CMAKE_INSTALL_FULL_RUNSTATEDIR}/${TSV_DAEMON_NAME}" CACHE PATH "Path to daemon socket directory")
 else()
 	if(SIZEOF_VOID_P_CODE IS 4)
 		set(TSV_DAEMON_DIR "${CMAKE_INSTALL_PREFIX}/bin/32bit")
@@ -84,6 +85,7 @@ else()
 		set(TSV_DAEMON_DIR "${CMAKE_INSTALL_PREFIX}/bin/64bit")
 	endif()
 endif()
+
 configure_file("texture_share_vk/platform/config.h.in" "${CMAKE_BINARY_DIR}/include/texture_share_vk/platform/config.h" @ONLY)
 
 ##########################################
