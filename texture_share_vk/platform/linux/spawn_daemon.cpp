@@ -6,7 +6,7 @@
 #include <unistd.h>
 
 
-void SpawnDaemon::Daemonize(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
+void DaemonComm::Daemonize(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
 {
 	if(IpcMemory::SharedMemoryExists(ipc_cmd_memory_segment))
 		return;

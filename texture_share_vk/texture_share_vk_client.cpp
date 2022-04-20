@@ -40,7 +40,7 @@ void TextureShareVkClient::CleanupVulkan()
 void TextureShareVkClient::InitDaemon(const std::string &ipc_cmd_memory_segment,
                                       const std::string &ipc_map_memory_segment)
 {
-	SpawnDaemon::Daemonize(ipc_cmd_memory_segment,
+	DaemonComm::Daemonize(ipc_cmd_memory_segment,
 	                       ipc_map_memory_segment);
 }
 
