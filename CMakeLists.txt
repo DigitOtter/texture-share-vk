@@ -39,7 +39,7 @@ endif()
 
 set(IPC_MEMORY_LIB_SRC_FILES
 	"texture_share_vk/ipc_memory.cpp"
-	"texture_share_vk/platform/${PLATFORM_DIRECTORY}/spawn_daemon.cpp"
+	"texture_share_vk/platform/${PLATFORM_DIRECTORY}/daemon_comm.cpp"
 )
 
 set(OPENGL_LIB_SRC_FILES
