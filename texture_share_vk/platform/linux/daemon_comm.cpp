@@ -45,12 +45,9 @@ void DaemonComm::Daemonize(const std::string &ipc_cmd_memory_segment, const std:
 
 void DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles, const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time)
 {
-	// Create socket
-	FileDesc sock_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
-	DaemonComm::CreateNamedUnixSocket(socket_path, sock_fd);
-
-	// Wait for receiver connect
-	FileDesc conn_fd = DaemonComm::AcceptNamedUnixSocket(sock_fd, micro_sec_wait_time);
+	// Create non-blocking socket
+	FileDesc conn_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
+	DaemonComm::ConnectNamedUnixSocket(socket_path, conn_fd);
 
 	// Create file descriptor send message
 	// Uses SCM_RIGHTS to transfer file descriptors between processes
@@ -125,9 +122,12 @@ void DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles, const std::
 
 ExternalHandle::ShareHandles DaemonComm::RecvHandles(const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time)
 {
-	// Create non-blocking socket
-	FileDesc conn_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
-	DaemonComm::ConnectNamedUnixSocket(socket_path, conn_fd);
+	// Create socket
+	FileDesc sock_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
+	DaemonComm::CreateNamedUnixSocket(socket_path, sock_fd);
+
+	// Wait for receiver connect
+	FileDesc conn_fd = DaemonComm::AcceptNamedUnixSocket(sock_fd, micro_sec_wait_time);
 
 	// Receive fd. Code from 'man 2 seccomp_unotify' 'recvfd'
 	struct msghdr msgh;
@@ -157,7 +157,6 @@ ExternalHandle::ShareHandles DaemonComm::RecvHandles(const std::filesystem::path
 
 	msgh.msg_control = controlMsg.buf;
 	msgh.msg_controllen = sizeof(controlMsg.buf);
-
 
 	/* Receive real plus ancillary data; real data is ignored */
 	const auto chrono_wait_time = std::chrono::microseconds(micro_sec_wait_time)/10;
@@ -231,9 +230,11 @@ int DaemonComm::CreateNamedUnixSocket(const std::filesystem::path &socket_path, 
 
 	named_socket.sun_family = AF_UNIX;
 	strcpy(named_socket.sun_path, (char *)socket_path.c_str());
-	bind(sock_fd, (struct sockaddr *)&named_socket, sizeof(struct sockaddr_un));
+	if(bind(sock_fd, (struct sockaddr *)&named_socket, sizeof(struct sockaddr_un)) < 0)
+		throw std::runtime_error("Socket name '" + socket_path.string() + "' failed to bind:" + std::to_string(errno) + "\n\t" + strerror(errno));
 
-	listen(sock_fd, 10);
+	if(listen(sock_fd, 10) < 0)
+		throw std::runtime_error("Socket name '" + socket_path.string() + "' failed to listen: " + std::to_string(errno) + "\n\t" + strerror(errno));
 
 	return sock_fd;
 }

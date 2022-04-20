@@ -12,6 +12,13 @@ namespace bipc = boost::interprocess;
 IpcMemoryProcessorVk::IpcMemoryProcessorVk(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
     : IpcMemory(ipc_cmd_memory_segment, ipc_map_memory_segment)
 {
+	// Make sure no sockets are in directory
+	for(const std::filesystem::directory_entry &dir_entry : std::filesystem::recursive_directory_iterator(TSV_DAEMON_SOCKET_DIR))
+	{
+		if(dir_entry.exists() && dir_entry.is_socket())
+			std::filesystem::remove(dir_entry.path());
+	}
+
 	// Create socket directory
 	std::filesystem::create_directories(TSV_DAEMON_SOCKET_DIR);
 }
