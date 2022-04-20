@@ -18,7 +18,7 @@
 class IpcMemory
 {
 	public:
-		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 500*1000;
+		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 1*1000*1000; //500*1000;
 		static constexpr std::string_view DEFAULT_IPC_CMD_MEMORY_NAME = "SharedTextureCmdMemory";
 		static constexpr std::string_view DEFAULT_IPC_MAP_MEMORY_NAME = "SharedTextureMapMemory";
 
@@ -131,6 +131,8 @@ class IpcMemory
 
 		std::string _lock_memory_segment_name = DEFAULT_IPC_CMD_MEMORY_NAME.data();
 		std::string _map_memory_segment_name = DEFAULT_IPC_MAP_MEMORY_NAME.data();
+
+		bool _owns_segment = false;
 
 		struct shmem_remover
 		{

@@ -121,6 +121,7 @@ char IpcMemoryProcessorVk::ProcessImageInitCmd(const IpcCmdImageInit &ipc_cmd)
 {
 	if(auto old_map_it = this->_image_map->find(ipc_cmd.image_name); old_map_it != this->_image_map->end())
 	{
+		// TODO: Add timeout
 		bipc::scoped_lock lock(old_map_it->second.handle_access);
 
 		auto data_it = this->_image_data.find(ipc_cmd.image_name);

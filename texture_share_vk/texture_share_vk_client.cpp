@@ -34,6 +34,8 @@ void TextureShareVkClient::InitializeVulkan(VkInstance instance, VkDevice device
 
 void TextureShareVkClient::CleanupVulkan()
 {
+	this->_shared_image.Cleanup();
+
 	this->_vk_data.CleanupVulkan();
 }
 

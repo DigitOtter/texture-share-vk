@@ -10,7 +10,7 @@
 class DaemonComm
 {
 	public:
-		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 500*1000;
+		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 1*1000*1000;//500*1000;
 
 		static void Daemonize(const std::string &ipc_cmd_memory_segment,
 		                      const std::string &ipc_map_memory_segment);
@@ -29,6 +29,16 @@ class DaemonComm
 
 			private:
 			    int _fd = -1;
+		};
+
+		struct NamedSock
+		    : public FileDesc
+		{
+			NamedSock(const std::filesystem::path &socket_path, int fd);
+			~NamedSock();
+
+			private:
+			    std::filesystem::path _socket_path;
 		};
 
 		static int CreateNamedUnixSocket(const std::filesystem::path &socket_path, FileDesc &sock_fd);

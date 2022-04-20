@@ -49,6 +49,11 @@ void SharedImageHandleVk::ImportHandles(VkDevice device, VkPhysicalDevice physic
 	VK_CHECK(vkAllocateMemory(device, &memAllocInfo, nullptr, &this->_image_memory));
 
 	VK_CHECK(vkBindImageMemory(device, this->_image, this->_image_memory, 0));
+
+	// File descriptor ownership transferred to vulkan. Prevent clos on destructor call
+	external_handles.handles.memory    = ExternalHandle::INVALID_VALUE;
+	external_handles.handles.ext_read  = ExternalHandle::INVALID_VALUE;
+	external_handles.handles.ext_write = ExternalHandle::INVALID_VALUE;
 }
 
 void SharedImageHandleVk::SetImageLayout(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImageLayout image_layout)

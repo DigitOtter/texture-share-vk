@@ -15,7 +15,7 @@ constexpr size_t EXT_HANDLE_CMSG_LEN = sizeof(ExternalHandle::TYPE)*3;
  * in order to ensure it is suitably aligned */
 union CmsgData
 {
-	char buf[CMSG_SPACE(EXT_HANDLE_CMSG_LEN)];
+	char buf[CMSG_SPACE(EXT_HANDLE_CMSG_LEN)] = {};
 	struct cmsghdr align;
 };
 
@@ -45,9 +45,12 @@ void DaemonComm::Daemonize(const std::string &ipc_cmd_memory_segment, const std:
 
 void DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles, const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time)
 {
-	// Create non-blocking socket
-	FileDesc conn_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
-	DaemonComm::ConnectNamedUnixSocket(socket_path, conn_fd);
+	// Create socket
+	NamedSock sock_fd(socket_path, socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0));
+	DaemonComm::CreateNamedUnixSocket(socket_path, sock_fd);
+
+	// Wait for receiver connect
+	FileDesc conn_fd = DaemonComm::AcceptNamedUnixSocket(sock_fd, micro_sec_wait_time);
 
 	// Create file descriptor send message
 	// Uses SCM_RIGHTS to transfer file descriptors between processes
@@ -86,7 +89,7 @@ void DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles, const std::
 	cmsgp = CMSG_FIRSTHDR(&msgh);
 	cmsgp->cmsg_level = SOL_SOCKET;
 	cmsgp->cmsg_type = SCM_RIGHTS;
-	cmsgp->cmsg_len = CMSG_LEN(sizeof(int));
+	cmsgp->cmsg_len = CMSG_LEN(EXT_HANDLE_CMSG_LEN);
 
 	int myfds[3] = {handles.memory, handles.ext_read, handles.ext_write};  /* Contains the file descriptors to pass */
 	memcpy(CMSG_DATA(cmsgp), &myfds, sizeof(myfds));
@@ -95,8 +98,7 @@ void DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles, const std::
 	int nr;
 
 	const auto chrono_wait_time = std::chrono::microseconds(micro_sec_wait_time)/10;
-	//const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
-	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::hours(micro_sec_wait_time);
+	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
 	do
 	{
 		nr = sendmsg(conn_fd, &msgh, 0);
@@ -122,12 +124,9 @@ void DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles, const std::
 
 ExternalHandle::ShareHandles DaemonComm::RecvHandles(const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time)
 {
-	// Create socket
-	FileDesc sock_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
-	DaemonComm::CreateNamedUnixSocket(socket_path, sock_fd);
-
-	// Wait for receiver connect
-	FileDesc conn_fd = DaemonComm::AcceptNamedUnixSocket(sock_fd, micro_sec_wait_time);
+	// Create non-blocking socket
+	FileDesc conn_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
+	DaemonComm::ConnectNamedUnixSocket(socket_path, conn_fd);
 
 	// Receive fd. Code from 'man 2 seccomp_unotify' 'recvfd'
 	struct msghdr msgh;
@@ -215,6 +214,21 @@ DaemonComm::FileDesc::~FileDesc()
 	{
 		close(this->_fd);
 		this->_fd = -1;
+	}
+}
+
+DaemonComm::NamedSock::NamedSock(const std::filesystem::path &socket_path, int fd)
+    : FileDesc(fd),
+      _socket_path(socket_path)
+{}
+
+DaemonComm::NamedSock::~NamedSock()
+{
+	if((int)*this >= 0)
+	{
+		const std::filesystem::directory_entry dir_entry(this->_socket_path);
+		if(dir_entry.exists() && dir_entry.is_socket())
+			std::filesystem::remove(this->_socket_path);
 	}
 }
 

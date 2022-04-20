@@ -6,13 +6,23 @@
 
 int main(int argc, char **argv)
 {
-	TextureShareVkClient client;
-	client.InitializeVulkan();
-	//client.InitDaemon();
+//	TextureShareVkClient client;
+//	client.InitializeVulkan();
+//	//client.InitDaemon();
 
-	client.InitImage("test_image", 800, 600, VK_FORMAT_R8G8B8A8_UNORM);
+//	client.InitImage("test_image", 800, 600, VK_FORMAT_R8G8B8A8_UNORM);
 
-	return 0;
+//	VkClearColorValue img_clr{};
+//	img_clr.float32[0] = 1.0f;
+//	img_clr.float32[1] = 1.0f;
+//	img_clr.float32[2] = 0.0f;
+//	img_clr.float32[3] = 1.0f;
+
+//	client.ClearImage(img_clr, VK_NULL_HANDLE);
+
+//	client.CleanupVulkan();
+
+//	return 0;
 
 	VkProgram program;
 	program.Init();
@@ -31,7 +41,6 @@ int main(int argc, char **argv)
 	img_clr.float32[2] = 0.0f;
 	img_clr.float32[3] = 1.0f;
 
-	//client.ClearImage(img_clr, VK_NULL_HANDLE);
 	shared_image_handle.ClearImage(tex_share_vk.GraphicsQueue(), tex_share_vk.CommandBuffer(), img_clr, VK_NULL_HANDLE);
 	sleep(1);
 

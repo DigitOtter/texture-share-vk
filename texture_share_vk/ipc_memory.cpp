@@ -52,6 +52,7 @@ IpcMemory::IpcMemory(bipc::create_only_t,
                      const std::string &ipc_map_memory_segment)
     : _lock_memory_segment_name(ipc_cmd_memory_segment),
       _map_memory_segment_name(ipc_map_memory_segment),
+      _owns_segment(true),
       _shmem_remover(ipc_cmd_memory_segment, ipc_map_memory_segment),
       _cmd_memory_segment(bipc::create_only, ipc_cmd_memory_segment.c_str(),
                           100, IPC_QUEUE_MSG_SIZE),
@@ -70,6 +71,7 @@ IpcMemory::IpcMemory(bipc::open_or_create_t,
                      const std::string &ipc_map_memory_segment)
     : _lock_memory_segment_name(ipc_cmd_memory_segment),
       _map_memory_segment_name(ipc_map_memory_segment),
+      _owns_segment(false),
       _shmem_remover("", ""),
       _cmd_memory_segment(bipc::open_or_create, ipc_cmd_memory_segment.c_str(),
                           100, IPC_QUEUE_MSG_SIZE),
@@ -88,18 +90,23 @@ IpcMemory::~IpcMemory()
 	if(this->_lock_data)
 		this->_lock_data->map_access.lock();
 
-	if(this->_image_map)
+	if(this->_image_map && this->_owns_segment)
 	{
 		this->_map_memory_segment.destroy_ptr(this->_image_map);
-		this->_image_map = nullptr;
 	}
 
-	bipc::shared_memory_object::remove(this->_map_memory_segment_name.c_str());
+	this->_image_map = nullptr;
+
+	if(this->_owns_segment)
+		bipc::shared_memory_object::remove(this->_map_memory_segment_name.c_str());
 
 	if(this->_lock_data)
 		this->_lock_data->map_access.unlock();
 
-	bipc::shared_memory_object::remove(this->_lock_memory_segment_name.c_str());
+	this->_lock_data = nullptr;
+
+	if(this->_owns_segment)
+		bipc::shared_memory_object::remove(this->_lock_memory_segment_name.c_str());
 }
 
 bool IpcMemory::SharedMemoryExists(const std::string &ipc_cmd_memory_segment)
@@ -235,7 +242,7 @@ ExternalHandle::SharedImageInfo IpcMemory::SubmitWaitExternalHandleCmd(const std
 
 	img_data_it->second.socket_filename.front() = '\0';
 
-	return ExternalHandle::SharedImageInfo{};
+	return img_info;
 }
 
 IpcMemory::ImageData *IpcMemory::GetImageData(const std::string &image_name, uint64_t micro_sec_wait_time) const

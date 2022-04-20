@@ -36,7 +36,6 @@ class TextureShareVkClient
 		                VkFence fence = VK_NULL_HANDLE,
 		                uint64_t micro_sec_wait_time = IpcMemory::DEFAULT_CMD_WAIT_TIME);
 
-
 	private:
 		TextureShareVk _vk_data;
 		SharedImageHandleVk _shared_image;
