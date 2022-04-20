@@ -23,6 +23,7 @@ class IpcMemory
 		static constexpr std::string_view DEFAULT_IPC_MAP_MEMORY_NAME = "SharedTextureMapMemory";
 
 		using IMAGE_NAME_T = std::array<char, 1024>;
+		using SOCKET_FILENAME_T = std::array<char, 1024>;
 
 		enum IpcCmdType
 		{
@@ -74,6 +75,8 @@ class IpcMemory
 		struct ImageData
 		{
 			ExternalHandle::SharedImageInfo shared_image_info{};
+			SOCKET_FILENAME_T socket_filename;
+
 			boost::interprocess::interprocess_sharable_mutex handle_access;
 			uint32_t connected_procs_count = 0;
 

@@ -1,5 +1,7 @@
 #include "texture_share_vk/ipc_memory.h"
 
+#include "texture_share_vk/platform/daemon_comm.h"
+
 #include <chrono>
 #include <thread>
 #include <boost/interprocess/segment_manager.hpp>
@@ -24,6 +26,7 @@ IpcMemory::IpcData &IpcMemory::IpcData::operator=(IpcData &&other)
 
 IpcMemory::ImageData::ImageData(ImageData &&other)
     : shared_image_info(std::move(other.shared_image_info)),
+      socket_filename(std::move(other.socket_filename)),
       handle_access(),
       connected_procs_count(std::move(other.connected_procs_count))
 {}
@@ -31,6 +34,7 @@ IpcMemory::ImageData::ImageData(ImageData &&other)
 IpcMemory::ImageData &IpcMemory::ImageData::operator=(ImageData &&other)
 {
 	this->shared_image_info = std::move(other.shared_image_info);
+	this->socket_filename = std::move(other.socket_filename);
 	this->connected_procs_count = std::move(other.connected_procs_count);
 
 	return *this;
@@ -155,7 +159,7 @@ bool IpcMemory::SubmitWaitImageInitCmd(const std::string &image_name,
 
 bool IpcMemory::SubmitWaitImageRenameCmd(const std::string &image_name, const std::string &old_image_name,
                                          uint64_t micro_sec_wait_time)
-{	
+{
 	uint32_t cmd_req_num;
 
 	// Lock cmd_request_access until command is sent
@@ -211,18 +215,25 @@ ExternalHandle::SharedImageInfo IpcMemory::SubmitWaitExternalHandleCmd(const std
 	strcpy(cmd.image_name.data(), image_name.c_str());
 	this->_cmd_memory_segment.send(&cmd, sizeof(cmd), IPC_QUEUE_MSG_PRIORITY_DEFAULT);
 
-	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
-	while(cmd_req_num > this->_lock_data->processed_cmd_num &&
-	      std::chrono::high_resolution_clock::now() < stop_time)
-	{
-		std::this_thread::sleep_for(std::chrono::microseconds(1000));
-	}
-
-	if(cmd_req_num > this->_lock_data->processed_cmd_num)
+	auto img_data_it = this->_image_map->find(cmd.image_name);
+	if(img_data_it == this->_image_map->end())
 		return ExternalHandle::SharedImageInfo{};
 
-	if(auto img_data_it = this->_image_map->find(cmd.image_name); img_data_it != this->_image_map->end())
-		return std::move(img_data_it->second.shared_image_info);
+	// Check if socket name set up by server
+	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
+	while(img_data_it->second.socket_filename.front() == '\0' &&
+	      std::chrono::high_resolution_clock::now() < stop_time)
+	{
+		std::this_thread::sleep_for(std::chrono::microseconds(micro_sec_wait_time)/10);
+	}
+
+	if(img_data_it->second.socket_filename.front() == '\0')
+		return ExternalHandle::SharedImageInfo{};
+
+	ExternalHandle::SharedImageInfo img_info = std::move(img_data_it->second.shared_image_info);
+	img_info.handles = DaemonComm::RecvHandles(img_data_it->second.socket_filename.data());
+
+	img_data_it->second.socket_filename.front() = '\0';
 
 	return ExternalHandle::SharedImageInfo{};
 }

@@ -1,14 +1,39 @@
 #ifndef TSV_DAEMON_COMM_H
 #define TSV_DAEMON_COMM_H
 
+#include "texture_share_vk/platform/platform.h"
+
 #include <string>
+#include <filesystem>
 
 
 class DaemonComm
 {
 	public:
+		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 500*1000;
+
 		static void Daemonize(const std::string &ipc_cmd_memory_segment,
 		                      const std::string &ipc_map_memory_segment);
+
+		static void SendHandles(ExternalHandle::ShareHandles &&handles, const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
+		static ExternalHandle::ShareHandles RecvHandles(const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
+
+	private:
+		struct FileDesc
+		{
+			FileDesc(int fd = -1);
+			~FileDesc();
+
+			constexpr operator const int&() const
+			{	return this->_fd;	}
+
+			private:
+			    int _fd = -1;
+		};
+
+		static int CreateNamedUnixSocket(const std::filesystem::path &socket_path, FileDesc &sock_fd);
+		static int AcceptNamedUnixSocket(const FileDesc &sock_fd, uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
+		static int ConnectNamedUnixSocket(const std::filesystem::path &socket_path, FileDesc &sock_fd, uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
 };
 
 #endif //TSV_DAEMON_COMM_H

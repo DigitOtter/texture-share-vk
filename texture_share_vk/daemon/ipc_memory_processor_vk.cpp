@@ -1,13 +1,20 @@
 #include "texture_share_vk/daemon/ipc_memory_processor_vk.h"
 
+#include "texture_share_vk/platform/config.h"
+#include "texture_share_vk/platform/daemon_comm.h"
+
 #include <chrono>
+#include <filesystem>
 
 
 namespace bipc = boost::interprocess;
 
 IpcMemoryProcessorVk::IpcMemoryProcessorVk(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
     : IpcMemory(ipc_cmd_memory_segment, ipc_map_memory_segment)
-{}
+{
+	// Create socket directory
+	std::filesystem::create_directories(TSV_DAEMON_SOCKET_DIR);
+}
 
 IpcMemoryProcessorVk::~IpcMemoryProcessorVk()
 {
@@ -140,10 +147,18 @@ char IpcMemoryProcessorVk::ProcessHandleRequestCmd(const IpcCmdRequestImageHandl
 	if(img_data == this->_image_data.end())
 		return -8;
 
+	map_data->second.socket_filename.front() = '\0';
+
+	// Create handles and image info
 	map_data->second.shared_image_info = img_data->second.ExportImageInfo();
-	std::cout << "Image handle: " << map_data->second.shared_image_info.handles.memory << std::endl;
-	std::cout << "Read handle: " << map_data->second.shared_image_info.handles.ext_read << std::endl;
-	std::cout << "Write handle: " << map_data->second.shared_image_info.handles.ext_write << std::endl;
+	auto handles = std::move(map_data->second.shared_image_info.handles);
+
+	// Share socket filename
+	const std::filesystem::path sock_filename = std::filesystem::path(TSV_DAEMON_SOCKET_DIR) / ipc_cmd.image_name.data();
+	strncpy(map_data->second.socket_filename.data(), sock_filename.c_str(), map_data->second.socket_filename.size());
+
+	// Send handles
+	DaemonComm::SendHandles(std::move(handles), sock_filename);
 
 	return 1;
 }
