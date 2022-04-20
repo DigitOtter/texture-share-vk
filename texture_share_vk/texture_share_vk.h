@@ -30,13 +30,25 @@ class TextureShareVk
 
 		bool IsVulkanInitialized() const;
 
-		constexpr VkInstance VulkanInstance()
+		constexpr VkInstance VulkanInstance() const
 		{	return this->_vk_struct.instance;	}
 
-		constexpr VkQueue GraphicsQueue()
+		constexpr VkDevice VulkanDevice() const
+		{	return this->_vk_struct.device;	}
+
+		constexpr VkPhysicalDevice VulkanPhysicalDevice() const
+		{	return this->_vk_struct.physical_device;	}
+
+		constexpr VkQueue GraphicsQueue() const
 		{	return this->_vk_struct.graphics_queue;	}
 
-		constexpr VkCommandBuffer CommandBuffer()
+		constexpr uint32_t GraphicsQueueIndex() const
+		{	return this->_vk_struct.graphics_queue_index;	}
+
+		constexpr VkCommandPool CommandPool() const
+		{	return this->_command_pool;	}
+
+		constexpr VkCommandBuffer CommandBuffer() const
 		{	return this->_command_buffer;	}
 
 	private:

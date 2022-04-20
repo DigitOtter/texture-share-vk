@@ -36,6 +36,12 @@ class TextureShareVkClient
 		                VkFence fence = VK_NULL_HANDLE,
 		                uint64_t micro_sec_wait_time = IpcMemory::DEFAULT_CMD_WAIT_TIME);
 
+		constexpr const TextureShareVk &GetVulkanData() const
+		{	return this->_vk_data;	}
+
+		constexpr SharedImageHandleVk &SharedImageHandle()
+		{	return this->_shared_image;	}
+
 	private:
 		TextureShareVk _vk_data;
 		SharedImageHandleVk _shared_image;
