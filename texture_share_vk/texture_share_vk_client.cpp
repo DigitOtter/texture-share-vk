@@ -2,7 +2,7 @@
 
 #include "texture_share_vk/platform/config.h"
 
-#include "texture_share_vk/platform/spawn_daemon.h"
+#include "texture_share_vk/platform/daemon_comm.h"
 
 #include <chrono>
 

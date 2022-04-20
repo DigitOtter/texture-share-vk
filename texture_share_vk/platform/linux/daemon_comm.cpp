@@ -1,4 +1,4 @@
-#include "spawn_daemon.h"
+#include "daemon_comm.h"
 
 #include "texture_share_vk/ipc_memory.h"
 #include "texture_share_vk/platform/config.h"
