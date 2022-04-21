@@ -8,6 +8,34 @@ SharedImageHandleVk::~SharedImageHandleVk()
 	this->Cleanup();
 }
 
+SharedImageHandleVk &SharedImageHandleVk::operator=(SharedImageHandleVk &&other)
+{
+	this->~SharedImageHandleVk();
+
+	this->_format = std::move(other._format);
+	this->_height = std::move(other._height);
+	this->_width = std::move(other._width);
+
+	this->_image_layout = std::move(other._image_layout);
+
+	this->_semaphore_write = std::move(other._semaphore_write);
+	other._semaphore_write = VK_NULL_HANDLE;
+
+	this->_semaphore_read = std::move(other._semaphore_read);
+	other._semaphore_read = VK_NULL_HANDLE;
+
+	this->_image_memory = std::move(other._image_memory);
+	other._image_memory = VK_NULL_HANDLE;
+
+	this->_image = std::move(other._image);
+	other._image = VK_NULL_HANDLE;
+
+	this->_device = std::move(other._device);
+	other._device = VK_NULL_HANDLE;
+
+	return *this;
+}
+
 void SharedImageHandleVk::ImportHandles(VkDevice device, VkPhysicalDevice physical_device, ExternalHandle::SharedImageInfo &&external_handles)
 {
 	this->_device = device;

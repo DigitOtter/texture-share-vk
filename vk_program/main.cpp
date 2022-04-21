@@ -6,9 +6,6 @@
 
 int main(int argc, char **argv)
 {
-	VkProgram program;
-	program.Init();
-
 	TextureShareVkClient client;
 	client.InitializeVulkan();
 	//client.InitDaemon();
@@ -21,12 +18,14 @@ int main(int argc, char **argv)
 	img_clr.float32[2] = 0.0f;
 	img_clr.float32[3] = 1.0f;
 
-	client.SharedImageHandle().ClearImage(client.GetVulkanData().GraphicsQueue(), client.GetVulkanData().CommandBuffer(), img_clr, VK_NULL_HANDLE);
+	client.ClearImage(img_clr, VK_NULL_HANDLE);
 
 	client.CleanupVulkan();
 
 	return 0;
 
+	VkProgram program;
+	program.Init();
 
 	TextureShareVk tex_share_vk;
 	tex_share_vk.InitializeVulkan();

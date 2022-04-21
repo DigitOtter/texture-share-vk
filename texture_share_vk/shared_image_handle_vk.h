@@ -13,6 +13,13 @@ class SharedImageHandleVk
 		SharedImageHandleVk() = default;
 		~SharedImageHandleVk();
 
+		SharedImageHandleVk(const SharedImageHandleVk&) = delete;
+		SharedImageHandleVk &operator=(const SharedImageHandleVk&) = delete;
+
+		SharedImageHandleVk(SharedImageHandleVk &&) = default;
+		SharedImageHandleVk &operator=(SharedImageHandleVk &&);
+
+
 		/*!
 		 * \brief Import image from external handles
 		 * \param external_handles External Handles. Ownership of handles is transferred to vulkan on import

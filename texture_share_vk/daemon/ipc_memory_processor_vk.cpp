@@ -44,6 +44,8 @@ void IpcMemoryProcessorVk::CleanupVulkan()
 	this->_image_data.clear();
 
 	this->_image_map->clear();
+
+	this->_vk_data.CleanupVulkan();
 }
 
 char IpcMemoryProcessorVk::ProcessCmd(uint64_t micro_sec_wait_time)

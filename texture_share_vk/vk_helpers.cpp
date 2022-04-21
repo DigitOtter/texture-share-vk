@@ -232,13 +232,12 @@ void VkHelpers::CmdPipelineMemoryBarrierColorImage(VkCommandBuffer command_buffe
 
 	vkCmdPipelineBarrier(
 	    command_buffer,
-	    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+	    pipeline_stage_flags,
 	    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 	    0,
 	    0, nullptr,
 	    0, nullptr,
 	    1, &image_memory_barrier);
-
 }
 
 uint32_t VkHelpers::GetMemoryType(VkPhysicalDevice physical_device, uint32_t bits, VkMemoryPropertyFlags properties, VkBool32 *memory_type_found)
