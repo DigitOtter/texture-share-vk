@@ -65,6 +65,7 @@ set(VK_D_SRC_FILES
 # List executable source files here
 set(EXEC_SRC_FILES
 	"vk_program/main.cpp"
+	"vk_program/vk_test_image_share.cpp"
 	"vk_program/vk_program.cpp"
 )
 

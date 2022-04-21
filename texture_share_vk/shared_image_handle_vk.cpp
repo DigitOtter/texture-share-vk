@@ -100,12 +100,27 @@ void SharedImageHandleVk::SetImageLayout(VkQueue graphics_queue, VkCommandBuffer
 void SharedImageHandleVk::SendImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage send_image, VkImageLayout send_image_layout, VkFence fence)
 {
 	const auto f = [&]() {
-		this->SendImageBlitCmd(command_buffer, send_image, send_image_layout);
+		constexpr VkImageLayout send_image_target_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		if(send_image_layout != send_image_target_layout)
+		{
+			VkHelpers::CmdPipelineMemoryBarrierColorImage(command_buffer, this->_image,
+			                                          this->_image_layout, send_image_target_layout,
+			                                          VK_ACCESS_NONE, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+		}
+
+		this->SendImageBlitCmd(command_buffer, send_image, send_image_target_layout);
+
+		if(send_image_layout != send_image_target_layout)
+		{
+			VkHelpers::CmdPipelineMemoryBarrierColorImage(command_buffer, this->_image,
+			                                          this->_image_layout, send_image_layout,
+			                                          VK_ACCESS_NONE, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+		}
 	};
 
 	this->TransceiveImageRecordCmdBuf(command_buffer,
 	                                  //send_image, send_image_layout,
-	                                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+	                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 	                                  f);
 
 	// Wait until all read and write operations have completed before writing new images
@@ -119,12 +134,27 @@ void SharedImageHandleVk::SendImageBlit(VkQueue graphics_queue, VkCommandBuffer 
 void SharedImageHandleVk::RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage recv_image, VkImageLayout recv_image_layout, VkFence fence)
 {
 	const auto f = [&]() {
-		this->ReceiveImageBlitCmd(command_buffer, recv_image, recv_image_layout);
+		constexpr VkImageLayout recv_image_target_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		if(recv_image_layout != recv_image_target_layout)
+		{
+			VkHelpers::CmdPipelineMemoryBarrierColorImage(command_buffer, this->_image,
+			                                          this->_image_layout, recv_image_target_layout,
+			                                          VK_ACCESS_NONE, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+		}
+
+		this->ReceiveImageBlitCmd(command_buffer, recv_image, recv_image_target_layout);
+
+		if(recv_image_layout != recv_image_target_layout)
+		{
+			VkHelpers::CmdPipelineMemoryBarrierColorImage(command_buffer, this->_image,
+			                                          this->_image_layout, recv_image_layout,
+			                                          VK_ACCESS_NONE, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+		}
 	};
 
 	this->TransceiveImageRecordCmdBuf(command_buffer,
 	                                  //recv_image, recv_image_layout,
-	                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+	                                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 	                                  f);
 
 	// Wait until write operation has completed before reading
@@ -174,11 +204,21 @@ void SharedImageHandleVk::ReceiveImageBlitCmd(VkCommandBuffer command_buffer, Vk
 	region.srcSubresource = CreateColorSubresourceLayer();
 	region.dstSubresource = CreateColorSubresourceLayer();
 
+	region.srcOffsets[0].x = 0;
+	region.srcOffsets[0].y = 0;
+	region.srcOffsets[0].z = 0;
+
 	region.srcOffsets[1].x = this->_width;
 	region.srcOffsets[1].y = this->_height;
+	region.srcOffsets[1].z = 1;
+
+	region.dstOffsets[0].x = 0;
+	region.dstOffsets[0].y = 0;
+	region.dstOffsets[0].z = 0;
 
 	region.dstOffsets[1].x = this->_width;
 	region.dstOffsets[1].y = this->_height;
+	region.dstOffsets[1].z = 1;
 
 	vkCmdBlitImage(command_buffer, this->_image, this->_image_layout, recv_image, recv_image_layout, 1, &region, VK_FILTER_NEAREST);
 }
@@ -215,7 +255,7 @@ VkImageSubresourceLayers SharedImageHandleVk::CreateColorSubresourceLayer()
 	layer.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	layer.baseArrayLayer = 0;
 	layer.layerCount = 1;
-	layer.mipLevel = 1;
+	layer.mipLevel = 0;
 
 	return layer;
 }
@@ -253,21 +293,26 @@ void SharedImageHandleVk::TransceiveImageRecordCmdBuf(VkCommandBuffer command_bu
 
 	VK_CHECK(vkBeginCommandBuffer(cmd, &cmd_begin_info));
 
+	const VkImageLayout old_image_layout = this->_image_layout;
 	if(this->_image_layout != shared_image_requested_layout)
 	{
 		VkHelpers::CmdPipelineMemoryBarrierColorImage(cmd, this->_image,
 		                                          this->_image_layout, shared_image_requested_layout,
 		                                          VK_ACCESS_NONE, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
+		this->_image_layout = shared_image_requested_layout;
 	}
 
 	//std::invoke(f, this, command_buffer, transceive_image, transceive_image_layout);
 	std::invoke(f);
 
-	if(this->_image_layout != shared_image_requested_layout)
+	if(old_image_layout != shared_image_requested_layout)
 	{
 		VkHelpers::CmdPipelineMemoryBarrierColorImage(cmd, this->_image,
-		                                              shared_image_requested_layout, this->_image_layout,
+		                                              shared_image_requested_layout, old_image_layout,
 		                                              VK_ACCESS_NONE, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
+		this->_image_layout = old_image_layout;
 	}
 
 	VK_CHECK(vkEndCommandBuffer(cmd));
@@ -301,4 +346,8 @@ void SharedImageHandleVk::SubmitCommandBuffer(VkQueue graphics_queue, VkCommandB
 	//submit command buffer to the queue and execute it.
 	// if set, fence may block until the graphic commands finish execution
 	VK_CHECK(vkQueueSubmit(graphics_queue, 1, &submit, fence));
+
+	// Wait for the fence to signal that command buffer has finished executing
+	VK_CHECK(vkWaitForFences(this->_device, 1, &fence, VK_TRUE, VkHelpers::DEFAULT_FENCE_TIMEOUT));
+	VK_CHECK(vkResetFences(this->_device, 1, &fence));
 }
