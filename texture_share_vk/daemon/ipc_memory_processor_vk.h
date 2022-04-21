@@ -19,6 +19,7 @@ class IpcMemoryProcessorVk
 		void CleanupVulkan();
 
 		char ProcessCmd(uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
+		void CleanupLocks();
 
 	private:
 		TextureShareVk _vk_data;

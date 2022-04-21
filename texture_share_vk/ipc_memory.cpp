@@ -124,6 +124,7 @@ bool IpcMemory::SubmitWaitImageInitCmd(const std::string &image_name,
 				return false;
 		}
 
+		this->_lock_data->calling_pid = getpid();
 		cmd_req_num = this->_lock_data->next_cmd_num++;
 
 		IpcCmdImageInit cmd{IPC_CMD_IMAGE_INIT, cmd_req_num};
@@ -137,6 +138,8 @@ bool IpcMemory::SubmitWaitImageInitCmd(const std::string &image_name,
 		cmd.image_format = image_format;
 
 		this->_cmd_memory_segment.send(&cmd, sizeof(cmd), IPC_QUEUE_MSG_PRIORITY_DEFAULT);
+
+		this->_lock_data->calling_pid = -1;
 	}
 
 	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
@@ -163,6 +166,7 @@ bool IpcMemory::SubmitWaitImageRenameCmd(const std::string &image_name, const st
 				return false;
 		}
 
+		this->_lock_data->calling_pid = getpid();
 		cmd_req_num = this->_lock_data->next_cmd_num++;
 
 		IpcCmdRename cmd{IPC_CMD_RENAME, cmd_req_num};
@@ -175,6 +179,8 @@ bool IpcMemory::SubmitWaitImageRenameCmd(const std::string &image_name, const st
 		strcpy(cmd.image_name_new.data(), image_name.c_str());
 		strcpy(cmd.image_name_old.data(), old_image_name.c_str());
 		this->_cmd_memory_segment.send(&cmd, sizeof(cmd), IPC_QUEUE_MSG_PRIORITY_DEFAULT);
+
+		this->_lock_data->calling_pid = -1;
 	}
 
 	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
@@ -197,6 +203,7 @@ ExternalHandle::SharedImageInfo IpcMemory::SubmitWaitExternalHandleCmd(const std
 			return ExternalHandle::SharedImageInfo{};
 	}
 
+	this->_lock_data->calling_pid = getpid();
 	const uint32_t cmd_req_num = this->_lock_data->next_cmd_num++;
 
 	IpcCmdRequestImageHandles cmd{IPC_CMD_HANDLE_REQUEST, cmd_req_num};
@@ -209,7 +216,10 @@ ExternalHandle::SharedImageInfo IpcMemory::SubmitWaitExternalHandleCmd(const std
 
 	auto img_data_it = this->_image_map->find(cmd.image_name);
 	if(img_data_it == this->_image_map->end())
+	{
+		this->_lock_data->calling_pid = -1;
 		return ExternalHandle::SharedImageInfo{};
+	}
 
 	// Check if socket name set up by server
 	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
@@ -220,13 +230,17 @@ ExternalHandle::SharedImageInfo IpcMemory::SubmitWaitExternalHandleCmd(const std
 	}
 
 	if(img_data_it->second.socket_filename.front() == '\0')
+	{
+		this->_lock_data->calling_pid = -1;
 		return ExternalHandle::SharedImageInfo{};
+	}
 
 	ExternalHandle::SharedImageInfo img_info = std::move(img_data_it->second.shared_image_info);
 	img_info.handles = DaemonComm::RecvHandles(img_data_it->second.socket_filename.data());
 
 	img_data_it->second.socket_filename.front() = '\0';
 
+	this->_lock_data->calling_pid = -1;
 	return img_info;
 }
 

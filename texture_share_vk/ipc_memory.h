@@ -63,6 +63,7 @@ class IpcMemory
 			boost::interprocess::interprocess_sharable_mutex map_access;
 
 			boost::interprocess::interprocess_mutex cmd_request_access;
+			pid_t calling_pid = -1;
 			uint32_t next_cmd_num = 1;
 			uint32_t processed_cmd_num = 0;
 

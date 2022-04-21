@@ -348,6 +348,9 @@ void SharedImageHandleVk::SubmitCommandBuffer(VkQueue graphics_queue, VkCommandB
 	VK_CHECK(vkQueueSubmit(graphics_queue, 1, &submit, fence));
 
 	// Wait for the fence to signal that command buffer has finished executing
-	VK_CHECK(vkWaitForFences(this->_device, 1, &fence, VK_TRUE, VkHelpers::DEFAULT_FENCE_TIMEOUT));
-	VK_CHECK(vkResetFences(this->_device, 1, &fence));
+	if(fence != VK_NULL_HANDLE)
+	{
+		VK_CHECK(vkWaitForFences(this->_device, 1, &fence, VK_TRUE, VkHelpers::DEFAULT_FENCE_TIMEOUT));
+		VK_CHECK(vkResetFences(this->_device, 1, &fence));
+	}
 }

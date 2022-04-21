@@ -4,6 +4,7 @@
 #include "texture_share_vk/platform/daemon_comm.h"
 
 #include <chrono>
+#include <csignal>
 #include <filesystem>
 
 
@@ -99,6 +100,28 @@ char IpcMemoryProcessorVk::ProcessCmd(uint64_t micro_sec_wait_time)
 		this->_lock_data->processed_cmd_num = cmd_num;
 
 	return ret_val;
+}
+
+void IpcMemoryProcessorVk::CleanupLocks()
+{
+	if(this->_lock_data->calling_pid <= 0)
+		return;
+
+	bipc::scoped_lock lock(this->_lock_data->cmd_request_access, bipc::try_to_lock);
+
+	// If cmd request is still locked by another process, check other process's status
+	if(!lock)
+	{
+		if(kill(this->_lock_data->calling_pid, 0) < 0)
+		{
+			// Unlock if process has died
+			if(errno == ESRCH)
+			{
+				std::cerr << "Unlocking cmd of dead process" << std::endl;
+				this->_lock_data->cmd_request_access.unlock();
+			}
+		}
+	}
 }
 
 char IpcMemoryProcessorVk::ProcessRenameCmd(const IpcCmdRename &ipc_cmd)

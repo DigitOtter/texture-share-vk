@@ -33,6 +33,8 @@ int TextureShareDaemon::Loop(volatile bool &run)
 
 		if(ret_val != -3)
 			std::cerr << "Processes command with result: " << (int)ret_val << std::endl;
+
+		this->_vk_memory.CleanupLocks();
 	}
 
 	return 0;

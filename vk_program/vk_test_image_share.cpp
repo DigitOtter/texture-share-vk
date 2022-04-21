@@ -332,7 +332,7 @@ void VkTestImageShare::Draw()
 									    1, &image_memory_barrier);},
 	                                VK_NULL_HANDLE);
 
-	this->DrawSharedImage(this->_swapchain_images[swapchain_image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, this->_render_fence);
+	this->DrawSharedImage(this->_swapchain_images[swapchain_image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_NULL_HANDLE);
 
 	//now that we are sure that the commands finished executing, we can safely reset the command buffer to begin recording again.
 	VK_CHECK(vkResetCommandBuffer(this->_main_command_buffer, 0));
@@ -454,7 +454,7 @@ void VkTestImageShare::Draw()
 void VkTestImageShare::DrawSharedImage(VkImage swapchain_image, VkImageLayout image_layout, VkFence fence)
 {
 	VkClearColorValue img_clr{};
-	img_clr.float32[0] = 1.0f;
+	img_clr.float32[0] = 0.5*std::sin(2.0*M_PI * this->_frame_number / 120) + 0.5;
 	img_clr.float32[1] = 0.0f;
 	img_clr.float32[2] = 0.0f;
 	img_clr.float32[3] = 1.0f;
