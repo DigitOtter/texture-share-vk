@@ -2,6 +2,7 @@
 #define TEXTURE_SHARE_DAEMON_H
 
 #include "texture_share_vk/daemon/ipc_memory_processor_vk.h"
+#include "texture_share_vk/platform/daemon_comm.h"
 
 class TextureShareDaemon
 {
@@ -19,6 +20,8 @@ class TextureShareDaemon
 		int Cleanup();
 
 	private:
+		DaemonComm::LockFile _lock_file;
+
 		IpcMemoryProcessorVk _vk_memory;
 };
 

@@ -96,8 +96,6 @@ class IpcMemory
 		          const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data());
 		~IpcMemory();
 
-		static bool SharedMemoryExists(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data());
-
 		bool SubmitWaitImageInitCmd(const std::string &image_name,
 		                            uint32_t image_width, uint32_t image_height, ExternalHandle::ImageFormat image_format,
 		                            uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);

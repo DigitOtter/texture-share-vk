@@ -3,11 +3,82 @@
 #include "texture_share_vk/ipc_memory.h"
 #include "texture_share_vk/platform/config.h"
 
+#include <iostream>
+#include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <thread>
 #include <unistd.h>
 
+
+DaemonComm::FileDesc::FileDesc(int fd)
+    : _fd(fd)
+{}
+
+DaemonComm::FileDesc::FileDesc(FileDesc &&other)
+    : _fd(std::move(other._fd))
+{
+	other._fd = -1;
+}
+
+DaemonComm::FileDesc &DaemonComm::FileDesc::operator=(FileDesc &&other)
+{
+	this->~FileDesc();
+
+	this->_fd = std::move(other._fd);
+	other._fd = -1;
+
+	return *this;
+}
+
+DaemonComm::FileDesc::~FileDesc()
+{
+	if(this->_fd >= 0)
+	{
+		close(this->_fd);
+		this->_fd = -1;
+	}
+}
+
+DaemonComm::LockFile::LockFile(const std::string &file)
+    : _fd(CreateLockFile(file))
+{}
+
+bool DaemonComm::LockFile::IsFileLocked(const std::string &file)
+{
+	try
+	{
+		FileDesc fd = LockFile::CreateLockFile(file);
+	}
+	catch(const std::logic_error &)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+int DaemonComm::LockFile::CreateLockFile(const std::string &file)
+{
+	mode_t mode = umask(0);
+
+	int fd;
+	fd = open(file.c_str(), O_RDWR|O_CREAT, 0666);
+
+	umask(mode);
+
+	if(fd < 0)
+		throw std::runtime_error("Failed to open lock file");
+
+	// To prevent race conditions, don't remove() lock on destruction
+	if(flock(fd, LOCK_EX|LOCK_NB) < 0)
+	{
+		close(fd);
+		throw std::logic_error("Failed to acquire lock");
+	}
+
+	return fd;
+}
 
 constexpr size_t EXT_HANDLE_CMSG_LEN = sizeof(ExternalHandle::TYPE)*3;
 
@@ -21,20 +92,26 @@ union CmsgData
 
 void DaemonComm::Daemonize(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
 {
-	if(IpcMemory::SharedMemoryExists(ipc_cmd_memory_segment))
+	// Only spawn daemon if not yet started
+	if(!DaemonComm::CheckLockFile(TSV_DAEMON_LOCK_FILE))
 		return;
 
 	int c_pid = fork();
 	if(c_pid == 0)
 	{
 		// Child process
-		if(setsid() < 0)
-			throw std::runtime_error("Failed to daemonize texture share daemon");
+//		if(setsid() < 0)
+//		{
+//			std::cerr << "Failed to daemonize texture share daemon" << std::endl;
+//			exit(-1);
+//		}
 
 		const int ret = execlp(TSV_DAEMON_PATH,
+		                       TSV_DAEMON_PATH,
 		                       ipc_cmd_memory_segment.c_str(),
 		                       ipc_map_memory_segment.c_str(),
 		                       nullptr);
+
 		exit(ret);
 	}
 	else if(c_pid < 0)
@@ -204,17 +281,14 @@ ExternalHandle::ShareHandles DaemonComm::RecvHandles(const std::filesystem::path
 	return handles;
 }
 
-DaemonComm::FileDesc::FileDesc(int fd)
-    : _fd(fd)
-{}
-
-DaemonComm::FileDesc::~FileDesc()
+DaemonComm::LockFile DaemonComm::CreateLockFile(const std::string &lock_file)
 {
-	if(this->_fd >= 0)
-	{
-		close(this->_fd);
-		this->_fd = -1;
-	}
+	return LockFile(lock_file);
+}
+
+bool DaemonComm::CheckLockFile(const std::string &lock_file)
+{
+	return LockFile::IsFileLocked(lock_file);
 }
 
 DaemonComm::NamedSock::NamedSock(const std::filesystem::path &socket_path, int fd)

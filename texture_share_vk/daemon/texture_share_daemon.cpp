@@ -1,5 +1,7 @@
 #include "texture_share_vk/daemon/texture_share_daemon.h"
 
+#include "texture_share_vk/platform/config.h"
+
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -7,7 +9,8 @@
 
 TextureShareDaemon::TextureShareDaemon(const std::string &ipc_cmd_memory_segment,
                                        const std::string &ipc_map_memory_segment)
-    : _vk_memory(ipc_cmd_memory_segment,
+    : _lock_file(TSV_DAEMON_LOCK_FILE),
+      _vk_memory(ipc_cmd_memory_segment,
                  ipc_map_memory_segment)
 {}
 

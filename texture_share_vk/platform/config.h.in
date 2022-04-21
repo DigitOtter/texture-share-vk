@@ -8,6 +8,7 @@
 
 #ifndef WIN32
 #cmakedefine TSV_DAEMON_SOCKET_DIR "@TSV_DAEMON_SOCKET_DIR@"
+#cmakedefine TSV_DAEMON_LOCK_FILE "@TSV_DAEMON_LOCK_FILE@"
 #endif
 
 #endif //PLATFORM_CONFIG_H

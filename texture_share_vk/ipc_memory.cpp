@@ -61,9 +61,9 @@ IpcMemory::IpcMemory(bipc::create_only_t,
                                                       sizeof(IpcData) + sizeof(shmem_map_t) +
                                                       10*sizeof(map_value_t) + 1024)),
       _map_allocator(shmem_allocator_t(this->_map_memory_segment.get_segment_manager())),
-      _lock_data(this->_map_memory_segment.construct<IpcData>(bipc::unique_instance)(IpcData())),
-      _image_map(this->_map_memory_segment.construct<shmem_map_t>(bipc::unique_instance)(ImageNameCompare(),
-                                                                                         this->_map_allocator))
+      _lock_data(this->_map_memory_segment.find_or_construct<IpcData>(bipc::unique_instance)(IpcData())),
+      _image_map(this->_map_memory_segment.find_or_construct<shmem_map_t>(bipc::unique_instance)(ImageNameCompare(),
+                                                                                                 this->_map_allocator))
 {}
 
 IpcMemory::IpcMemory(bipc::open_or_create_t,
@@ -107,21 +107,6 @@ IpcMemory::~IpcMemory()
 
 	if(this->_owns_segment)
 		bipc::shared_memory_object::remove(this->_lock_memory_segment_name.c_str());
-}
-
-bool IpcMemory::SharedMemoryExists(const std::string &ipc_cmd_memory_segment)
-{
-	// Hack to check if shared memory is already created
-	try
-	{
-		bipc::managed_shared_memory mem_seg = bipc::managed_shared_memory(bipc::open_only, ipc_cmd_memory_segment.c_str());
-	}
-	catch(const bipc::interprocess_exception &)
-	{
-		return false;
-	}
-
-	return true;
 }
 
 bool IpcMemory::SubmitWaitImageInitCmd(const std::string &image_name,
