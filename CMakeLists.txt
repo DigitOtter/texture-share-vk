@@ -43,7 +43,7 @@ set(IPC_MEMORY_LIB_SRC_FILES
 )
 
 set(OPENGL_LIB_SRC_FILES
-	"texture_share_vk/opengl/shared_image_gl.cpp"
+	"texture_share_vk/opengl/shared_image_handle_gl.cpp"
 	"texture_share_vk/platform/${PLATFORM_DIRECTORY}/external_handle_gl.cpp"
 )
 
@@ -134,9 +134,6 @@ target_include_directories(${LIBRARY_NAME}
 target_link_libraries(${LIBRARY_NAME}
 	PUBLIC
 		Vulkan::Vulkan
-		Boost::boost
-		Boost::date_time
-
 		vk-bootstrap::vk-bootstrap
 
 		"${NAMESPACE_NAME}::IPCMemory"
@@ -164,6 +161,8 @@ target_include_directories(TextureShareOpenGL
 target_link_libraries(TextureShareOpenGL
 	PUBLIC
 		OpenGL::OpenGL
+
+		"${NAMESPACE_NAME}::IPCMemory"
 
 	PRIVATE
 )

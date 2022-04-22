@@ -1,15 +1,15 @@
-#include "texture_share_vk/opengl/shared_image_gl.h"
+#include "texture_share_vk/opengl/shared_image_handle_gl.h"
 
 #include <utility>
 
 
-bool SharedImageGl::InitializeGLExternal()
+bool SharedImageHandleGl::InitializeGLExternal()
 {
 	// TODO: Load extensions
 	return true;
 }
 
-void SharedImageGl::InitializeWithExternal(ExternalHandle::ShareHandles &&share_handles,
+void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::ShareHandles &&share_handles,
                                            GLsizei width, GLsizei height, GLenum internal_format,
                                            GLuint64 allocation_size)
 {
@@ -43,7 +43,7 @@ void SharedImageGl::InitializeWithExternal(ExternalHandle::ShareHandles &&share_
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void SharedImageGl::ReadImage(GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ)
+void SharedImageHandleGl::ReadImage(GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ)
 {
 	//glCopyImageSubData(this->_color, GLenum srcTarget​, GLint srcLevel​, GLint srcX​, GLint srcY​, GLint srcZ​, GLuint dstName​, GLenum dstTarget​, GLint dstLevel​, GLint dstX​, GLint dstY​, GLint dstZ​, GLsizei srcWidth​, GLsizei srcHeight​, GLsizei srcDepth​);
 }

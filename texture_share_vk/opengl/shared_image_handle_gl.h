@@ -1,13 +1,13 @@
-#ifndef SHARED_IMAGE_GL_H
-#define SHARED_IMAGE_GL_H
+#ifndef SHARED_IMAGE_HANDLE_GL_H
+#define SHARED_IMAGE_HANDLE_GL_H
 
 #include "texture_share_vk/platform/platform_gl.h"
 
-class SharedImageGl
+class SharedImageHandleGl
 {
 	public:
-		SharedImageGl() = default;
-		~SharedImageGl() = default;
+		SharedImageHandleGl() = default;
+		~SharedImageHandleGl() = default;
 
 		static bool InitializeGLExternal();
 
@@ -34,4 +34,4 @@ class SharedImageGl
 		GLenum _image_format = GL_RGBA8;
 };
 
-#endif //SHARED_IMAGE_GL_H
+#endif //SHARED_IMAGE_HANDLE_GL_H
