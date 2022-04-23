@@ -124,7 +124,7 @@ IpcMemory IpcMemory::CreateIpcClientAndDaemon(const std::string &ipc_cmd_memory_
 }
 
 bool IpcMemory::SubmitWaitImageInitCmd(const std::string &image_name,
-                                       uint32_t image_width, uint32_t image_height, ExternalHandle::ImageFormat image_format,
+                                       uint32_t image_width, uint32_t image_height, ExternalHandle::ImageFormat image_format, bool overwrite_existing,
                                        uint64_t micro_sec_wait_time)
 {
 	uint32_t cmd_req_num;
@@ -150,6 +150,7 @@ bool IpcMemory::SubmitWaitImageInitCmd(const std::string &image_name,
 		cmd.imge_width = image_width;
 		cmd.imge_height = image_height;
 		cmd.image_format = image_format;
+		cmd.overwrite_existing = overwrite_existing;
 
 		this->_cmd_memory_segment.send(&cmd, sizeof(cmd), IPC_QUEUE_MSG_PRIORITY_DEFAULT);
 

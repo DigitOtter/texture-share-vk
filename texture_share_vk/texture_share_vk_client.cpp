@@ -40,12 +40,13 @@ void TextureShareVkClient::CleanupVulkan()
 
 void TextureShareVkClient::InitImage(const std::string &image_name,
                                      uint32_t image_width, uint32_t image_height,
-                                     VkFormat image_format,
+                                     VkFormat image_format, bool overwrite_existing,
                                      uint64_t micro_sec_wait_time)
 {
 	if(!this->_ipc_memory.SubmitWaitImageInitCmd(image_name,
 	                                             image_width, image_height,
 	                                             ExternalHandleVk::GetImageFormat(image_format),
+	                                             overwrite_existing,
 	                                             micro_sec_wait_time))
 	{
 		throw std::runtime_error("Failed to initialize shared image");

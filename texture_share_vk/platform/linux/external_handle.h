@@ -40,6 +40,7 @@ class ExternalHandle
 			ShareHandles handles;
 			uint32_t width, height;
 			ImageFormat format;
+			uint64_t allocation_size;
 		};
 
 	private:

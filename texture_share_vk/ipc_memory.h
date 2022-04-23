@@ -42,6 +42,7 @@ class IpcMemory
 			uint32_t imge_width = 0;
 			uint32_t imge_height = 0;
 			ExternalHandle::ImageFormat image_format = ExternalHandle::IMAGE_FORMAT_MAX_ENUM;
+			bool overwrite_existing = false;
 		};
 
 		struct IpcCmdRename
@@ -105,6 +106,7 @@ class IpcMemory
 
 		bool SubmitWaitImageInitCmd(const std::string &image_name,
 		                            uint32_t image_width, uint32_t image_height, ExternalHandle::ImageFormat image_format,
+		                            bool overwrite_existing = false,
 		                            uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
 
 		bool SubmitWaitImageRenameCmd(const std::string &image_name, const std::string &old_image_name = "",

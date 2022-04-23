@@ -22,11 +22,10 @@ bool SharedImageHandleGl::InitializeGLExternal()
 void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::SharedImageInfo &&external_handles)
 {
 	const GLenum gl_format = ExternalHandleGl::GetGlFormat(external_handles.format);
-	const GLuint64 allocation_size = ExternalHandleGl::GetGlFormatSize(gl_format)*external_handles.width*external_handles.height;
 
 	return this->InitializeWithExternal(std::move(external_handles.handles),
 	                                    external_handles.width, external_handles.height,
-	                                    allocation_size, gl_format);
+	                                    external_handles.allocation_size, gl_format);
 }
 
 void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::ShareHandles &&share_handles,
@@ -60,7 +59,7 @@ void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::ShareHandles &&
 	// Use the imported memory as backing for the OpenGL texture.  The internalFormat, dimensions
 	// and mip count should match the ones used by Vulkan to create the image and determine it's memory
 	// allocation.
-	glTextureStorageMem2DEXT(this->_image_texture, 1, image_format, width,
+	glTextureStorageMem2DEXT(this->_image_texture, 1, GL_RGBA8, width,
 	                         height, this->_mem, 0);
 
 	this->_width = width;
@@ -111,9 +110,14 @@ void SharedImageHandleGl::RecvBlitImage(GLuint dst_texture_id, GLuint dst_textur
 	                       invert, prev_fbo);
 }
 
-void SharedImageHandleGl::ClearImage(const void *clear_color)
+void SharedImageHandleGl::ClearImage(const u_char *clear_color)
 {
-	glClearTexImage(this->_image_texture, 0, this->_image_format, SHARED_IMAGE_TEX_TARGET, clear_color);
+	return this->ClearImage(clear_color, this->_image_format, GL_UNSIGNED_BYTE);
+}
+
+void SharedImageHandleGl::ClearImage(const void *clear_color, GLenum format, GLenum type)
+{
+	glClearTexImage(this->_image_texture, 0, format, type, clear_color);
 }
 
 void SharedImageHandleGl::BlitImage(GLuint src_texture_id, GLuint src_texture_target, const ImageExtent &src_dimensions, GLuint dst_texture_id, GLuint dst_texture_target, const ImageExtent &dst_dimensions, bool invert, GLuint prev_fbo)

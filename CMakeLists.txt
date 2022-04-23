@@ -67,14 +67,17 @@ set(VK_D_SRC_FILES
 	"texture_share_vk/daemon/main.cpp"
 )
 
-# List executable source files here
 set(EXEC_SRC_FILES
 	"vk_program/main.cpp"
 	"vk_program/vk_test_image_share.cpp"
 	"vk_program/vk_program.cpp"
 )
 
-# List testing files here
+set(TEST_GL_SRC_FILES
+	"gl_program/gl_test_image_share.cpp"
+	"gl_program/main.cpp"
+)
+
 set(TEST_SRC_FILES
 )
 
@@ -201,11 +204,12 @@ target_link_libraries(${TSV_DAEMON_NAME}
 )
 
 
+find_package(SDL2 REQUIRED)
+find_package(GLUT REQUIRED)
+
 ##########################################
 ## Executable
 if(NOT "${EXEC_SRC_FILES}" STREQUAL "")
-	find_package(SDL2 REQUIRED)
-
 	add_executable("${EXECUTABLE_NAME}" ${EXEC_SRC_FILES})
 	target_link_libraries("${EXECUTABLE_NAME}"
 		${LIBRARY_NAME}
@@ -213,6 +217,19 @@ if(NOT "${EXEC_SRC_FILES}" STREQUAL "")
 		#volk::volk
 	)
 endif()
+
+
+##########################################
+## Test OpenGL Image sharing
+add_executable(TestGLImageShare ${TEST_GL_SRC_FILES})
+target_compile_options(TestGLImageShare PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
+
+target_link_libraries(TestGLImageShare
+	PUBLIC
+		"${NAMESPACE_NAME}::TextureShareOpenGL"
+
+		GLUT::GLUT
+)
 
 
 ##########################################

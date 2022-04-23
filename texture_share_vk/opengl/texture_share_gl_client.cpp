@@ -11,13 +11,14 @@ TextureShareGlClient::TextureShareGlClient(const std::string &ipc_cmd_memory_seg
 
 void TextureShareGlClient::InitImage(const std::string &image_name,
                                      uint32_t image_width, uint32_t image_height,
-                                     GLenum image_format,
+                                     GLenum image_format, bool overwrite_existing,
                                      uint64_t micro_sec_wait_time)
 {
 	// Initialize image in daemon
 	if(!this->_ipc_memory.SubmitWaitImageInitCmd(image_name,
 	                                             image_width, image_height,
 	                                             ExternalHandleGl::GetImageFormat(image_format),
+	                                             overwrite_existing,
 	                                             micro_sec_wait_time))
 	{
 		throw std::runtime_error("Failed to initialize shared image");
@@ -71,5 +72,5 @@ void TextureShareGlClient::ClearImage(const void *clear_color, uint64_t micro_se
 			return;
 	}
 
-	return this->_shared_image.ClearImage(clear_color);
+	return this->_shared_image.ClearImage((u_char*)clear_color);
 }

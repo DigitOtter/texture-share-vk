@@ -22,6 +22,7 @@ class TextureShareVkClient
 		void InitImage(const std::string &image_name,
 		               uint32_t image_width, uint32_t image_height,
 		               VkFormat image_format,
+		               bool overwrite_existing = false,
 		               uint64_t micro_sec_wait_time = IpcMemory::DEFAULT_CMD_WAIT_TIME);
 
 		void SendImageBlit(VkImage send_image, VkImageLayout send_image_layout,

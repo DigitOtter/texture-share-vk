@@ -138,7 +138,8 @@ ExternalHandle::SharedImageInfo SharedImageVk::ExportImageInfo()
 {
 	return ExternalHandle::SharedImageInfo{this->ExportHandles(),
 		        this->image_width, this->image_height,
-		        ExternalHandleVk::GetImageFormat(this->image_format)};
+		        ExternalHandleVk::GetImageFormat(this->image_format),
+		        this->allocationSize};
 }
 
 void SharedImageVk::Cleanup()

@@ -15,13 +15,14 @@ class TextureShareGlClient
 
 		TextureShareGlClient(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
 		                     const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data());
-		~TextureShareGlClient();
+		~TextureShareGlClient() = default;
 
 		void InitializeGlExt();
 		void CleanupGl();
 
 		void InitImage(const std::string &image_name,
 		               uint32_t image_width, uint32_t image_height, GLenum image_format,
+		               bool overwrite_existing = false,
 		               uint64_t micro_sec_wait_time = IpcMemory::DEFAULT_CMD_WAIT_TIME);
 
 		void SendImageBlit(GLuint src_texture_id, GLuint src_texture_target, const ImageExtent &src_dimensions, bool invert = false, GLuint prev_fbo = 0,

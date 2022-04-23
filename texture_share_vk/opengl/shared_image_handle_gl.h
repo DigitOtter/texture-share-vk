@@ -3,6 +3,9 @@
 
 #include "texture_share_vk/platform/platform_gl.h"
 
+#include <sys/types.h>
+
+
 /*!
  * \brief Imports image texture from vulkan. Code adapted from
  * https://github.com/KhronosGroup/Vulkan-Samples, open_gl_interop
@@ -41,12 +44,25 @@ class SharedImageHandleGl
 
 		/*!
 		 * \brief Clears the image with the given color
-		 * \param clear_color Clear color. Should be in the format described by ImageFormat()
+		 * \param clear_color Clear color.
+		 * Should be in the format described by ImageFormat(), usually RGBA
 		 */
-		void ClearImage(const void *clear_color);
+		void ClearImage(const u_char *clear_color);
+
+		/*!
+		 * \brief Clears the image with the given color
+		 * \param clear_color Clear color.
+		 * Should be in the format described by ImageFormat(), usually RGBA
+		 * \param format clear_color format
+		 * \param type clear_color individual value type
+		 */
+		void ClearImage(const void *clear_color, GLenum format, GLenum type = GL_UNSIGNED_BYTE);
 
 		constexpr GLenum ImageFormat() const
 		{	return this->_image_format;	}
+
+		constexpr GLuint TextureId() const
+		{	return this->_image_texture;	}
 
 	private:
 		ExternalHandle::ShareHandles _share_handles;

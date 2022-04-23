@@ -6,7 +6,7 @@ GLenum ExternalHandleGl::GetGlFormat(ExternalHandle::ImageFormat format)
 	switch(format)
 	{
 		case ExternalHandle::ImageFormat::R8G8B8A8:
-			return GL_RGBA8;
+			return GL_RGBA;
 		default:
 			return 0;
 	}
@@ -16,7 +16,7 @@ ExternalHandle::ImageFormat ExternalHandleGl::GetImageFormat(GLenum gl_format)
 {
 	switch(gl_format)
 	{
-		case GL_RGBA8:
+		case GL_RGBA:
 			return ExternalHandle::ImageFormat::R8G8B8A8;
 		default:
 			return ExternalHandle::ImageFormat::IMAGE_FORMAT_MAX_ENUM;
@@ -27,7 +27,7 @@ GLuint ExternalHandleGl::GetGlFormatSize(GLenum gl_format)
 {
 	switch(gl_format)
 	{
-		case GL_RGBA8:
+		case GL_RGBA:
 			return 4;
 		default:
 			return 0;

@@ -153,7 +153,12 @@ char IpcMemoryProcessorVk::ProcessImageInitCmd(const IpcCmdImageInit &ipc_cmd)
 		if(data_it == this->_image_data.end())
 			return -6;
 
-		data_it->second = this->_vk_data.CreateImage(ipc_cmd.imge_width, ipc_cmd.imge_height, ExternalHandleVk::GetVkFormat(ipc_cmd.image_format));
+		// Erase old image if requested
+		if(ipc_cmd.overwrite_existing)
+		{
+			data_it->second.Cleanup();
+			data_it->second = this->_vk_data.CreateImage(ipc_cmd.imge_width, ipc_cmd.imge_height, ExternalHandleVk::GetVkFormat(ipc_cmd.image_format));
+		}
 	}
 	else
 	{
