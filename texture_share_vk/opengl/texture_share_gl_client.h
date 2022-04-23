@@ -1,24 +1,21 @@
-#ifndef TEXTURE_SHARE_VK_CLIENT_H
-#define TEXTURE_SHARE_VK_CLIENT_H
+#ifndef TEXTURE_SHARE_GL_CLIENT_H
+#define TEXTURE_SHARE_GL_CLIENT_H
 
 #include "texture_share_vk/ipc_memory.h"
-#include "texture_share_vk/texture_share_vk.h"
+#include "texture_share_vk/platform/platform_gl.h"
 
-class TextureShareVkClient
+#include <string>
+
+
+class TextureShareGlClient
 {
-		static constexpr uint64_t DAEMON_STARTUP_DEFAULT_WAIT_TIME_MICRO_S = 1*1000*1000;
-
 	public:
-		TextureShareVkClient(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
+		TextureShareGlClient(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
 		                     const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data());
-		~TextureShareVkClient();
+		~TextureShareGlClient();
 
-		void InitializeVulkan();
-		void InitializeVulkan(VkInstance instance, VkDevice device,
-		                      VkPhysicalDevice physical_device, VkQueue graphics_queue,
-		                      uint32_t graphics_queue_index,
-		                      bool import_only = true);
-		void CleanupVulkan();
+		void InitializeGlExt();
+		void CleanupGl();
 
 		static void InitDaemon(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
 		                       const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data(),
@@ -45,15 +42,10 @@ class TextureShareVkClient
 		constexpr SharedImageHandleVk &SharedImageHandle()
 		{	return this->_shared_image;	}
 
+
+
 	private:
-		TextureShareVk _vk_data;
-		SharedImageHandleVk _shared_image;
 
-		IpcMemory _ipc_memory;
-		IpcMemory::ImageData *_img_data = nullptr;
-
-		static IpcMemory CreateIPCMemory(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment,
-		                                 uint64_t wait_time_micro_s = DAEMON_STARTUP_DEFAULT_WAIT_TIME_MICRO_S);
 };
 
-#endif //TEXTURE_SHARE_VK_CLIENT_H
+#endif //TEXTURE_SHARE_GL_CLIENT_H

@@ -16,6 +16,11 @@ class ExternalHandleGl
 
 		static constexpr GLenum GL_HANDLE_TYPE = GL_HANDLE_TYPE_OPAQUE_FD_EXT;
 
+		static GLenum GetGlFormat(ExternalHandle::ImageFormat format);
+		static ExternalHandle::ImageFormat GetImageFormat(GLenum gl_format);
+
+		static GLuint GetGlFormatSize(GLenum gl_format);
+
 		static void ImportSemaphoreExt(GLuint gl_semaphore, GLenum gl_handle_type, ExternalHandle::TYPE ext_semaphore_handle);
 		static void ImportMemoryExt(GLuint memory, GLuint64 size, GLenum handle_type, ExternalHandle::TYPE ext_semaphore_handle);
 

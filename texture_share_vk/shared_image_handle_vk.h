@@ -43,9 +43,15 @@ class SharedImageHandleVk
 		void SendImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer,
 		                   VkImage send_image, VkImageLayout send_image_layout,
 		                   VkFence fence);
+		void SendImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer,
+		                   VkImage send_image, VkImageLayout send_image_layout,
+		                   VkFence fence, const VkOffset3D send_image_extent[2]);
 		void RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer,
 		                   VkImage recv_image, VkImageLayout recv_image_layout,
 		                   VkFence fence);
+		void RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer,
+		                   VkImage recv_image, VkImageLayout recv_image_layout,
+		                   VkFence fence, const VkOffset3D recv_image_extent[2]);
 
 		void ClearImage(VkQueue graphics_queue, VkCommandBuffer command_buffer,
 		                VkClearColorValue clear_color,
@@ -53,7 +59,10 @@ class SharedImageHandleVk
 
 
 		void SendImageBlitCmd(VkCommandBuffer command_buffer, VkImage send_image, VkImageLayout send_image_layout);
+		void SendImageBlitCmd(VkCommandBuffer command_buffer, VkImage send_image, VkImageLayout send_image_layout, const VkOffset3D send_image_extent[2]);
+
 		void ReceiveImageBlitCmd(VkCommandBuffer command_buffer, VkImage recv_image, VkImageLayout recv_image_layout);
+		void ReceiveImageBlitCmd(VkCommandBuffer command_buffer, VkImage recv_image, VkImageLayout recv_image_layout, const VkOffset3D recv_image_extent[2]);
 
 		void ClearImageCmd(VkCommandBuffer command_buffer, VkClearColorValue clear_color);
 

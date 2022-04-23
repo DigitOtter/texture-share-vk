@@ -37,6 +37,10 @@ else()
 endif()
 
 
+set(EXTERNAL_HANDLE_LIB_SRC_FILES
+	"texture_share_vk/platform/${PLATFORM_DIRECTORY}/external_handle.cpp"
+)
+
 set(IPC_MEMORY_LIB_SRC_FILES
 	"texture_share_vk/ipc_memory.cpp"
 	"texture_share_vk/platform/${PLATFORM_DIRECTORY}/daemon_comm.cpp"
@@ -44,6 +48,7 @@ set(IPC_MEMORY_LIB_SRC_FILES
 
 set(OPENGL_LIB_SRC_FILES
 	"texture_share_vk/opengl/shared_image_handle_gl.cpp"
+	"texture_share_vk/opengl/texture_share_gl_client.cpp"
 	"texture_share_vk/platform/${PLATFORM_DIRECTORY}/external_handle_gl.cpp"
 )
 
@@ -93,6 +98,21 @@ configure_file("texture_share_vk/platform/config.h.in" "${CMAKE_BINARY_DIR}/incl
 
 
 ##########################################
+## External Header Library
+add_library(ExternalHeader STATIC ${EXTERNAL_HANDLE_LIB_SRC_FILES})
+add_library("${NAMESPACE_NAME}::ExternalHeader" ALIAS ExternalHeader)
+target_compile_options(ExternalHeader PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
+
+target_include_directories(ExternalHeader
+	PUBLIC
+		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
+
+	PRIVATE
+)
+
+##########################################
 ## IPC Memory Library
 add_library(IPCMemory SHARED ${IPC_MEMORY_LIB_SRC_FILES})
 add_library("${NAMESPACE_NAME}::IPCMemory" ALIAS IPCMemory)
@@ -112,9 +132,10 @@ target_link_libraries(IPCMemory
 		Boost::boost
 		Boost::date_time
 
+		"${NAMESPACE_NAME}::ExternalHeader"
+
 	PRIVATE
 )
-
 
 ##########################################
 ## Vulkan Library
@@ -167,6 +188,7 @@ target_link_libraries(TextureShareOpenGL
 	PRIVATE
 )
 
+
 ##########################################
 ## Shared Images Daemon
 add_executable(${TSV_DAEMON_NAME} ${VK_D_SRC_FILES})
@@ -212,7 +234,7 @@ endif()
 ##########################################
 ## Install library files
 set(INSTALL_CONFIGDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
-install(TARGETS ${LIBRARY_NAME} IPCMemory
+install(TARGETS ${LIBRARY_NAME} IPCMemory ExternalHeader
 	EXPORT ${LIB_EXPORT_NAME}
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}

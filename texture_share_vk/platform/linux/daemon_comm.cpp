@@ -90,7 +90,7 @@ union CmsgData
 	struct cmsghdr align;
 };
 
-void DaemonComm::Daemonize(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
+void DaemonComm::Daemonize(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment, uint64_t wait_time_micro_s)
 {
 	// Only spawn daemon if not yet started
 	if(!DaemonComm::CheckLockFile(TSV_DAEMON_LOCK_FILE))
@@ -118,6 +118,25 @@ void DaemonComm::Daemonize(const std::string &ipc_cmd_memory_segment, const std:
 	{
 		throw std::runtime_error("Failed to create texture share daemon");
 	}
+
+	// Parent process: Wait for spawn to complete
+	bool daemon_running;
+
+	// Check at least every 100ms
+	const auto interval = std::min(std::chrono::microseconds(100*1000), std::chrono::microseconds(wait_time_micro_s)/10);
+	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(wait_time_micro_s);
+	do
+	{
+		daemon_running = !DaemonComm::CheckLockFile(TSV_DAEMON_LOCK_FILE);
+		if(daemon_running)
+			break;
+
+		std::this_thread::sleep_for(interval);
+	}
+	while(std::chrono::high_resolution_clock::now() <= stop_time);
+
+	if(!daemon_running)
+		throw std::runtime_error("Failed to start daemon");
 }
 
 void DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles, const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time)

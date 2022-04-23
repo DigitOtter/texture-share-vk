@@ -45,7 +45,8 @@ class DaemonComm
 		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 1*1000*1000;//500*1000;
 
 		static void Daemonize(const std::string &ipc_cmd_memory_segment,
-		                      const std::string &ipc_map_memory_segment);
+		                      const std::string &ipc_map_memory_segment,
+		                      uint64_t wait_time_micro_s/* = DEFAULT_CMD_WAIT_TIME*/);
 
 		static void SendHandles(ExternalHandle::ShareHandles &&handles, const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
 		static ExternalHandle::ShareHandles RecvHandles(const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);

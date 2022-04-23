@@ -45,45 +45,4 @@ class ExternalHandle
 	private:
 };
 
-inline ExternalHandle::ShareHandles::ShareHandles(ShareHandles &&other)
-{
-	memcpy(this, &other, sizeof(ShareHandles));
-	other.memory = INVALID_VALUE;
-	other.ext_write = INVALID_VALUE;
-	other.ext_read = INVALID_VALUE;
-}
-
-inline ExternalHandle::ShareHandles &ExternalHandle::ShareHandles::operator=(ShareHandles &&other)
-{
-	memcpy(this, &other, sizeof(ShareHandles));
-	other.memory = INVALID_VALUE;
-	other.ext_write = INVALID_VALUE;
-	other.ext_read = INVALID_VALUE;
-	return *this;
-}
-
-inline ExternalHandle::ShareHandles::~ShareHandles()
-{
-	// Close all file descriptors if ownership was not transferred to Vulkan via import
-	if(memory >= 0)
-	{
-		close(memory);
-		memory = INVALID_VALUE;
-	}
-
-	if(ext_read >= 0)
-	{
-		close(ext_read);
-		ext_read = INVALID_VALUE;
-	}
-
-	if(ext_write >= 0)
-	{
-		close(ext_write);
-		ext_write = INVALID_VALUE;
-	}
-}
-
-
-
 #endif //EXTERNAL_HANDLE_H

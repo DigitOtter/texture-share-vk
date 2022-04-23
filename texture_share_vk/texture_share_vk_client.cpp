@@ -39,10 +39,12 @@ void TextureShareVkClient::CleanupVulkan()
 }
 
 void TextureShareVkClient::InitDaemon(const std::string &ipc_cmd_memory_segment,
-                                      const std::string &ipc_map_memory_segment)
+                                      const std::string &ipc_map_memory_segment,
+                                      uint64_t wait_time_micro_s)
 {
 	DaemonComm::Daemonize(ipc_cmd_memory_segment,
-	                       ipc_map_memory_segment);
+	                      ipc_map_memory_segment,
+	                      wait_time_micro_s);
 }
 
 void TextureShareVkClient::InitImage(const std::string &image_name,
@@ -108,25 +110,7 @@ void TextureShareVkClient::ClearImage(VkClearColorValue clear_color, VkFence fen
 IpcMemory TextureShareVkClient::CreateIPCMemory(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment, uint64_t wait_time_micro_s)
 {
 	// Create daemon if not yet started
-	DaemonComm::Daemonize(ipc_cmd_memory_segment, ipc_map_memory_segment);
-
-	bool daemon_running;
-
-	// Check at least every 100ms
-	const auto interval = std::min(std::chrono::microseconds(100*1000), std::chrono::microseconds(wait_time_micro_s)/10);
-	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(wait_time_micro_s);
-	do
-	{
-		daemon_running = !DaemonComm::CheckLockFile(TSV_DAEMON_LOCK_FILE);
-		if(daemon_running)
-			break;
-
-		std::this_thread::sleep_for(interval);
-	}
-	while(std::chrono::high_resolution_clock::now() <= stop_time);
-
-	if(!daemon_running)
-		throw std::runtime_error("Failed to start daemon");
+	TextureShareVkClient::InitDaemon(ipc_cmd_memory_segment, ipc_map_memory_segment, wait_time_micro_s);
 
 	return IpcMemory(bipc::open_or_create,
 	                 ipc_cmd_memory_segment, ipc_map_memory_segment);

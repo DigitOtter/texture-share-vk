@@ -99,6 +99,16 @@ void SharedImageHandleVk::SetImageLayout(VkQueue graphics_queue, VkCommandBuffer
 
 void SharedImageHandleVk::SendImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage send_image, VkImageLayout send_image_layout, VkFence fence)
 {
+	const VkOffset3D srcOffset[2] = {
+	    {0, 0, 0},
+	    {static_cast<int32_t>(this->_width), static_cast<int32_t>(this->_height), 1}
+	};
+
+	return this->SendImageBlit(graphics_queue, command_buffer, send_image, send_image_layout, fence, srcOffset);
+}
+
+void SharedImageHandleVk::SendImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage send_image, VkImageLayout send_image_layout, VkFence fence, const VkOffset3D send_image_extent[2])
+{
 	const auto f = [&]() {
 		constexpr VkImageLayout send_image_target_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 		if(send_image_layout != send_image_target_layout)
@@ -108,7 +118,7 @@ void SharedImageHandleVk::SendImageBlit(VkQueue graphics_queue, VkCommandBuffer 
 			                                          VK_ACCESS_NONE, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 		}
 
-		this->SendImageBlitCmd(command_buffer, send_image, send_image_target_layout);
+		this->SendImageBlitCmd(command_buffer, send_image, send_image_target_layout, send_image_extent);
 
 		if(send_image_layout != send_image_target_layout)
 		{
@@ -133,6 +143,16 @@ void SharedImageHandleVk::SendImageBlit(VkQueue graphics_queue, VkCommandBuffer 
 
 void SharedImageHandleVk::RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage recv_image, VkImageLayout recv_image_layout, VkFence fence)
 {
+	const VkOffset3D dstOffset[2] = {
+	    {0, 0, 0},
+	    {static_cast<int32_t>(this->_width), static_cast<int32_t>(this->_height), 1}
+	};
+
+	return this->RecvImageBlit(graphics_queue, command_buffer, recv_image, recv_image_layout, fence, dstOffset);
+}
+
+void SharedImageHandleVk::RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage recv_image, VkImageLayout recv_image_layout, VkFence fence, const VkOffset3D recv_image_extent[2])
+{
 	const auto f = [&]() {
 		constexpr VkImageLayout recv_image_target_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		if(recv_image_layout != recv_image_target_layout)
@@ -142,7 +162,7 @@ void SharedImageHandleVk::RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer 
 			                                          VK_ACCESS_NONE, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
 		}
 
-		this->ReceiveImageBlitCmd(command_buffer, recv_image, recv_image_target_layout);
+		this->ReceiveImageBlitCmd(command_buffer, recv_image, recv_image_target_layout, recv_image_extent);
 
 		if(recv_image_layout != recv_image_target_layout)
 		{
@@ -185,20 +205,44 @@ void SharedImageHandleVk::ClearImage(VkQueue graphics_queue, VkCommandBuffer com
 
 void SharedImageHandleVk::SendImageBlitCmd(VkCommandBuffer command_buffer, VkImage send_image, VkImageLayout send_image_layout)
 {
+	const VkOffset3D srcOffset[2] = {
+	    {0, 0, 0},
+	    {static_cast<int32_t>(this->_width), static_cast<int32_t>(this->_height), 1}
+	};
+
+	return this->SendImageBlitCmd(command_buffer, send_image, send_image_layout, srcOffset);
+}
+
+void SharedImageHandleVk::SendImageBlitCmd(VkCommandBuffer command_buffer, VkImage send_image, VkImageLayout send_image_layout, const VkOffset3D send_image_extent[2])
+{
 	VkImageBlit region{};
 	region.srcSubresource = CreateColorSubresourceLayer();
 	region.dstSubresource = CreateColorSubresourceLayer();
 
-	region.srcOffsets[1].x = this->_width;
-	region.srcOffsets[1].y = this->_height;
+	memcpy(region.srcOffsets, send_image_extent, sizeof(VkOffset3D[2]));
+
+	region.dstOffsets[0].x = 0;
+	region.dstOffsets[0].y = 0;
+	region.dstOffsets[0].z = 0;
 
 	region.dstOffsets[1].x = this->_width;
 	region.dstOffsets[1].y = this->_height;
+	region.dstOffsets[1].z = 1;
 
 	vkCmdBlitImage(command_buffer, send_image, send_image_layout, this->_image, this->_image_layout, 1, &region, VK_FILTER_NEAREST);
 }
 
 void SharedImageHandleVk::ReceiveImageBlitCmd(VkCommandBuffer command_buffer, VkImage recv_image, VkImageLayout recv_image_layout)
+{
+	const VkOffset3D dstOffset[2] = {
+	    {0, 0, 0},
+	    {static_cast<int32_t>(this->_width), static_cast<int32_t>(this->_height), 1}
+	};
+
+	return this->ReceiveImageBlitCmd(command_buffer, recv_image, recv_image_layout, dstOffset);
+}
+
+void SharedImageHandleVk::ReceiveImageBlitCmd(VkCommandBuffer command_buffer, VkImage recv_image, VkImageLayout recv_image_layout, const VkOffset3D recv_image_extent[2])
 {
 	VkImageBlit region{};
 	region.srcSubresource = CreateColorSubresourceLayer();
@@ -212,13 +256,7 @@ void SharedImageHandleVk::ReceiveImageBlitCmd(VkCommandBuffer command_buffer, Vk
 	region.srcOffsets[1].y = this->_height;
 	region.srcOffsets[1].z = 1;
 
-	region.dstOffsets[0].x = 0;
-	region.dstOffsets[0].y = 0;
-	region.dstOffsets[0].z = 0;
-
-	region.dstOffsets[1].x = this->_width;
-	region.dstOffsets[1].y = this->_height;
-	region.dstOffsets[1].z = 1;
+	memcpy(region.dstOffsets, recv_image_extent, sizeof(VkOffset3D[2]));
 
 	vkCmdBlitImage(command_buffer, this->_image, this->_image_layout, recv_image, recv_image_layout, 1, &region, VK_FILTER_NEAREST);
 }
