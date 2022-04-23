@@ -11,7 +11,7 @@
 namespace bipc = boost::interprocess;
 
 TextureShareVkClient::TextureShareVkClient(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
-    : _ipc_memory(CreateIPCMemory(ipc_cmd_memory_segment, ipc_map_memory_segment))
+    : _ipc_memory(IpcMemory::CreateIpcClientAndDaemon(ipc_cmd_memory_segment, ipc_map_memory_segment))
 {}
 
 TextureShareVkClient::~TextureShareVkClient()
@@ -38,31 +38,24 @@ void TextureShareVkClient::CleanupVulkan()
 	this->_vk_data.CleanupVulkan();
 }
 
-void TextureShareVkClient::InitDaemon(const std::string &ipc_cmd_memory_segment,
-                                      const std::string &ipc_map_memory_segment,
-                                      uint64_t wait_time_micro_s)
-{
-	DaemonComm::Daemonize(ipc_cmd_memory_segment,
-	                      ipc_map_memory_segment,
-	                      wait_time_micro_s);
-}
-
 void TextureShareVkClient::InitImage(const std::string &image_name,
                                      uint32_t image_width, uint32_t image_height,
-                                     VkFormat image_format)
+                                     VkFormat image_format,
+                                     uint64_t micro_sec_wait_time)
 {
 	if(!this->_ipc_memory.SubmitWaitImageInitCmd(image_name,
 	                                             image_width, image_height,
-	                                             ExternalHandleVk::GetImageFormat(image_format)))
+	                                             ExternalHandleVk::GetImageFormat(image_format),
+	                                             micro_sec_wait_time))
 	{
 		throw std::runtime_error("Failed to initialize shared image");
 	}
 
-	ExternalHandle::SharedImageInfo image_info = this->_ipc_memory.SubmitWaitExternalHandleCmd(image_name);
+	ExternalHandle::SharedImageInfo image_info = this->_ipc_memory.SubmitWaitExternalHandleCmd(image_name, micro_sec_wait_time);
 	sleep(1);
 	this->_shared_image = this->_vk_data.CreateImageHandle(std::move(image_info));
 
-	this->_img_data = this->_ipc_memory.GetImageData(image_name);
+	this->_img_data = this->_ipc_memory.GetImageData(image_name, micro_sec_wait_time);
 }
 
 void TextureShareVkClient::SendImageBlit(VkImage send_image, VkImageLayout send_image_layout, VkFence fence, uint64_t micro_sec_wait_time)
@@ -106,13 +99,3 @@ void TextureShareVkClient::ClearImage(VkClearColorValue clear_color, VkFence fen
 	                               clear_color,
 	                               fence);
 }
-
-IpcMemory TextureShareVkClient::CreateIPCMemory(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment, uint64_t wait_time_micro_s)
-{
-	// Create daemon if not yet started
-	TextureShareVkClient::InitDaemon(ipc_cmd_memory_segment, ipc_map_memory_segment, wait_time_micro_s);
-
-	return IpcMemory(bipc::open_or_create,
-	                 ipc_cmd_memory_segment, ipc_map_memory_segment);
-}
-

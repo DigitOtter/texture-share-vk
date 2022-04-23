@@ -109,6 +109,20 @@ IpcMemory::~IpcMemory()
 		bipc::shared_memory_object::remove(this->_lock_memory_segment_name.c_str());
 }
 
+IpcMemory IpcMemory::CreateIpcClientAndDaemon(const std::string &ipc_cmd_memory_segment,
+                                              const std::string &ipc_map_memory_segment,
+                                              uint64_t wait_time_micro_s)
+{
+	// Launch daemon if not yet running
+	DaemonComm::Daemonize(ipc_cmd_memory_segment,
+	                      ipc_map_memory_segment,
+	                      wait_time_micro_s);
+
+	// Create IpcMemory
+	return IpcMemory(bipc::open_or_create,
+	                 ipc_cmd_memory_segment, ipc_map_memory_segment);
+}
+
 bool IpcMemory::SubmitWaitImageInitCmd(const std::string &image_name,
                                        uint32_t image_width, uint32_t image_height, ExternalHandle::ImageFormat image_format,
                                        uint64_t micro_sec_wait_time)

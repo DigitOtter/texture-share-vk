@@ -292,7 +292,6 @@ void VkTestImageShare::VkInitExternals()
 void VkTestImageShare::VkInitSharedImage()
 {
 	this->_shared_image_client.InitializeVulkan(this->_instance, this->_device, this->_chosen_gpu, this->_graphics_queue, this->_graphics_queue_family);
-	this->_shared_image_client.InitDaemon();
 
 	this->_shared_image_client.InitImage("test_image", this->_window_extent.width, this->_window_extent.height, VK_FORMAT_R8G8B8A8_UNORM);
 

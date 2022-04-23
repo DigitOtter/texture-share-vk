@@ -19,6 +19,8 @@ class IpcMemory
 {
 	public:
 		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 1*1000*1000; //500*1000;
+		static constexpr uint64_t DAEMON_STARTUP_DEFAULT_WAIT_TIME_MICRO_S = 1*1000*1000;
+
 		static constexpr std::string_view DEFAULT_IPC_CMD_MEMORY_NAME = "SharedTextureCmdMemory";
 		static constexpr std::string_view DEFAULT_IPC_MAP_MEMORY_NAME = "SharedTextureMapMemory";
 
@@ -96,6 +98,10 @@ class IpcMemory
 		          const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
 		          const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data());
 		~IpcMemory();
+
+		static IpcMemory CreateIpcClientAndDaemon(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
+		                                          const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data(),
+		                                          uint64_t wait_time_micro_s = DAEMON_STARTUP_DEFAULT_WAIT_TIME_MICRO_S);
 
 		bool SubmitWaitImageInitCmd(const std::string &image_name,
 		                            uint32_t image_width, uint32_t image_height, ExternalHandle::ImageFormat image_format,

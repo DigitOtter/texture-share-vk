@@ -111,6 +111,11 @@ void SharedImageHandleGl::RecvBlitImage(GLuint dst_texture_id, GLuint dst_textur
 	                       invert, prev_fbo);
 }
 
+void SharedImageHandleGl::ClearImage(const void *clear_color)
+{
+	glClearTexImage(this->_image_texture, 0, this->_image_format, SHARED_IMAGE_TEX_TARGET, clear_color);
+}
+
 void SharedImageHandleGl::BlitImage(GLuint src_texture_id, GLuint src_texture_target, const ImageExtent &src_dimensions, GLuint dst_texture_id, GLuint dst_texture_target, const ImageExtent &dst_dimensions, bool invert, GLuint prev_fbo)
 {
 	// bind the FBO (for both, READ_FRAMEBUFFER_EXT and DRAW_FRAMEBUFFER_EXT)

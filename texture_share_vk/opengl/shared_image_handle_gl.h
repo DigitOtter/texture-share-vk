@@ -39,6 +39,15 @@ class SharedImageHandleGl
 		void SendBlitImage(GLuint src_texture_id, GLuint src_texture_target, const ImageExtent &src_dimensions, bool invert, GLuint prev_fbo);
 		void RecvBlitImage(GLuint dst_texture_id, GLuint dst_texture_target, const ImageExtent &dst_dimensions, bool invert, GLuint prev_fbo);
 
+		/*!
+		 * \brief Clears the image with the given color
+		 * \param clear_color Clear color. Should be in the format described by ImageFormat()
+		 */
+		void ClearImage(const void *clear_color);
+
+		constexpr GLenum ImageFormat() const
+		{	return this->_image_format;	}
+
 	private:
 		ExternalHandle::ShareHandles _share_handles;
 

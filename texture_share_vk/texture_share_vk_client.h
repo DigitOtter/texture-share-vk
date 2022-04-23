@@ -4,10 +4,9 @@
 #include "texture_share_vk/ipc_memory.h"
 #include "texture_share_vk/texture_share_vk.h"
 
+
 class TextureShareVkClient
 {
-		static constexpr uint64_t DAEMON_STARTUP_DEFAULT_WAIT_TIME_MICRO_S = 1*1000*1000;
-
 	public:
 		TextureShareVkClient(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
 		                     const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data());
@@ -20,13 +19,10 @@ class TextureShareVkClient
 		                      bool import_only = true);
 		void CleanupVulkan();
 
-		static void InitDaemon(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
-		                       const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data(),
-		                       uint64_t wait_time_micro_s = DAEMON_STARTUP_DEFAULT_WAIT_TIME_MICRO_S);
-
 		void InitImage(const std::string &image_name,
 		               uint32_t image_width, uint32_t image_height,
-		               VkFormat image_format);
+		               VkFormat image_format,
+		               uint64_t micro_sec_wait_time = IpcMemory::DEFAULT_CMD_WAIT_TIME);
 
 		void SendImageBlit(VkImage send_image, VkImageLayout send_image_layout,
 		                   VkFence fence = VK_NULL_HANDLE,
@@ -51,9 +47,6 @@ class TextureShareVkClient
 
 		IpcMemory _ipc_memory;
 		IpcMemory::ImageData *_img_data = nullptr;
-
-		static IpcMemory CreateIPCMemory(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment,
-		                                 uint64_t wait_time_micro_s = DAEMON_STARTUP_DEFAULT_WAIT_TIME_MICRO_S);
 };
 
 #endif //TEXTURE_SHARE_VK_CLIENT_H
