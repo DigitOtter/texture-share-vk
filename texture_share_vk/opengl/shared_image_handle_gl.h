@@ -35,7 +35,7 @@ class SharedImageHandleGl
 		void InitializeWithExternal(ExternalHandle::SharedImageInfo &&external_handles);
 		void InitializeWithExternal(ExternalHandle::ShareHandles &&share_handles,
 		                            GLsizei width, GLsizei height, GLuint64 allocation_size,
-		                            GLenum internal_format = GL_RGBA8);
+		                            GLenum format = GL_RGBA, GLenum internal_format = GL_RGBA8);
 
 		void Cleanup();
 
@@ -81,7 +81,7 @@ class SharedImageHandleGl
 		GLuint _image_texture = 0;
 
 		GLsizei _width = 0, _height = 0;
-		GLenum _image_format = GL_RGBA8;
+		GLenum _image_format = GL_RGBA;
 
 		/*!
 		 * \brief Blit Image. Copy and scale image from src to dst.

@@ -80,7 +80,7 @@ int main(int argc, char** argv)
 	//glBindTexture(GL_TEXTURE_2D, 0);
 	glFlush(); //don't need this with GLUT_DOUBLE and glutSwapBuffers
 
-	getchar(); //pause so you can see what just happened
+	//getchar(); //pause so you can see what just happened
 	//System("pause"); //I think this works on windows
 
 	return 0;

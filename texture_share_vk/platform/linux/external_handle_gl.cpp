@@ -12,6 +12,17 @@ GLenum ExternalHandleGl::GetGlFormat(ExternalHandle::ImageFormat format)
 	}
 }
 
+GLenum ExternalHandleGl::GetGlInternalFormat(ExternalHandle::ImageFormat format)
+{
+	switch(format)
+	{
+		case ExternalHandle::ImageFormat::R8G8B8A8:
+			return GL_RGBA8;
+		default:
+			return 0;
+	}
+}
+
 ExternalHandle::ImageFormat ExternalHandleGl::GetImageFormat(GLenum gl_format)
 {
 	switch(gl_format)

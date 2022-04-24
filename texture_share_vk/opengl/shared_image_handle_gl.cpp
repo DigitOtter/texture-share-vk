@@ -22,15 +22,17 @@ bool SharedImageHandleGl::InitializeGLExternal()
 void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::SharedImageInfo &&external_handles)
 {
 	const GLenum gl_format = ExternalHandleGl::GetGlFormat(external_handles.format);
+	const GLenum gl_internal_format = ExternalHandleGl::GetGlInternalFormat(external_handles.format);
 
 	return this->InitializeWithExternal(std::move(external_handles.handles),
 	                                    external_handles.width, external_handles.height,
-	                                    external_handles.allocation_size, gl_format);
+	                                    external_handles.allocation_size,
+	                                    gl_format, gl_internal_format);
 }
 
 void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::ShareHandles &&share_handles,
                                                  GLsizei width, GLsizei height, GLuint64 allocation_size,
-                                                 GLenum image_format)
+                                                 GLenum format, GLenum internal_format)
 {
 	// TODO: Should received share_handles be closed or does opengl take care of that?
 	this->_share_handles = std::move(share_handles);
@@ -59,13 +61,13 @@ void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::ShareHandles &&
 	// Use the imported memory as backing for the OpenGL texture.  The internalFormat, dimensions
 	// and mip count should match the ones used by Vulkan to create the image and determine it's memory
 	// allocation.
-	glTextureStorageMem2DEXT(this->_image_texture, 1, GL_RGBA8,
+	glTextureStorageMem2DEXT(this->_image_texture, 1, internal_format,
 	                         width, height,
 	                         this->_mem, 0);
 
 	this->_width = width;
 	this->_height = height;
-	this->_image_format = image_format;
+	this->_image_format = format;
 
 	glBindTexture(SHARED_IMAGE_TEX_TARGET, 0);
 }

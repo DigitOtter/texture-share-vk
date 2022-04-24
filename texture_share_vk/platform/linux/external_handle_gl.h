@@ -17,6 +17,7 @@ class ExternalHandleGl
 		static constexpr GLenum GL_HANDLE_TYPE = GL_HANDLE_TYPE_OPAQUE_FD_EXT;
 
 		static GLenum GetGlFormat(ExternalHandle::ImageFormat format);
+		static GLenum GetGlInternalFormat(ExternalHandle::ImageFormat format);
 		static ExternalHandle::ImageFormat GetImageFormat(GLenum gl_format);
 
 		static GLuint GetGlFormatSize(GLenum gl_format);
