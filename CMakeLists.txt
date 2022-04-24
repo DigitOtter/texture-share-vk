@@ -118,11 +118,11 @@ target_include_directories(ExternalHeader
 
 ##########################################
 ## IPC Memory Library
-add_library(IPCMemory SHARED ${IPC_MEMORY_LIB_SRC_FILES})
-add_library("${NAMESPACE_NAME}::IPCMemory" ALIAS IPCMemory)
-target_compile_options(IPCMemory PUBLIC ${TSV_COMPILE_OPTIONS})
+add_library(TSVIpcMemory SHARED ${IPC_MEMORY_LIB_SRC_FILES})
+add_library("${NAMESPACE_NAME}::TSVIpcMemory" ALIAS TSVIpcMemory)
+target_compile_options(TSVIpcMemory PUBLIC ${TSV_COMPILE_OPTIONS})
 
-target_include_directories(IPCMemory
+target_include_directories(TSVIpcMemory
 	PUBLIC
 		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
@@ -131,14 +131,13 @@ target_include_directories(IPCMemory
 	PRIVATE
 )
 
-target_link_libraries(IPCMemory
+target_link_libraries(TSVIpcMemory
 	PUBLIC
 		Boost::boost
 		Boost::date_time
 
-		"${NAMESPACE_NAME}::ExternalHeader"
-
 	PRIVATE
+		"${NAMESPACE_NAME}::ExternalHeader"
 )
 
 ##########################################
@@ -154,16 +153,18 @@ target_include_directories(${LIBRARY_NAME}
 		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
 
 	PRIVATE
+		"${NAMESPACE_NAME}::ExternalHeader"
 )
 
 target_link_libraries(${LIBRARY_NAME}
 	PUBLIC
 		Vulkan::Vulkan
 
-		"${NAMESPACE_NAME}::IPCMemory"
+		"${NAMESPACE_NAME}::TSVIpcMemory"
 
 	PRIVATE
 		vk-bootstrap::vk-bootstrap
+		"${NAMESPACE_NAME}::ExternalHeader"
 )
 
 ##########################################
@@ -180,15 +181,17 @@ target_include_directories(TextureShareOpenGL
 		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
 
 	PRIVATE
+		"${NAMESPACE_NAME}::ExternalHeader"
 )
 
 target_link_libraries(TextureShareOpenGL
 	PUBLIC
 		OpenGL::OpenGL
 
-		"${NAMESPACE_NAME}::IPCMemory"
+		"${NAMESPACE_NAME}::TSVIpcMemory"
 
 	PRIVATE
+		"${NAMESPACE_NAME}::ExternalHeader"
 )
 
 
@@ -202,7 +205,8 @@ set_target_properties(TSVDaemon PROPERTIES OUTPUT_NAME ${TSV_DAEMON_NAME})
 target_link_libraries(TSVDaemon
 	PUBLIC
 		"${NAMESPACE_NAME}::${LIBRARY_NAME}"
-		"${NAMESPACE_NAME}::IPCMemory"
+		"${NAMESPACE_NAME}::TSVIpcMemory"
+		"${NAMESPACE_NAME}::ExternalHeader"
 )
 
 
@@ -240,7 +244,8 @@ endif()
 ##########################################
 ## Install library files
 set(INSTALL_CONFIGDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
-install(TARGETS ${LIBRARY_NAME} IPCMemory ExternalHeader
+
+install(TARGETS ${LIBRARY_NAME} TSVIpcMemory TextureShareOpenGL
 	EXPORT ${LIB_EXPORT_NAME}
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -256,7 +261,7 @@ install(DIRECTORY ${HEADER_DIRECTORY} "${CMAKE_BINARY_DIR}/include/${HEADER_DIRE
 		PATTERN "*.hpp")
 
 # Export target
-install(EXPORT ${LIB_EXPORT_NAME}
+install(EXPORT ${LIB_EXPORT_NAME} 
 	DESTINATION ${INSTALL_CONFIGDIR}
 	FILE "${LIB_EXPORT_NAME}.cmake"
 	NAMESPACE "${NAMESPACE_NAME}::")
