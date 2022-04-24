@@ -83,7 +83,10 @@ IpcMemory::IpcMemory(bipc::open_or_create_t,
       _lock_data(this->_map_memory_segment.find_or_construct<IpcData>(bipc::unique_instance)(IpcData())),
       _image_map(this->_map_memory_segment.find_or_construct<shmem_map_t>(bipc::unique_instance)(ImageNameCompare(),
                                                                                                  this->_map_allocator))
-{}
+{
+	// Register process on load
+	this->SubmitWaitRegisterProcCmd();
+}
 
 IpcMemory::~IpcMemory()
 {
@@ -123,6 +126,40 @@ IpcMemory IpcMemory::CreateIpcClientAndDaemon(const std::string &ipc_cmd_memory_
 	                 ipc_cmd_memory_segment, ipc_map_memory_segment);
 }
 
+bool IpcMemory::SubmitWaitRegisterProcCmd(DaemonComm::PROC_T proc_id, uint64_t micro_sec_wait_time)
+{
+	uint32_t cmd_req_num;
+
+	// Lock cmd_request_access until command is sent
+	{
+		bipc::scoped_lock lock(this->_lock_data->cmd_request_access, bipc::try_to_lock);
+		if(!lock)
+		{
+			if(!lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
+				return false;
+		}
+
+		this->_lock_data->calling_pid = DaemonComm::GetProcId();
+		cmd_req_num = this->_lock_data->next_cmd_num++;
+
+		IpcCmdRegisterProc cmd{IPC_CMD_REGISTER_PROC, cmd_req_num};
+		cmd.proc_id = proc_id;
+
+		this->_cmd_memory_segment.send(&cmd, sizeof(cmd), IPC_QUEUE_MSG_PRIORITY_DEFAULT);
+
+		this->_lock_data->calling_pid = DaemonComm::INVALID_PROC;
+	}
+
+	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
+	while(cmd_req_num > this->_lock_data->processed_cmd_num &&
+	      std::chrono::high_resolution_clock::now() < stop_time)
+	{
+		std::this_thread::sleep_for(std::chrono::microseconds(1000));
+	}
+
+	return cmd_req_num <= this->_lock_data->processed_cmd_num;
+}
+
 bool IpcMemory::SubmitWaitImageInitCmd(const std::string &image_name,
                                        uint32_t image_width, uint32_t image_height, ExternalHandle::ImageFormat image_format, bool overwrite_existing,
                                        uint64_t micro_sec_wait_time)
@@ -138,7 +175,7 @@ bool IpcMemory::SubmitWaitImageInitCmd(const std::string &image_name,
 				return false;
 		}
 
-		this->_lock_data->calling_pid = getpid();
+		this->_lock_data->calling_pid = DaemonComm::GetProcId();
 		cmd_req_num = this->_lock_data->next_cmd_num++;
 
 		IpcCmdImageInit cmd{IPC_CMD_IMAGE_INIT, cmd_req_num};
@@ -154,7 +191,7 @@ bool IpcMemory::SubmitWaitImageInitCmd(const std::string &image_name,
 
 		this->_cmd_memory_segment.send(&cmd, sizeof(cmd), IPC_QUEUE_MSG_PRIORITY_DEFAULT);
 
-		this->_lock_data->calling_pid = -1;
+		this->_lock_data->calling_pid = DaemonComm::INVALID_PROC;
 	}
 
 	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
@@ -181,7 +218,7 @@ bool IpcMemory::SubmitWaitImageRenameCmd(const std::string &image_name, const st
 				return false;
 		}
 
-		this->_lock_data->calling_pid = getpid();
+		this->_lock_data->calling_pid = DaemonComm::GetProcId();
 		cmd_req_num = this->_lock_data->next_cmd_num++;
 
 		IpcCmdRename cmd{IPC_CMD_RENAME, cmd_req_num};
@@ -195,7 +232,7 @@ bool IpcMemory::SubmitWaitImageRenameCmd(const std::string &image_name, const st
 		strcpy(cmd.image_name_old.data(), old_image_name.c_str());
 		this->_cmd_memory_segment.send(&cmd, sizeof(cmd), IPC_QUEUE_MSG_PRIORITY_DEFAULT);
 
-		this->_lock_data->calling_pid = -1;
+		this->_lock_data->calling_pid = DaemonComm::INVALID_PROC;
 	}
 
 	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
@@ -218,7 +255,7 @@ ExternalHandle::SharedImageInfo IpcMemory::SubmitWaitExternalHandleCmd(const std
 			return ExternalHandle::SharedImageInfo{};
 	}
 
-	this->_lock_data->calling_pid = getpid();
+	this->_lock_data->calling_pid = DaemonComm::GetProcId();
 	const uint32_t cmd_req_num = this->_lock_data->next_cmd_num++;
 
 	IpcCmdRequestImageHandles cmd{IPC_CMD_HANDLE_REQUEST, cmd_req_num};
@@ -232,7 +269,7 @@ ExternalHandle::SharedImageInfo IpcMemory::SubmitWaitExternalHandleCmd(const std
 	auto img_data_it = this->_image_map->find(cmd.image_name);
 	if(img_data_it == this->_image_map->end())
 	{
-		this->_lock_data->calling_pid = -1;
+		this->_lock_data->calling_pid = DaemonComm::INVALID_PROC;
 		return ExternalHandle::SharedImageInfo{};
 	}
 
@@ -246,7 +283,7 @@ ExternalHandle::SharedImageInfo IpcMemory::SubmitWaitExternalHandleCmd(const std
 
 	if(img_data_it->second.socket_filename.front() == '\0')
 	{
-		this->_lock_data->calling_pid = -1;
+		this->_lock_data->calling_pid = DaemonComm::INVALID_PROC;
 		return ExternalHandle::SharedImageInfo{};
 	}
 
@@ -255,7 +292,7 @@ ExternalHandle::SharedImageInfo IpcMemory::SubmitWaitExternalHandleCmd(const std
 
 	img_data_it->second.socket_filename.front() = '\0';
 
-	this->_lock_data->calling_pid = -1;
+	this->_lock_data->calling_pid = DaemonComm::INVALID_PROC;
 	return img_info;
 }
 

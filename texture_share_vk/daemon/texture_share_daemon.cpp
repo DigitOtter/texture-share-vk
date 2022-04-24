@@ -27,6 +27,9 @@ int TextureShareDaemon::Loop()
 
 int TextureShareDaemon::Loop(volatile bool &run)
 {
+	auto check_proc_time = std::chrono::high_resolution_clock::now();
+	const auto check_proc_wait = std::chrono::microseconds(DEFAULT_PROC_WAIT_TIME_MICRO_S);
+
 	while(run)
 	{
 		const auto ret_val = this->_vk_memory.ProcessCmd(1 * 1000 * 1000);
@@ -35,6 +38,15 @@ int TextureShareDaemon::Loop(volatile bool &run)
 			std::cerr << "Processes command with result: " << (int)ret_val << std::endl;
 
 		this->_vk_memory.CleanupLocks();
+
+		// If no processes are connected after a specified amount of time, exit the loop
+		if(this->_vk_memory.CheckConnectedProcs())
+			check_proc_time = std::chrono::high_resolution_clock::now();
+		else if(std::chrono::high_resolution_clock::now() >= check_proc_time + check_proc_wait)
+		{
+			std::cerr << "No processes connected. Stopping daemon." << std::endl;
+			break;
+		}
 	}
 
 	return 0;

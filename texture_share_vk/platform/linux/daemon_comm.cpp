@@ -3,6 +3,7 @@
 #include "texture_share_vk/ipc_memory.h"
 #include "texture_share_vk/platform/config.h"
 
+#include <csignal>
 #include <iostream>
 #include <sys/file.h>
 #include <sys/socket.h>
@@ -89,6 +90,19 @@ union CmsgData
 	char buf[CMSG_SPACE(EXT_HANDLE_CMSG_LEN)] = {};
 	struct cmsghdr align;
 };
+
+DaemonComm::PROC_T DaemonComm::GetProcId()
+{
+	return getpid();
+}
+
+bool DaemonComm::IsProcRunning(PROC_T pid)
+{
+	if(kill(pid, 0) == 0)
+		return true;
+
+	return errno != ESRCH;
+}
 
 void DaemonComm::Daemonize(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment, uint64_t wait_time_micro_s)
 {

@@ -44,6 +44,12 @@ class DaemonComm
 
 		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 1*1000*1000;//500*1000;
 
+		using PROC_T = pid_t;
+		static constexpr PROC_T INVALID_PROC = -1;
+
+		static PROC_T GetProcId();
+		static bool IsProcRunning(PROC_T pid);
+
 		static void Daemonize(const std::string &ipc_cmd_memory_segment,
 		                      const std::string &ipc_map_memory_segment,
 		                      uint64_t wait_time_micro_s/* = DEFAULT_CMD_WAIT_TIME*/);

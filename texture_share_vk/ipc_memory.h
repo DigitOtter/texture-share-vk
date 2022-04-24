@@ -1,6 +1,7 @@
 #ifndef IPC_MEMORY_H
 #define IPC_MEMORY_H
 
+#include "texture_share_vk/platform/daemon_comm.h"
 #include "texture_share_vk/platform/platform.h"
 
 #include <boost/interprocess/allocators/allocator.hpp>
@@ -29,9 +30,17 @@ class IpcMemory
 
 		enum IpcCmdType
 		{
+			IPC_CMD_REGISTER_PROC,
 			IPC_CMD_IMAGE_INIT,
 			IPC_CMD_RENAME,
 			IPC_CMD_HANDLE_REQUEST,
+		};
+
+		struct IpcCmdRegisterProc
+		{
+			IpcCmdType cmd_type;
+			uint32_t cmd_num;
+			DaemonComm::PROC_T proc_id = DaemonComm::INVALID_PROC;
 		};
 
 		struct IpcCmdImageInit
@@ -66,7 +75,7 @@ class IpcMemory
 			boost::interprocess::interprocess_sharable_mutex map_access;
 
 			boost::interprocess::interprocess_mutex cmd_request_access;
-			pid_t calling_pid = -1;
+			DaemonComm::PROC_T calling_pid = DaemonComm::INVALID_PROC;
 			uint32_t next_cmd_num = 1;
 			uint32_t processed_cmd_num = 0;
 
@@ -103,6 +112,9 @@ class IpcMemory
 		static IpcMemory CreateIpcClientAndDaemon(const std::string &ipc_cmd_memory_segment = IpcMemory::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
 		                                          const std::string &ipc_map_memory_segment = IpcMemory::DEFAULT_IPC_MAP_MEMORY_NAME.data(),
 		                                          uint64_t wait_time_micro_s = DAEMON_STARTUP_DEFAULT_WAIT_TIME_MICRO_S);
+
+		bool SubmitWaitRegisterProcCmd(DaemonComm::PROC_T proc_id = DaemonComm::GetProcId(),
+		                               uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
 
 		bool SubmitWaitImageInitCmd(const std::string &image_name,
 		                            uint32_t image_width, uint32_t image_height, ExternalHandle::ImageFormat image_format,

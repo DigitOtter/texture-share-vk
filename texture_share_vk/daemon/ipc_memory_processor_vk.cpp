@@ -1,7 +1,6 @@
 #include "texture_share_vk/daemon/ipc_memory_processor_vk.h"
 
 #include "texture_share_vk/platform/config.h"
-#include "texture_share_vk/platform/daemon_comm.h"
 
 #include <chrono>
 #include <csignal>
@@ -77,6 +76,11 @@ char IpcMemoryProcessorVk::ProcessCmd(uint64_t micro_sec_wait_time)
 	uint32_t cmd_num = 0;
 	switch(*reinterpret_cast<const IpcCmdType*>(buffer))
 	{
+		case IPC_CMD_REGISTER_PROC:
+			ret_val = this->ProcessRegisterProcCmd(*reinterpret_cast<const IpcCmdRegisterProc*>(buffer));
+			cmd_num = reinterpret_cast<const IpcCmdRegisterProc*>(buffer)->cmd_num;
+			break;
+
 		case IPC_CMD_IMAGE_INIT:
 			ret_val = this->ProcessImageInitCmd(*reinterpret_cast<const IpcCmdImageInit*>(buffer));
 			cmd_num = reinterpret_cast<const IpcCmdImageInit*>(buffer)->cmd_num;
@@ -112,16 +116,34 @@ void IpcMemoryProcessorVk::CleanupLocks()
 	// If cmd request is still locked by another process, check other process's status
 	if(!lock)
 	{
-		if(kill(this->_lock_data->calling_pid, 0) < 0)
+		if(!DaemonComm::IsProcRunning(this->_lock_data->calling_pid))
 		{
 			// Unlock if process has died
-			if(errno == ESRCH)
-			{
-				std::cerr << "Unlocking cmd of dead process" << std::endl;
-				this->_lock_data->cmd_request_access.unlock();
-			}
+			std::cerr << "Unlocking cmd of dead process" << std::endl;
+			this->_lock_data->cmd_request_access.unlock();
 		}
 	}
+}
+
+bool IpcMemoryProcessorVk::CheckConnectedProcs()
+{
+	for(auto pid_it = this->_registered_pids.begin(); pid_it != this->_registered_pids.end();)
+	{
+		if(!DaemonComm::IsProcRunning(*pid_it))
+		{
+			this->_registered_pids.erase(pid_it++);
+		}
+		else
+			++pid_it;
+	}
+
+	return !this->_registered_pids.empty();
+}
+
+char IpcMemoryProcessorVk::ProcessRegisterProcCmd(const IpcCmdRegisterProc &ipc_cmd)
+{
+	this->_registered_pids.emplace(ipc_cmd.proc_id);
+	return 1;
 }
 
 char IpcMemoryProcessorVk::ProcessImageInitCmd(const IpcCmdImageInit &ipc_cmd)

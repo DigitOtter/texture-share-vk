@@ -7,6 +7,10 @@
 class TextureShareDaemon
 {
 		static constexpr uint64_t DEFAULT_WAIT_TIME_MICRO_S = 1000;
+
+		// If no processes are connected after a specified amount of time, exit the loop
+		static constexpr uint64_t DEFAULT_PROC_WAIT_TIME_MICRO_S = 10*1000*1000;
+
 	public:
 		TextureShareDaemon(const std::string &ipc_cmd_memory_segment = IpcMemoryProcessorVk::DEFAULT_IPC_CMD_MEMORY_NAME.data(),
 		                   const std::string &ipc_map_memory_segment = IpcMemoryProcessorVk::DEFAULT_IPC_MAP_MEMORY_NAME.data());
