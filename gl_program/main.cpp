@@ -20,22 +20,43 @@ int main(int argc, char** argv)
 
 	GLenum code;
 
-	TextureShareGlClient client;
-	client.InitImage("test_gl", 8,8, GL_RGBA);
+	const std::string img_1_name = "test_gl";
 
-	u_char dat[4] = {255,0,0,255};
-	//client.ClearImage(dat);
+	TextureShareGlClient client;
+	client.InitImage(img_1_name, 8,8, GL_RGBA);
+
+	u_char dat[4] = {255,255,0,255};
+	client.ClearImage(img_1_name, dat);
 
 	//upload to GPU texture
-	GLuint tex; // = client.SharedImageHandle().TextureId();
-	glGenTextures(1, &tex);
-	glBindTexture(GL_TEXTURE_2D, tex);
+	GLuint tex_1;
+	glGenTextures(1, &tex_1);
+	glBindTexture(GL_TEXTURE_2D, tex_1);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 8, 8, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
-	client.RecvImageBlit(tex, GL_TEXTURE_2D, {{0,0},{8,8}});
+	dat[0] = 0;
+	glClearTexImage(tex_1, 0, GL_RGBA, GL_UNSIGNED_BYTE, dat);
+	client.SendImageBlit(img_1_name, tex_1, GL_TEXTURE_2D, {{0,0},{8,8}});
 	std::cout << (code = glGetError()) << std::endl;
+
+	glFlush();
+
+	//upload to GPU texture
+	GLuint tex_2;
+	glGenTextures(1, &tex_2);
+	glBindTexture(GL_TEXTURE_2D, tex_2);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 8, 8, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+	dat[0] = 255;
+	dat[1] = 0;
+	glClearTexImage(tex_2, 0, GL_RGBA, GL_UNSIGNED_BYTE, dat);
+	client.RecvImageBlit(img_1_name, tex_2, GL_TEXTURE_2D, {{0,0}, {8,8}});
+	std::cout << (code = glGetError()) << std::endl;
+
 	glFlush();
 
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -47,7 +68,7 @@ int main(int argc, char** argv)
 
 	//clear and draw quad with texture (could be in display callback)
 	glClear(GL_COLOR_BUFFER_BIT);
-	glBindTexture(GL_TEXTURE_2D, tex);
+	glBindTexture(GL_TEXTURE_2D, tex_1);
 	glEnable(GL_TEXTURE_2D);
 	glBegin(GL_QUADS);
 	glTexCoord2i(0, 0); glVertex2i(100, 100);

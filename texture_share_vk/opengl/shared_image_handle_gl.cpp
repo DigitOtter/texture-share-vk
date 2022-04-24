@@ -59,8 +59,9 @@ void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::ShareHandles &&
 	// Use the imported memory as backing for the OpenGL texture.  The internalFormat, dimensions
 	// and mip count should match the ones used by Vulkan to create the image and determine it's memory
 	// allocation.
-	glTextureStorageMem2DEXT(this->_image_texture, 1, GL_RGBA8, width,
-	                         height, this->_mem, 0);
+	glTextureStorageMem2DEXT(this->_image_texture, 1, GL_RGBA8,
+	                         width, height,
+	                         this->_mem, 0);
 
 	this->_width = width;
 	this->_height = height;

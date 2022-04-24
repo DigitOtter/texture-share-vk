@@ -25,52 +25,110 @@ void TextureShareGlClient::InitImage(const std::string &image_name,
 	}
 
 	// Receive image info from daemon
+	if(!this->FindImage(image_name, micro_sec_wait_time))
+		throw std::runtime_error("Failed to retrieve image handles after initialization");
+}
+
+bool TextureShareGlClient::FindImage(const std::string &image_name,
+                                     uint64_t micro_sec_wait_time)
+{
+	return this->FindImageInternal(image_name, micro_sec_wait_time) != nullptr;
+}
+
+void TextureShareGlClient::SendImageBlit(const std::string &image_name,
+                                         GLuint src_texture_id, GLuint src_texture_target,
+                                         const ImageExtent &src_dimensions,
+                                         bool invert, GLuint prev_fbo,
+                                         uint64_t micro_sec_wait_time)
+{
+	SharedImageData *img_data = this->GetImageData(image_name, micro_sec_wait_time);
+	if(!img_data)
+		return;
+
+	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access, bipc::try_to_lock);
+	if(!img_lock)
+	{
+		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
+			return;
+	}
+
+	return img_data->shared_image.SendBlitImage(src_texture_id, src_texture_target, src_dimensions, invert, prev_fbo);
+}
+
+void TextureShareGlClient::RecvImageBlit(const std::string &image_name,
+                                         GLuint dst_texture_id, GLuint dst_texture_target,
+                                         const ImageExtent &dst_dimensions,
+                                         bool invert, GLuint prev_fbo,
+                                         uint64_t micro_sec_wait_time)
+{
+	SharedImageData *img_data = this->GetImageData(image_name, micro_sec_wait_time);
+	if(!img_data)
+		return;
+
+	bipc::sharable_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access, bipc::try_to_lock);
+	if(!img_lock)
+	{
+		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
+			return;
+	}
+
+	return img_data->shared_image.RecvBlitImage(dst_texture_id, dst_texture_target, dst_dimensions, invert, prev_fbo);
+}
+
+void TextureShareGlClient::ClearImage(const std::string &image_name,
+                                      const void *clear_color,
+                                      uint64_t micro_sec_wait_time)
+{
+	SharedImageData *img_data = this->GetImageData(image_name, micro_sec_wait_time);
+	if(!img_data)
+		return;
+
+	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access, bipc::try_to_lock);
+	if(!img_lock)
+	{
+		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
+			return;
+	}
+
+	return img_data->shared_image.ClearImage((u_char*)clear_color);
+}
+
+SharedImageHandleGl *TextureShareGlClient::SharedImageHandle(const std::string &image_name)
+{
+	SharedImageData *img_data = this->GetImageData(image_name);
+	return img_data != nullptr ? &img_data->shared_image : nullptr;
+}
+
+TextureShareGlClient::SharedImageData *TextureShareGlClient::FindImageInternal(const std::string &image_name,
+                                                                               uint64_t micro_sec_wait_time)
+{
+	// Receive image info from daemon
 	ExternalHandle::SharedImageInfo image_info = this->_ipc_memory.SubmitWaitExternalHandleCmd(image_name, micro_sec_wait_time);
-	sleep(1);
-	this->_shared_image.InitializeWithExternal(std::move(image_info));
+	if(image_info.handles.memory == ExternalHandle::INVALID_VALUE ||
+	        image_info.handles.ext_read == ExternalHandle::INVALID_VALUE ||
+	        image_info.handles.ext_write == ExternalHandle::INVALID_VALUE)
+		return nullptr;
+
+	auto res = this->_shared_image_data.try_emplace(image_name, SharedImageData());
+	if(!res.second)
+	{
+		// Cleanup old image data if already in memory
+		res.first->second.shared_image.Cleanup();
+	}
+
+	res.first->second.shared_image.InitializeWithExternal(std::move(image_info));
 
 	// Get image sync data
-	this->_ipc_img_data = this->_ipc_memory.GetImageData(image_name, micro_sec_wait_time);
+	res.first->second.ipc_img_data = this->_ipc_memory.GetImageData(image_name, micro_sec_wait_time);
+
+	return &res.first->second;
 }
 
-void TextureShareGlClient::SendImageBlit(GLuint src_texture_id,
-                                         GLuint src_texture_target, const ImageExtent &src_dimensions,
-                                         bool invert, GLuint prev_fbo,
-                                         uint64_t micro_sec_wait_time)
+TextureShareGlClient::SharedImageData *TextureShareGlClient::GetImageData(const std::string &image_name,
+                                                                          uint64_t micro_sec_wait_time)
 {
-	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(this->_ipc_img_data->handle_access, bipc::try_to_lock);
-	if(!img_lock)
-	{
-		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-			return;
-	}
-
-	return this->_shared_image.RecvBlitImage(src_texture_id, src_texture_target, src_dimensions, invert, prev_fbo);
-}
-
-void TextureShareGlClient::RecvImageBlit(GLuint dst_texture_id,
-                                         GLuint dst_texture_target, const ImageExtent &dst_dimensions,
-                                         bool invert, GLuint prev_fbo,
-                                         uint64_t micro_sec_wait_time)
-{
-	bipc::sharable_lock<bipc::interprocess_sharable_mutex> img_lock(this->_ipc_img_data->handle_access, bipc::try_to_lock);
-	if(!img_lock)
-	{
-		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-			return;
-	}
-
-	return this->_shared_image.RecvBlitImage(dst_texture_id, dst_texture_target, dst_dimensions, invert, prev_fbo);
-}
-
-void TextureShareGlClient::ClearImage(const void *clear_color, uint64_t micro_sec_wait_time)
-{
-	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(this->_ipc_img_data->handle_access, bipc::try_to_lock);
-	if(!img_lock)
-	{
-		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-			return;
-	}
-
-	return this->_shared_image.ClearImage((u_char*)clear_color);
+	if(auto img_it = this->_shared_image_data.find(image_name); img_it != this->_shared_image_data.end())
+		return &img_it->second;
+	else
+		return this->FindImageInternal(image_name, micro_sec_wait_time);
 }

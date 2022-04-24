@@ -124,24 +124,6 @@ void IpcMemoryProcessorVk::CleanupLocks()
 	}
 }
 
-char IpcMemoryProcessorVk::ProcessRenameCmd(const IpcCmdRename &ipc_cmd)
-{
-	if(auto old_data_it = this->_image_map->find(ipc_cmd.image_name_old); old_data_it != this->_image_map->end())
-	{
-		// If name exists, move data to new location
-		auto res = this->_image_map->emplace(ipc_cmd.image_name_new, ImageData());
-
-		res.first->second.connected_procs_count = 1;
-		res.first->second.shared_image_info = std::move(old_data_it->second.shared_image_info);
-
-		this->_image_map->erase(old_data_it);
-	}
-	else
-		return -5;
-
-	return 1;
-}
-
 char IpcMemoryProcessorVk::ProcessImageInitCmd(const IpcCmdImageInit &ipc_cmd)
 {
 	if(auto old_map_it = this->_image_map->find(ipc_cmd.image_name); old_map_it != this->_image_map->end())
@@ -171,6 +153,24 @@ char IpcMemoryProcessorVk::ProcessImageInitCmd(const IpcCmdImageInit &ipc_cmd)
 
 		this->_image_map->emplace(ipc_cmd.image_name, IpcMemory::ImageData());
 	}
+
+	return 1;
+}
+
+char IpcMemoryProcessorVk::ProcessRenameCmd(const IpcCmdRename &ipc_cmd)
+{
+	if(auto old_data_it = this->_image_map->find(ipc_cmd.image_name_old); old_data_it != this->_image_map->end())
+	{
+		// If name exists, move data to new location
+		auto res = this->_image_map->emplace(ipc_cmd.image_name_new, ImageData());
+
+		res.first->second.connected_procs_count = 1;
+		res.first->second.shared_image_info = std::move(old_data_it->second.shared_image_info);
+
+		this->_image_map->erase(old_data_it);
+	}
+	else
+		return -5;
 
 	return 1;
 }
