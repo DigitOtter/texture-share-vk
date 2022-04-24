@@ -16,7 +16,7 @@ project("${PROJECT_NAME}" VERSION 1.0.0)
 
 include(GNUInstallDirs)
 
-option(ENABLE_TESTING "Compile tests" OFF)
+option(BUILD_EXECUTABLES "Build executables" OFF)
 
 set (CMAKE_CXX_STANDARD 20)
 
@@ -81,6 +81,7 @@ set(TEST_GL_SRC_FILES
 set(TEST_SRC_FILES
 )
 
+set(TSV_COMPILE_OPTIONS $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra -Wno-missing-field-initializers>)
 
 ##########################################
 ## Configure header
@@ -88,7 +89,7 @@ set(TSV_DAEMON_NAME "SharedImagesDaemon")
 if(NOT WIN32)
 	set(TSV_DAEMON_DIR "${CMAKE_INSTALL_FULL_BINDIR}")
 	set(TSV_DAEMON_SOCKET_DIR "${CMAKE_INSTALL_FULL_RUNSTATEDIR}/${TSV_DAEMON_NAME}" CACHE PATH "Path to daemon socket directory")
-	set(TSV_DAEMON_LOCK_FILE  "${CMAKE_INSTALL_FULL_RUNSTATEDIR}/${TSV_DAEMON_NAME}/${TSV_DAEMON_NAME}.lock" CACHE FILEPATH "Daemon lock file")
+	set(TSV_DAEMON_LOCK_FILE  "/tmp/${TSV_DAEMON_NAME}.lock" CACHE FILEPATH "Daemon lock file")
 else()
 	if(SIZEOF_VOID_P_CODE IS 4)
 		set(TSV_DAEMON_DIR "${CMAKE_INSTALL_PREFIX}/bin/32bit")
@@ -104,7 +105,7 @@ configure_file("texture_share_vk/platform/config.h.in" "${CMAKE_BINARY_DIR}/incl
 ## External Header Library
 add_library(ExternalHeader STATIC ${EXTERNAL_HANDLE_LIB_SRC_FILES})
 add_library("${NAMESPACE_NAME}::ExternalHeader" ALIAS ExternalHeader)
-target_compile_options(ExternalHeader PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
+target_compile_options(ExternalHeader PUBLIC ${TSV_COMPILE_OPTIONS})
 
 target_include_directories(ExternalHeader
 	PUBLIC
@@ -119,7 +120,7 @@ target_include_directories(ExternalHeader
 ## IPC Memory Library
 add_library(IPCMemory SHARED ${IPC_MEMORY_LIB_SRC_FILES})
 add_library("${NAMESPACE_NAME}::IPCMemory" ALIAS IPCMemory)
-target_compile_options(IPCMemory PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
+target_compile_options(IPCMemory PUBLIC ${TSV_COMPILE_OPTIONS})
 
 target_include_directories(IPCMemory
 	PUBLIC
@@ -144,7 +145,7 @@ target_link_libraries(IPCMemory
 ## Vulkan Library
 add_library("${LIBRARY_NAME}" SHARED ${LIB_SRC_FILES})
 add_library("${NAMESPACE_NAME}::${LIBRARY_NAME}" ALIAS ${LIBRARY_NAME})
-target_compile_options(${LIBRARY_NAME} PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
+target_compile_options(${LIBRARY_NAME} PUBLIC ${TSV_COMPILE_OPTIONS})
 
 target_include_directories(${LIBRARY_NAME}
 	PUBLIC
@@ -170,7 +171,7 @@ target_link_libraries(${LIBRARY_NAME}
 ## OpenGL Library
 add_library(TextureShareOpenGL SHARED ${OPENGL_LIB_SRC_FILES})
 add_library("${NAMESPACE_NAME}::TextureShareOpenGL" ALIAS TextureShareOpenGL)
-target_compile_options(TextureShareOpenGL PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
+target_compile_options(TextureShareOpenGL PUBLIC ${TSV_COMPILE_OPTIONS})
 
 
 target_include_directories(TextureShareOpenGL
@@ -194,57 +195,46 @@ target_link_libraries(TextureShareOpenGL
 
 ##########################################
 ## Shared Images Daemon
-add_executable(${TSV_DAEMON_NAME} ${VK_D_SRC_FILES})
-target_compile_options(${TSV_DAEMON_NAME} PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
+add_executable(TSVDaemon ${VK_D_SRC_FILES})
+target_compile_options(TSVDaemon PUBLIC ${TSV_COMPILE_OPTIONS})
 
-target_link_libraries(${TSV_DAEMON_NAME}
+set_target_properties(TSVDaemon PROPERTIES OUTPUT_NAME ${TSV_DAEMON_NAME})
+
+target_link_libraries(TSVDaemon
 	PUBLIC
 		"${NAMESPACE_NAME}::${LIBRARY_NAME}"
 		"${NAMESPACE_NAME}::IPCMemory"
 )
 
 
-find_package(SDL2 REQUIRED)
-find_package(GLUT REQUIRED)
 
-##########################################
-## Executable
-if(NOT "${EXEC_SRC_FILES}" STREQUAL "")
-	add_executable("${EXECUTABLE_NAME}" ${EXEC_SRC_FILES})
-	target_link_libraries("${EXECUTABLE_NAME}"
-		${LIBRARY_NAME}
-		SDL2::SDL2
-		#volk::volk
-	)
-endif()
+if(BUILD_EXECUTABLES)
+	find_package(SDL2 REQUIRED)
+	find_package(GLUT REQUIRED)
 
-
-##########################################
-## Test OpenGL Image sharing
-add_executable(TestGLImageShare ${TEST_GL_SRC_FILES})
-target_compile_options(TestGLImageShare PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
-
-target_link_libraries(TestGLImageShare
-	PUBLIC
-		"${NAMESPACE_NAME}::TextureShareOpenGL"
-
-		GLUT::GLUT
-)
+	##########################################
+	## Test Vulkan Executable
+	if(NOT "${EXEC_SRC_FILES}" STREQUAL "")
+		add_executable("${EXECUTABLE_NAME}" ${EXEC_SRC_FILES})
+		target_link_libraries("${EXECUTABLE_NAME}"
+			${LIBRARY_NAME}
+			SDL2::SDL2
+			#volk::volk
+		)
+	endif()
 
 
-##########################################
-## Tests
-if(${ENABLE_TESTING} AND NOT "${TEST_SRC_FILES}" STREQUAL "")
-	enable_testing()
+	##########################################
+	## Test OpenGL Image sharing
+	add_executable(TestGLImageShare ${TEST_GL_SRC_FILES})
+	target_compile_options(TestGLImageShare PUBLIC ${TSV_COMPILE_OPTIONS})
 
-	add_executable(${TEST_NAME} ${TEST_SRC_FILES})
-	target_link_libraries(${TEST_NAME}
+	target_link_libraries(TestGLImageShare
 		PUBLIC
-	)
+			"${NAMESPACE_NAME}::TextureShareOpenGL"
 
-	gtest_discover_tests(${TEST_NAME}
-		WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
-		EXTRA_ARGS -VV)
+			GLUT::GLUT
+	)
 endif()
 
 
@@ -292,12 +282,6 @@ install(FILES	"${CMAKE_CURRENT_BINARY_DIR}/${LIB_CONFIG_NAME}.cmake"
 
 
 ##########################################
-## Install executable
-install(TARGETS ${TSV_DAEMON_NAME}
+## Install daemon
+install(TARGETS TSVDaemon
 	RUNTIME DESTINATION ${TSV_DAEMON_DIR})
-
-if(TARGET ${EXECUTABLE_NAME})
-	install(TARGETS ${EXECUTABLE_NAME}
-		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-endif()
-

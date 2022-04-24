@@ -41,15 +41,15 @@ DaemonComm::FileDesc::~FileDesc()
 	}
 }
 
-DaemonComm::LockFile::LockFile(const std::string &file)
-    : _fd(CreateLockFile(file))
+DaemonComm::LockFile::LockFile(const std::string &file, bool create_directory)
+    : _fd(CreateLockFile(file, create_directory))
 {}
 
 bool DaemonComm::LockFile::IsFileLocked(const std::string &file)
 {
 	try
 	{
-		FileDesc fd = LockFile::CreateLockFile(file);
+		FileDesc fd = LockFile::CreateLockFile(file, true);
 	}
 	catch(const std::logic_error &)
 	{
@@ -59,8 +59,13 @@ bool DaemonComm::LockFile::IsFileLocked(const std::string &file)
 	return true;
 }
 
-int DaemonComm::LockFile::CreateLockFile(const std::string &file)
+int DaemonComm::LockFile::CreateLockFile(const std::string &file, bool create_directory)
 {
+	// Create socket directory
+	if(create_directory)
+		std::filesystem::create_directories(TSV_DAEMON_SOCKET_DIR);
+
+	// Try to create and open file
 	mode_t mode = umask(0);
 
 	int fd;

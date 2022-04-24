@@ -11,14 +11,39 @@ SharedImageVk::SharedImageVk(VkDevice device)
 {}
 
 SharedImageVk::SharedImageVk(SharedImageVk &&other)
+    : device(std::move(other.device)),
+      image(std::move(other.image)),
+      memory(std::move(other.memory)),
+      size(std::move(other.size)),
+      allocationSize(std::move(other.allocationSize)),
+      sampler(std::move(other.sampler)),
+      view(std::move(other.view)),
+      image_width(std::move(other.image_width)),
+      image_height(std::move(other.image_height)),
+      image_format(std::move(other.image_format)),
+      _shared_semaphores({std::move(other._shared_semaphores.ext_read),
+                          std::move(other._shared_semaphores.ext_write)})
 {
-	memcpy(this, &other, sizeof(SharedImageVk));
 	other.device = VK_NULL_HANDLE;
 }
 
 SharedImageVk &SharedImageVk::operator=(SharedImageVk &&other)
 {
-	memcpy(this, &other, sizeof(SharedImageVk));
+	this->device = std::move(other.device);
+	this->image = std::move(other.image);
+	this->memory = std::move(other.memory);
+	this->size = std::move(other.size);
+	this->allocationSize = std::move(other.allocationSize);
+	this->sampler = std::move(other.sampler);
+	this->view = std::move(other.view);
+
+	this->image_width = std::move(other.image_width);
+	this->image_height = std::move(other.image_height);
+	this->image_format = std::move(other.image_format);
+
+	this->_shared_semaphores.ext_read = std::move(other._shared_semaphores.ext_read);
+	this->_shared_semaphores.ext_write = std::move(other._shared_semaphores.ext_write);
+
 	other.device = VK_NULL_HANDLE;
 
 	return *this;

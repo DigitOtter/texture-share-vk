@@ -32,14 +32,14 @@ class DaemonComm
 		struct LockFile
 		{
 			LockFile() = default;
-			LockFile(const std::string &file);
+			LockFile(const std::string &file, bool create_directory = false);
 
 			static bool IsFileLocked(const std::string &file);
 
 			private:
 			    FileDesc _fd;
 
-				static int CreateLockFile(const std::string &file);
+				static int CreateLockFile(const std::string &file, bool create_directory);
 		};
 
 		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 1*1000*1000;//500*1000;
