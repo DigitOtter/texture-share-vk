@@ -47,6 +47,8 @@ class VkTestImageShare
 
 		bool _is_initialized = false;
 
+		const std::string _shared_image_name = "test_vk";
+
 		VkInstance _instance;
 		VkDebugUtilsMessengerEXT _debug_messenger; // Vulkan debug output handle
 		VkPhysicalDevice _chosen_gpu; // GPU chosen as the default device

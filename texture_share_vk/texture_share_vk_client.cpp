@@ -33,7 +33,11 @@ void TextureShareVkClient::InitializeVulkan(VkInstance instance, VkDevice device
 
 void TextureShareVkClient::CleanupVulkan()
 {
-	this->_shared_image.Cleanup();
+	for(auto &img_data : this->_shared_image_data)
+	{
+		img_data.second.shared_image.Cleanup();
+	}
+	this->_shared_image_data.clear();
 
 	this->_vk_data.CleanupVulkan();
 }
@@ -52,51 +56,103 @@ void TextureShareVkClient::InitImage(const std::string &image_name,
 		throw std::runtime_error("Failed to initialize shared image");
 	}
 
+	if(!this->FindImage(image_name, micro_sec_wait_time))
+		throw std::runtime_error("Failed to retrieve image handles after initialization");
+}
+
+bool TextureShareVkClient::FindImage(const std::string &image_name, uint64_t micro_sec_wait_time)
+{
+	return this->FindImageInternal(image_name, micro_sec_wait_time) != nullptr;
+}
+
+void TextureShareVkClient::SendImageBlit(const std::string &image_name, VkImage send_image, VkImageLayout send_image_layout, VkFence fence, uint64_t micro_sec_wait_time)
+{
+	SharedImageData *img_data = this->GetImageData(image_name, micro_sec_wait_time);
+	if(!img_data)
+		return;
+
+	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access, bipc::try_to_lock);
+	if(!img_lock)
+	{
+		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
+			return;
+	}
+
+	img_data->shared_image.SendImageBlit(this->_vk_data.GraphicsQueue(), this->_vk_data.CommandBuffer(),
+	                                     send_image, send_image_layout,
+	                                     fence);
+}
+
+void TextureShareVkClient::RecvImageBlit(const std::string &image_name, VkImage recv_image, VkImageLayout recv_image_layout, VkFence fence, uint64_t micro_sec_wait_time)
+{
+	SharedImageData *img_data = this->GetImageData(image_name, micro_sec_wait_time);
+	if(!img_data)
+		return;
+
+	bipc::sharable_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access, bipc::try_to_lock);
+	if(!img_lock)
+	{
+		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
+			return;
+	}
+
+	img_data->shared_image.RecvImageBlit(this->_vk_data.GraphicsQueue(), this->_vk_data.CommandBuffer(),
+	                                     recv_image, recv_image_layout,
+	                                     fence);
+}
+
+void TextureShareVkClient::ClearImage(const std::string &image_name, VkClearColorValue clear_color, VkFence fence, uint64_t micro_sec_wait_time)
+{
+	SharedImageData *img_data = this->GetImageData(image_name, micro_sec_wait_time);
+	if(!img_data)
+		return;
+
+	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access, bipc::try_to_lock);
+	if(!img_lock)
+	{
+		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
+			return;
+	}
+
+	img_data->shared_image.ClearImage(this->_vk_data.GraphicsQueue(), this->_vk_data.CommandBuffer(),
+	                                  clear_color,
+	                                  fence);
+}
+
+SharedImageHandleVk *TextureShareVkClient::SharedImageHandle(const std::string &image_name)
+{
+	SharedImageData *img_data = this->GetImageData(image_name);
+	return img_data != nullptr ? &img_data->shared_image : nullptr;
+}
+
+TextureShareVkClient::SharedImageData *TextureShareVkClient::FindImageInternal(const std::string &image_name, uint64_t micro_sec_wait_time)
+{
+	// Receive image info from daemon
 	ExternalHandle::SharedImageInfo image_info = this->_ipc_memory.SubmitWaitExternalHandleCmd(image_name, micro_sec_wait_time);
-	sleep(1);
-	this->_shared_image = this->_vk_data.CreateImageHandle(std::move(image_info));
+	if(image_info.handles.memory == ExternalHandle::INVALID_VALUE ||
+	        image_info.handles.ext_read == ExternalHandle::INVALID_VALUE ||
+	        image_info.handles.ext_write == ExternalHandle::INVALID_VALUE)
+		return nullptr;
 
-	this->_img_data = this->_ipc_memory.GetImageData(image_name, micro_sec_wait_time);
-}
-
-void TextureShareVkClient::SendImageBlit(VkImage send_image, VkImageLayout send_image_layout, VkFence fence, uint64_t micro_sec_wait_time)
-{
-	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(this->_img_data->handle_access, bipc::try_to_lock);
-	if(!img_lock)
+	auto res = this->_shared_image_data.try_emplace(image_name, SharedImageData());
+	if(!res.second)
 	{
-		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-			return;
+		// Cleanup old image data if already in memory
+		res.first->second.shared_image.Cleanup();
 	}
 
-	this->_shared_image.SendImageBlit(this->_vk_data.GraphicsQueue(), this->_vk_data.CommandBuffer(),
-	                                  send_image, send_image_layout,
-	                                  fence);
+	res.first->second.shared_image = this->_vk_data.CreateImageHandle(std::move(image_info));
+
+	// Get image sync data
+	res.first->second.ipc_img_data = this->_ipc_memory.GetImageData(image_name, micro_sec_wait_time);
+
+	return &res.first->second;
 }
 
-void TextureShareVkClient::RecvImageBlit(VkImage recv_image, VkImageLayout recv_image_layout, VkFence fence, uint64_t micro_sec_wait_time)
+TextureShareVkClient::SharedImageData *TextureShareVkClient::GetImageData(const std::string &image_name, uint64_t micro_sec_wait_time)
 {
-	bipc::sharable_lock<bipc::interprocess_sharable_mutex> img_lock(this->_img_data->handle_access, bipc::try_to_lock);
-	if(!img_lock)
-	{
-		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-			return;
-	}
-
-	this->_shared_image.RecvImageBlit(this->_vk_data.GraphicsQueue(), this->_vk_data.CommandBuffer(),
-	                                  recv_image, recv_image_layout,
-	                                  fence);
-}
-
-void TextureShareVkClient::ClearImage(VkClearColorValue clear_color, VkFence fence, uint64_t micro_sec_wait_time)
-{
-	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(this->_img_data->handle_access, bipc::try_to_lock);
-	if(!img_lock)
-	{
-		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-			return;
-	}
-
-	this->_shared_image.ClearImage(this->_vk_data.GraphicsQueue(), this->_vk_data.CommandBuffer(),
-	                               clear_color,
-	                               fence);
+	if(auto img_it = this->_shared_image_data.find(image_name); img_it != this->_shared_image_data.end())
+		return &img_it->second;
+	else
+		return this->FindImageInternal(image_name, micro_sec_wait_time);
 }

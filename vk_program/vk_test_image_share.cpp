@@ -293,7 +293,7 @@ void VkTestImageShare::VkInitSharedImage()
 {
 	this->_shared_image_client.InitializeVulkan(this->_instance, this->_device, this->_chosen_gpu, this->_graphics_queue, this->_graphics_queue_family);
 
-	this->_shared_image_client.InitImage("test_image", this->_window_extent.width, this->_window_extent.height, VK_FORMAT_R8G8B8A8_UNORM);
+	this->_shared_image_client.InitImage(this->_shared_image_name, this->_window_extent.width, this->_window_extent.height, VK_FORMAT_R8G8B8A8_UNORM);
 
 	sleep(2);
 }
@@ -458,9 +458,9 @@ void VkTestImageShare::DrawSharedImage(VkImage swapchain_image, VkImageLayout im
 	img_clr.float32[2] = 0.0f;
 	img_clr.float32[3] = 1.0f;
 
-	this->_shared_image_client.ClearImage(img_clr, fence);
+	this->_shared_image_client.ClearImage(this->_shared_image_name, img_clr, fence);
 
-	this->_shared_image_client.RecvImageBlit(swapchain_image, image_layout, fence);
+	this->_shared_image_client.RecvImageBlit(this->_shared_image_name, swapchain_image, image_layout, fence);
 }
 
 void VkTestImageShare::Cleanup()
