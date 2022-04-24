@@ -85,7 +85,7 @@ set(TSV_COMPILE_OPTIONS $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:
 
 ##########################################
 ## Configure header
-set(TSV_DAEMON_NAME "SharedImagesDaemon")
+set(TSV_DAEMON_NAME "TSVSharedImagesDaemon")
 if(NOT WIN32)
 	set(TSV_DAEMON_DIR "${CMAKE_INSTALL_FULL_BINDIR}")
 	set(TSV_DAEMON_SOCKET_DIR "${CMAKE_INSTALL_FULL_RUNSTATEDIR}/${TSV_DAEMON_NAME}" CACHE PATH "Path to daemon socket directory")
