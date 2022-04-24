@@ -159,12 +159,11 @@ target_include_directories(${LIBRARY_NAME}
 target_link_libraries(${LIBRARY_NAME}
 	PUBLIC
 		Vulkan::Vulkan
-		vk-bootstrap::vk-bootstrap
 
 		"${NAMESPACE_NAME}::IPCMemory"
 
 	PRIVATE
-		#volk::volk
+		vk-bootstrap::vk-bootstrap
 )
 
 ##########################################
@@ -219,7 +218,7 @@ if(BUILD_EXECUTABLES)
 		target_link_libraries("${EXECUTABLE_NAME}"
 			${LIBRARY_NAME}
 			SDL2::SDL2
-			#volk::volk
+			vk-bootstrap::vk-bootstrap
 		)
 	endif()
 
@@ -261,9 +260,6 @@ install(EXPORT ${LIB_EXPORT_NAME}
 	DESTINATION ${INSTALL_CONFIGDIR}
 	FILE "${LIB_EXPORT_NAME}.cmake"
 	NAMESPACE "${NAMESPACE_NAME}::")
-
-install(EXPORT vk-bootstrap-targets
-	DESTINATION "${INSTALL_CONFIGDIR}/vk-bootstrap")
 
 # create version and config files
 include(CMakePackageConfigHelpers)
