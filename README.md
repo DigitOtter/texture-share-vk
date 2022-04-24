@@ -9,6 +9,7 @@ Library for exchanging images between running Vulkan and OpenGL processes.
 Ensure all dependencies are installed: Vulkan, Boost Interprocess, OpenGL.
 
 ```bash
+git submodule update --init --recursive
 mkdir build
 cd build
 cmake ..
