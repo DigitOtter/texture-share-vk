@@ -130,6 +130,7 @@ class IpcMemory
 		ImageData *GetImageData(const std::string &image_name, uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME) const;
 
 	protected:
+#ifdef WIN32
 		template<class T, class ...Ts>
 		static constexpr size_t MultiMax()
 		{
@@ -138,12 +139,13 @@ class IpcMemory
 			else
 			{	return sizeof(T);	}
 		}
-
-		//static constexpr size_t IPC_QUEUE_MSG_SIZE = std::max(std::max(sizeof(IpcCmdImageInit),
-		//                                                               sizeof(IpcCmdRename)),
-		//                                                               sizeof(IpcCmdRequestImageHandles));
 		static constexpr size_t IPC_QUEUE_MSG_SIZE = MultiMax<IpcCmdImageInit, IpcCmdRename,IpcCmdRequestImageHandles>();
-
+#else
+		static constexpr size_t IPC_QUEUE_MSG_SIZE = std::max(std::max(sizeof(IpcCmdImageInit),
+		                                                               sizeof(IpcCmdRename)),
+		                                                               sizeof(IpcCmdRequestImageHandles));
+#endif
+		
 		static constexpr unsigned int IPC_QUEUE_MSG_PRIORITY_DEFAULT = 50;
 
 		struct ImageNameCompare

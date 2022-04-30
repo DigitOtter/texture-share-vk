@@ -55,7 +55,7 @@ class DaemonComm
 		                      uint64_t wait_time_micro_s/* = DEFAULT_CMD_WAIT_TIME*/);
 
 		static void SendHandles(ExternalHandle::ShareHandles &&handles, const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
-		static ExternalHandle::ShareHandles RecvHandles(const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
+		static void RecvHandles(const std::filesystem::path &socket_path, ExternalHandle::ShareHandles &handles, uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME);
 
 		static LockFile CreateLockFile(const std::string &lock_file);
 		static bool CheckLockFile(const std::string &lock_file);

@@ -108,7 +108,7 @@ char IpcMemoryProcessorVk::ProcessCmd(uint64_t micro_sec_wait_time)
 
 void IpcMemoryProcessorVk::CleanupLocks()
 {
-	if(this->_lock_data->calling_pid != nullptr)
+	if(this->_lock_data->calling_pid != ExternalHandle::INVALID_VALUE)
 		return;
 
 	bipc::scoped_lock lock(this->_lock_data->cmd_request_access, bipc::try_to_lock);

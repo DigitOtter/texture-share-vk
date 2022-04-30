@@ -237,7 +237,7 @@ void DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles, const std::
 	std::this_thread::sleep_for(std::chrono::microseconds(micro_sec_wait_time));
 }
 
-ExternalHandle::ShareHandles DaemonComm::RecvHandles(const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time)
+void DaemonComm::RecvHandles(const std::filesystem::path &socket_path, ExternalHandle::ShareHandles &handles, uint64_t micro_sec_wait_time)
 {
 	// Create non-blocking socket
 	FileDesc conn_fd = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
@@ -311,12 +311,9 @@ ExternalHandle::ShareHandles DaemonComm::RecvHandles(const std::filesystem::path
 	}
 
 	const int *rec_fd = (const int*)CMSG_DATA(cmsgp);
-	ExternalHandle::ShareHandles handles;
 	handles.memory = rec_fd[0];
 	handles.ext_read = rec_fd[1];
 	handles.ext_write = rec_fd[2];
-
-	return handles;
 }
 
 DaemonComm::LockFile DaemonComm::CreateLockFile(const std::string &lock_file)
