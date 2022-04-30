@@ -108,7 +108,7 @@ char IpcMemoryProcessorVk::ProcessCmd(uint64_t micro_sec_wait_time)
 
 void IpcMemoryProcessorVk::CleanupLocks()
 {
-	if(this->_lock_data->calling_pid <= 0)
+	if(this->_lock_data->calling_pid != nullptr)
 		return;
 
 	bipc::scoped_lock lock(this->_lock_data->cmd_request_access, bipc::try_to_lock);
@@ -215,7 +215,8 @@ char IpcMemoryProcessorVk::ProcessHandleRequestCmd(const IpcCmdRequestImageHandl
 
 	// Share socket filename
 	const std::filesystem::path sock_filename = std::filesystem::path(TSV_DAEMON_SOCKET_DIR) / ipc_cmd.image_name.data();
-	strncpy(map_data->second.socket_filename.data(), sock_filename.c_str(), map_data->second.socket_filename.size());
+	const std::string sock_name = sock_filename.string();
+	strncpy(map_data->second.socket_filename.data(), sock_name.c_str(), map_data->second.socket_filename.size());
 
 	// Send handles
 	DaemonComm::SendHandles(std::move(handles), sock_filename);

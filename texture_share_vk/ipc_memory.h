@@ -4,6 +4,8 @@
 #include "texture_share_vk/platform/daemon_comm.h"
 #include "texture_share_vk/platform/platform.h"
 
+#include <algorithm>
+#include <array>
 #include <boost/interprocess/allocators/allocator.hpp>
 #include <boost/interprocess/containers/map.hpp>
 #include <boost/interprocess/ipc/message_queue.hpp>
@@ -132,14 +134,15 @@ class IpcMemory
 		static constexpr size_t MultiMax()
 		{
 			if constexpr (sizeof...(Ts) > 0)
-			{	return std::max(sizeof(T), MultiMax<Ts...>());	}
+			{	return sizeof(T) > MultiMax<Ts...>() ? sizeof(T) : MultiMax<Ts...>();	}
 			else
 			{	return sizeof(T);	}
 		}
 
-		static constexpr size_t IPC_QUEUE_MSG_SIZE = std::max(std::max(sizeof(IpcCmdImageInit),
-		                                                               sizeof(IpcCmdRename)),
-		                                                               sizeof(IpcCmdRequestImageHandles));
+		//static constexpr size_t IPC_QUEUE_MSG_SIZE = std::max(std::max(sizeof(IpcCmdImageInit),
+		//                                                               sizeof(IpcCmdRename)),
+		//                                                               sizeof(IpcCmdRequestImageHandles));
+		static constexpr size_t IPC_QUEUE_MSG_SIZE = MultiMax<IpcCmdImageInit, IpcCmdRename,IpcCmdRequestImageHandles>();
 
 		static constexpr unsigned int IPC_QUEUE_MSG_PRIORITY_DEFAULT = 50;
 

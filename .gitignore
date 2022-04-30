@@ -1,2 +1,9 @@
 /build*
 CMakeLists.txt.*
+
+.vs
+CMakeSettings.json
+/*.lib
+/*.pdb
+/out
+/GL

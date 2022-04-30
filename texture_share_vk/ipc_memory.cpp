@@ -288,7 +288,7 @@ ExternalHandle::SharedImageInfo IpcMemory::SubmitWaitExternalHandleCmd(const std
 	}
 
 	ExternalHandle::SharedImageInfo img_info = std::move(img_data_it->second.shared_image_info);
-	img_info.handles = DaemonComm::RecvHandles(img_data_it->second.socket_filename.data());
+	DaemonComm::RecvHandles(img_data_it->second.socket_filename.data(), img_info.handles);
 
 	img_data_it->second.socket_filename.front() = '\0';
 

@@ -15,14 +15,25 @@ cmake_minimum_required(VERSION 3.18)
 project("${PROJECT_NAME}" VERSION 1.0.0)
 
 include(GNUInstallDirs)
+include(CheckTypeSize)
 
 option(BUILD_EXECUTABLES "Build executables" OFF)
 
 set (CMAKE_CXX_STANDARD 20)
 
 find_package(Vulkan REQUIRED)
-find_package(Boost REQUIRED COMPONENTS date_time)
 find_package(OpenGL REQUIRED)
+
+if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+	#set(BOOST_INCLUDE_DIR "C:\\SDKs\\boost\\" CACHE PATH "Boost Include Directory")
+	#set(BOOST_LIBRARY_DIR "C:\\SDKs\\boost\\lib64-msvc-12.0" CACHE PATH "Boost Library Directory")
+	#set(BOOST_ROOT       "C:\\SDKs\\boost\\boost" CACHE PATH "Boost Directory")
+	#set(Boost_COMPILER "-vc")
+	set(Boost_USE_STATIC_RUNTIME ON)
+    set(Boost_DEBUG ON)
+endif()
+
+find_package(Boost REQUIRED COMPONENTS date_time)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -82,6 +93,8 @@ set(TEST_SRC_FILES
 )
 
 set(TSV_COMPILE_OPTIONS $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra -Wno-missing-field-initializers>)
+check_type_size("void*" SIZEOF_VOID_P BUILTIN_TYPES_ONLY)
+
 
 ##########################################
 ## Configure header
@@ -91,11 +104,13 @@ if(NOT WIN32)
 	set(TSV_DAEMON_SOCKET_DIR "${CMAKE_INSTALL_FULL_RUNSTATEDIR}/${TSV_DAEMON_NAME}" CACHE PATH "Path to daemon socket directory")
 	set(TSV_DAEMON_LOCK_FILE  "/tmp/${TSV_DAEMON_NAME}.lock" CACHE FILEPATH "Daemon lock file")
 else()
-	if(SIZEOF_VOID_P_CODE IS 4)
+	if(${SIZEOF_VOID_P_CODE} EQUAL 4)
 		set(TSV_DAEMON_DIR "${CMAKE_INSTALL_PREFIX}/bin/32bit")
 	else()
 		set(TSV_DAEMON_DIR "${CMAKE_INSTALL_PREFIX}/bin/64bit")
 	endif()
+	set(TSV_DAEMON_SOCKET_DIR "~/.${TSV_DAEMON_NAME}" CACHE PATH "Path to daemon socket directory")
+	set(TSV_DAEMON_LOCK_FILE  "~/.${TSV_DAEMON_NAME}/${TSV_DAEMON_NAME}.lock" CACHE FILEPATH "Daemon lock file")
 endif()
 
 configure_file("texture_share_vk/platform/config.h.in" "${CMAKE_BINARY_DIR}/include/texture_share_vk/platform/config.h" @ONLY)
@@ -111,7 +126,7 @@ target_include_directories(ExternalHeader
 	PUBLIC
 		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
+		"$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
 
 	PRIVATE
 )
@@ -126,7 +141,7 @@ target_include_directories(TSVIpcMemory
 	PUBLIC
 		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
+		"$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
 
 	PRIVATE
 )
@@ -150,7 +165,7 @@ target_include_directories(${LIBRARY_NAME}
 	PUBLIC
 		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
+		"$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
 
 	PRIVATE
 		"${NAMESPACE_NAME}::ExternalHeader"
@@ -178,7 +193,7 @@ target_include_directories(TextureShareOpenGL
 	PUBLIC
 		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
+		"$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
 
 	PRIVATE
 		"${NAMESPACE_NAME}::ExternalHeader"
@@ -186,7 +201,7 @@ target_include_directories(TextureShareOpenGL
 
 target_link_libraries(TextureShareOpenGL
 	PUBLIC
-		OpenGL::OpenGL
+		OpenGL::GL
 
 		"${NAMESPACE_NAME}::TSVIpcMemory"
 
