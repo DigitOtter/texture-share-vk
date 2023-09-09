@@ -1,2 +1,6 @@
 /build*
 CMakeLists.txt.*
+
+/.cache
+/.clang-format
+/compile_commands.json
