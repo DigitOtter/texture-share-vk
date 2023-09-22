@@ -92,11 +92,14 @@ if(NOT WIN32)
 	set(TSV_DAEMON_SOCKET_DIR "${CMAKE_INSTALL_FULL_RUNSTATEDIR}/${TSV_DAEMON_NAME}" CACHE PATH "Path to daemon socket directory")
 	set(TSV_DAEMON_LOCK_FILE  "/tmp/${TSV_DAEMON_NAME}.lock" CACHE FILEPATH "Daemon lock file")
 else()
-	if(SIZEOF_VOID_P_CODE IS 4)
+	if(SIZEOF_VOID_P_CODE EQUAL "4")
 		set(TSV_DAEMON_DIR "${CMAKE_INSTALL_PREFIX}/bin/32bit")
 	else()
 		set(TSV_DAEMON_DIR "${CMAKE_INSTALL_PREFIX}/bin/64bit")
 	endif()
+
+	set(TSV_DAEMON_SOCKET_DIR "${TSV_DAEMON_NAME}" CACHE PATH "Path to daemon socket directory")
+	set(TSV_DAEMON_LOCK_FILE  "${TSV_DAEMON_NAME}.lock" CACHE FILEPATH "Daemon lock file")
 endif()
 
 configure_file("texture_share_vk/platform/config.h.in" "${CMAKE_BINARY_DIR}/include/texture_share_vk/platform/config.h" @ONLY)
@@ -174,7 +177,6 @@ add_library(TextureShareOpenGL SHARED ${OPENGL_LIB_SRC_FILES})
 add_library("${NAMESPACE_NAME}::TextureShareOpenGL" ALIAS TextureShareOpenGL)
 target_compile_options(TextureShareOpenGL PUBLIC ${TSV_COMPILE_OPTIONS})
 
-
 target_include_directories(TextureShareOpenGL
 	PUBLIC
 	    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
@@ -187,8 +189,8 @@ target_include_directories(TextureShareOpenGL
 
 target_link_libraries(TextureShareOpenGL
 	PUBLIC
-	    OpenGL::OpenGL
-		OpenGL::GLX
+	    OpenGL::GL
+		#OpenGL::GLX
 
 		"${NAMESPACE_NAME}::TSVIpcMemory"
 
@@ -221,6 +223,7 @@ if(BUILD_EXECUTABLES)
 	## Test Vulkan Executable
 	if(NOT "${EXEC_SRC_FILES}" STREQUAL "")
 		add_executable("${EXECUTABLE_NAME}" ${EXEC_SRC_FILES})
+
 		target_link_libraries("${EXECUTABLE_NAME}"
 			${LIBRARY_NAME}
 			SDL2::SDL2
