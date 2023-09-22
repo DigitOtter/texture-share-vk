@@ -114,7 +114,7 @@ void SharedImageVk::Initialize(VkDevice device, VkPhysicalDevice physical_device
 	VkImageViewCreateInfo viewCreateInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
 	viewCreateInfo.viewType         = VK_IMAGE_VIEW_TYPE_2D;
 	viewCreateInfo.image            = this->image;
-	viewCreateInfo.format           = VK_FORMAT_R8G8B8A8_UNORM;
+	viewCreateInfo.format           = image_format;
 	viewCreateInfo.subresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1,
 	                                                          0, 1};
 	vkCreateImageView(device, &viewCreateInfo, nullptr, &this->view);
@@ -122,29 +122,27 @@ void SharedImageVk::Initialize(VkDevice device, VkPhysicalDevice physical_device
 
 void SharedImageVk::InitializeImageLayout(VkDevice device, VkQueue queue, VkCommandBuffer command_buffer)
 {
-	VkHelpers::ImmediateSubmit(device, queue, command_buffer,
-	            [&](VkCommandBuffer image_command_buffer) {
-		VkImageMemoryBarrier image_memory_barrier  = VkHelpers::CreateImageMemoryBarrier();
-		image_memory_barrier.image                 = this->image;
-		image_memory_barrier.srcAccessMask         = 0;
-		image_memory_barrier.dstAccessMask         = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		image_memory_barrier.oldLayout             = VK_IMAGE_LAYOUT_UNDEFINED;
-		image_memory_barrier.newLayout             = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL; //VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		VkImageSubresourceRange &subresource_range = image_memory_barrier.subresourceRange;
-		subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
-		subresource_range.levelCount               = 1;
-		subresource_range.layerCount               = 1;
+	VkHelpers::ImmediateSubmit(
+		device, queue, command_buffer,
+		[&](VkCommandBuffer image_command_buffer) {
+			VkImageMemoryBarrier image_memory_barrier  = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+			image_memory_barrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
+			image_memory_barrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
+			image_memory_barrier.image                 = this->image;
+			image_memory_barrier.srcAccessMask         = VK_ACCESS_NONE;
+			image_memory_barrier.dstAccessMask         = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			image_memory_barrier.oldLayout             = VK_IMAGE_LAYOUT_UNDEFINED;
+			image_memory_barrier.newLayout             = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+			VkImageSubresourceRange &subresource_range = image_memory_barrier.subresourceRange;
+			subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+			subresource_range.levelCount               = 1;
+			subresource_range.layerCount               = 1;
 
-		vkCmdPipelineBarrier(
-		    image_command_buffer,
-		    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-		    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		    0,
-		    0, nullptr,
-		    0, nullptr,
-		    1, &image_memory_barrier);
-	},
-	this->_shared_semaphores.ext_write);
+			vkCmdPipelineBarrier(image_command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+		                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1,
+		                         &image_memory_barrier);
+		},
+		this->_shared_semaphores.ext_write);
 }
 
 ExternalHandle::ShareHandles SharedImageVk::ExportHandles()

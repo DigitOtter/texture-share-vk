@@ -44,7 +44,7 @@ class VkHelpers
 	static VkCommandBuffer CreateCommandBuffer(VkDevice device, VkCommandPool command_pool);
 	static void CleanupCommandBuffer(VkDevice device, VkCommandPool command_pool, VkCommandBuffer command_buffer);
 
-	static VkImageMemoryBarrier CreateImageMemoryBarrier();
+	static VkCommandBufferBeginInfo CommandBufferBeginInfoSingleUse();
 
 	static void ImmediateSubmit(VkDevice device, VkQueue queue, VkCommandBuffer command_buffer,
 	                            const std::function<void(VkCommandBuffer command_buffer)> &f,
@@ -55,8 +55,6 @@ class VkHelpers
 	                            VkSemaphore *wait_semaphores, uint32_t wait_semaphore_count,
 	                            VkSemaphore *signal_semaphores, uint32_t signal_semaphore_count);
 
-	static void CmdClearColorImage(VkCommandBuffer command_buffer, VkImage image, const VkClearColorValue &color_value,
-	                               VkImageLayout image_layout);
 	static void CmdPipelineMemoryBarrierColorImage(
 		VkCommandBuffer command_buffer, VkImage image, VkImageLayout old_layout, VkImageLayout new_layout,
 		VkAccessFlagBits src_access_mask, VkAccessFlagBits dst_access_mask,

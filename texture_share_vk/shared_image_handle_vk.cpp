@@ -116,111 +116,55 @@ void SharedImageHandleVk::SendImageBlit(VkQueue graphics_queue, VkCommandBuffer 
                                         VkImageLayout send_image_layout, VkFence fence,
                                         const VkOffset3D send_image_extent[2])
 {
-	const auto f = [&]() {
-		constexpr VkImageLayout send_image_target_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-		if(send_image_layout != send_image_target_layout)
-		{
-			VkHelpers::CmdPipelineMemoryBarrierColorImage(command_buffer, this->_image, this->_image_layout,
-			                                              send_image_target_layout, VK_ACCESS_NONE,
-			                                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-		}
+	// naming it cmd for shorter writing
+	VkCommandBuffer cmd = command_buffer;
+	VkCommandBufferBeginInfo cmd_begin_info = VkHelpers::CommandBufferBeginInfoSingleUse();
 
-		this->SendImageBlitCmd(command_buffer, send_image, send_image_target_layout, send_image_extent);
+	VK_CHECK(vkBeginCommandBuffer(cmd, &cmd_begin_info));
 
-		if(send_image_layout != send_image_target_layout)
-		{
-			VkHelpers::CmdPipelineMemoryBarrierColorImage(command_buffer, this->_image, this->_image_layout,
-			                                              send_image_layout, VK_ACCESS_NONE,
-			                                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-		}
-	};
+	VkImageMemoryBarrier mem_barriers[2] = {{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER},
+	                                        {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER}};
 
-	this->TransceiveImageRecordCmdBuf(command_buffer,
-	                                  // send_image, send_image_layout,
-	                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, f);
+	constexpr VkImageLayout shared_image_requested_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	constexpr VkImageLayout target_image_requested_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-	// Wait until all read and write operations have completed before writing new images
-	VkSemaphore wait_semaphores[] = {this->_semaphore_read, this->_semaphore_write};
-	this->SubmitCommandBuffer(graphics_queue, command_buffer, wait_semaphores, 2, &this->_semaphore_write, 1, fence);
-}
+	// Image memory barrier before entering VK_PIPELINE_STAGE_TRANSFER_BIT
+	{
+		VkImageMemoryBarrier &shared_img_mem_barrier          = mem_barriers[0];
+		shared_img_mem_barrier.image                          = this->_image;
+		shared_img_mem_barrier.srcAccessMask                  = VK_ACCESS_NONE;
+		shared_img_mem_barrier.dstAccessMask                  = VK_ACCESS_TRANSFER_WRITE_BIT;
+		shared_img_mem_barrier.oldLayout                      = this->_image_layout;
+		shared_img_mem_barrier.newLayout                      = shared_image_requested_layout;
+		shared_img_mem_barrier.srcQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		shared_img_mem_barrier.dstQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		VkImageSubresourceRange &shared_img_subresource_range = shared_img_mem_barrier.subresourceRange;
+		shared_img_subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+		shared_img_subresource_range.levelCount               = 1;
+		shared_img_subresource_range.layerCount               = 1;
 
-void SharedImageHandleVk::RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage recv_image,
-                                        VkImageLayout recv_image_layout, VkFence fence)
-{
-	const VkOffset3D dstOffset[2] = {
-		{0,								  0,								   0},
-		{static_cast<int32_t>(this->_width), static_cast<int32_t>(this->_height), 1}
-    };
+		VkImageMemoryBarrier &target_img_mem_barrier          = mem_barriers[1];
+		target_img_mem_barrier.image                          = send_image;
+		target_img_mem_barrier.srcAccessMask                  = VK_ACCESS_NONE;
+		target_img_mem_barrier.dstAccessMask                  = VK_ACCESS_TRANSFER_READ_BIT;
+		target_img_mem_barrier.oldLayout                      = send_image_layout;
+		target_img_mem_barrier.newLayout                      = target_image_requested_layout;
+		target_img_mem_barrier.srcQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		target_img_mem_barrier.dstQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		VkImageSubresourceRange &target_img_subresource_range = target_img_mem_barrier.subresourceRange;
+		target_img_subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+		target_img_subresource_range.levelCount               = 1;
+		target_img_subresource_range.layerCount               = 1;
 
-	return this->RecvImageBlit(graphics_queue, command_buffer, recv_image, recv_image_layout, fence, dstOffset);
-}
+		vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
+		                     nullptr, 0, nullptr, 2, mem_barriers);
+	}
 
-void SharedImageHandleVk::RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage recv_image,
-                                        VkImageLayout recv_image_layout, VkFence fence,
-                                        const VkOffset3D recv_image_extent[2])
-{
-	const auto f = [&]() {
-		constexpr VkImageLayout recv_image_target_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		if(recv_image_layout != recv_image_target_layout)
-		{
-			VkHelpers::CmdPipelineMemoryBarrierColorImage(command_buffer, this->_image, this->_image_layout,
-			                                              recv_image_target_layout, VK_ACCESS_NONE,
-			                                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-		}
-
-		this->ReceiveImageBlitCmd(command_buffer, recv_image, recv_image_target_layout, recv_image_extent);
-
-		if(recv_image_layout != recv_image_target_layout)
-		{
-			VkHelpers::CmdPipelineMemoryBarrierColorImage(command_buffer, this->_image, this->_image_layout,
-			                                              recv_image_layout, VK_ACCESS_NONE,
-			                                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-		}
-	};
-
-	this->TransceiveImageRecordCmdBuf(command_buffer,
-	                                  // recv_image, recv_image_layout,
-	                                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, f);
-
-	// Wait until write operation has completed before reading
-	this->SubmitCommandBuffer(graphics_queue, command_buffer, &this->_semaphore_write, 1, &this->_semaphore_read, 1,
-	                          fence);
-}
-
-void SharedImageHandleVk::ClearImage(VkQueue graphics_queue, VkCommandBuffer command_buffer,
-                                     VkClearColorValue clear_color, VkFence fence)
-{
-	const auto f = [&]() { this->ClearImageCmd(command_buffer, clear_color); };
-
-	this->TransceiveImageRecordCmdBuf(command_buffer,
-	                                  // recv_image, recv_image_layout,
-	                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, f);
-
-	// Wait until all read and write operations have completed before writing new images
-	VkSemaphore wait_semaphores[] = {this->_semaphore_read, this->_semaphore_write};
-	this->SubmitCommandBuffer(graphics_queue, command_buffer, wait_semaphores,
-	                          sizeof(wait_semaphores) / sizeof(wait_semaphores[0]), &this->_semaphore_write, 1, fence);
-}
-
-void SharedImageHandleVk::SendImageBlitCmd(VkCommandBuffer command_buffer, VkImage send_image,
-                                           VkImageLayout send_image_layout)
-{
-	const VkOffset3D srcOffset[2] = {
-		{0,								  0,								   0},
-		{static_cast<int32_t>(this->_width), static_cast<int32_t>(this->_height), 1}
-    };
-
-	return this->SendImageBlitCmd(command_buffer, send_image, send_image_layout, srcOffset);
-}
-
-void SharedImageHandleVk::SendImageBlitCmd(VkCommandBuffer command_buffer, VkImage send_image,
-                                           VkImageLayout send_image_layout, const VkOffset3D send_image_extent[2])
-{
 	VkImageBlit region{};
 	region.srcSubresource = CreateColorSubresourceLayer();
 	region.dstSubresource = CreateColorSubresourceLayer();
 
-	memcpy(region.srcOffsets, send_image_extent, sizeof(VkOffset3D[2]));
+	memcpy(&region.srcOffsets, send_image_extent, 2 * sizeof(VkOffset3D));
 
 	region.dstOffsets[0].x = 0;
 	region.dstOffsets[0].y = 0;
@@ -230,24 +174,138 @@ void SharedImageHandleVk::SendImageBlitCmd(VkCommandBuffer command_buffer, VkIma
 	region.dstOffsets[1].y = this->_height;
 	region.dstOffsets[1].z = 1;
 
-	vkCmdBlitImage(command_buffer, send_image, send_image_layout, this->_image, this->_image_layout, 1, &region,
-	               VK_FILTER_NEAREST);
+	vkCmdBlitImage(command_buffer, send_image, target_image_requested_layout, this->_image,
+	               shared_image_requested_layout, 1, &region, VK_FILTER_NEAREST);
+
+	// Image memory barrier after exiting VK_PIPELINE_STAGE_TRANSFER_BIT
+	{
+		VkImageMemoryBarrier &shared_img_mem_barrier          = mem_barriers[0];
+		shared_img_mem_barrier.image                          = this->_image;
+		shared_img_mem_barrier.srcAccessMask                  = VK_ACCESS_TRANSFER_WRITE_BIT;
+		shared_img_mem_barrier.dstAccessMask                  = VK_ACCESS_NONE;
+		shared_img_mem_barrier.oldLayout                      = shared_image_requested_layout;
+		shared_img_mem_barrier.newLayout                      = this->_image_layout;
+		shared_img_mem_barrier.srcQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		shared_img_mem_barrier.dstQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		VkImageSubresourceRange &shared_img_subresource_range = shared_img_mem_barrier.subresourceRange;
+		shared_img_subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+		shared_img_subresource_range.levelCount               = 1;
+		shared_img_subresource_range.layerCount               = 1;
+
+		VkImageMemoryBarrier &target_img_mem_barrier          = mem_barriers[1];
+		target_img_mem_barrier.image                          = send_image;
+		target_img_mem_barrier.srcAccessMask                  = VK_ACCESS_TRANSFER_READ_BIT;
+		target_img_mem_barrier.dstAccessMask                  = VK_ACCESS_NONE;
+		target_img_mem_barrier.oldLayout                      = target_image_requested_layout;
+		target_img_mem_barrier.newLayout                      = send_image_layout;
+		target_img_mem_barrier.srcQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		target_img_mem_barrier.dstQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		VkImageSubresourceRange &target_img_subresource_range = target_img_mem_barrier.subresourceRange;
+		target_img_subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+		target_img_subresource_range.levelCount               = 1;
+		target_img_subresource_range.layerCount               = 1;
+
+		vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0,
+		                     nullptr, 0, nullptr, 2, mem_barriers);
+	}
+
+	VK_CHECK(vkEndCommandBuffer(cmd));
+
+	// prepare the submission to the queue.
+	// we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
+	// we will signal the _renderSemaphore, to signal that rendering has finished
+
+	VkSubmitInfo submit = {};
+	submit.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submit.pNext        = nullptr;
+
+	// VkPipelineStageFlags wait_stage[] = {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT};
+	// submit.pWaitDstStageMask          = wait_stage;
+
+	//	VkSemaphore wait_semaphores[] = {this->_semaphore_read, this->_semaphore_write};
+	//	submit.waitSemaphoreCount     = 2;
+	//	submit.pWaitSemaphores        = wait_semaphores;
+
+	//	VkSemaphore signal_semaphores[] = {this->_semaphore_write};
+	//	submit.signalSemaphoreCount     = submit.waitSemaphoreCount;
+	//	submit.pSignalSemaphores        = submit.pWaitSemaphores;
+
+	submit.commandBufferCount = 1;
+	submit.pCommandBuffers    = &command_buffer;
+
+	// submit command buffer to the queue and execute it.
+	//  if set, fence may block until the graphic commands finish execution
+	VK_CHECK(vkQueueSubmit(graphics_queue, 1, &submit, fence));
+
+	// Wait for the fence to signal that command buffer has finished executing
+	if(fence != VK_NULL_HANDLE)
+	{
+		VK_CHECK(vkWaitForFences(this->_device, 1, &fence, VK_TRUE, VkHelpers::DEFAULT_FENCE_TIMEOUT));
+		VK_CHECK(vkResetFences(this->_device, 1, &fence));
+	}
 }
 
-void SharedImageHandleVk::ReceiveImageBlitCmd(VkCommandBuffer command_buffer, VkImage recv_image,
-                                              VkImageLayout recv_image_layout)
+void SharedImageHandleVk::RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage recv_image,
+                                        VkImageLayout pre_recv_image_layout, VkImageLayout post_recv_image_layout,
+                                        VkFence fence)
 {
 	const VkOffset3D dstOffset[2] = {
 		{0,								  0,								   0},
 		{static_cast<int32_t>(this->_width), static_cast<int32_t>(this->_height), 1}
     };
 
-	return this->ReceiveImageBlitCmd(command_buffer, recv_image, recv_image_layout, dstOffset);
+	return this->RecvImageBlit(graphics_queue, command_buffer, recv_image, pre_recv_image_layout,
+	                           post_recv_image_layout, fence, dstOffset);
 }
 
-void SharedImageHandleVk::ReceiveImageBlitCmd(VkCommandBuffer command_buffer, VkImage recv_image,
-                                              VkImageLayout recv_image_layout, const VkOffset3D recv_image_extent[2])
+void SharedImageHandleVk::RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage recv_image,
+                                        VkImageLayout pre_recv_image_layout, VkImageLayout post_recv_image_layout,
+                                        VkFence fence, const VkOffset3D recv_image_extent[2])
 {
+	// naming it cmd for shorter writing
+	VkCommandBuffer cmd = command_buffer;
+	VkCommandBufferBeginInfo cmd_begin_info = VkHelpers::CommandBufferBeginInfoSingleUse();
+
+	VK_CHECK(vkBeginCommandBuffer(cmd, &cmd_begin_info));
+
+	VkImageMemoryBarrier mem_barriers[2] = {{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER},
+	                                        {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER}};
+
+	constexpr VkImageLayout shared_image_requested_layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	constexpr VkImageLayout target_image_requested_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+	// Image memory barrier before entering VK_PIPELINE_STAGE_TRANSFER_BIT
+	{
+		VkImageMemoryBarrier &shared_img_mem_barrier          = mem_barriers[0];
+		shared_img_mem_barrier.image                          = this->_image;
+		shared_img_mem_barrier.srcAccessMask                  = VK_ACCESS_NONE;
+		shared_img_mem_barrier.dstAccessMask                  = VK_ACCESS_TRANSFER_READ_BIT;
+		shared_img_mem_barrier.oldLayout                      = this->_image_layout;
+		shared_img_mem_barrier.newLayout                      = shared_image_requested_layout;
+		shared_img_mem_barrier.srcQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		shared_img_mem_barrier.dstQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		VkImageSubresourceRange &shared_img_subresource_range = shared_img_mem_barrier.subresourceRange;
+		shared_img_subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+		shared_img_subresource_range.levelCount               = 1;
+		shared_img_subresource_range.layerCount               = 1;
+
+		VkImageMemoryBarrier &target_img_mem_barrier          = mem_barriers[1];
+		target_img_mem_barrier.image                          = recv_image;
+		target_img_mem_barrier.srcAccessMask                  = VK_ACCESS_NONE;
+		target_img_mem_barrier.dstAccessMask                  = VK_ACCESS_TRANSFER_WRITE_BIT;
+		target_img_mem_barrier.oldLayout                      = pre_recv_image_layout;
+		target_img_mem_barrier.newLayout                      = target_image_requested_layout;
+		target_img_mem_barrier.srcQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		target_img_mem_barrier.dstQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		VkImageSubresourceRange &target_img_subresource_range = target_img_mem_barrier.subresourceRange;
+		target_img_subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+		target_img_subresource_range.levelCount               = 1;
+		target_img_subresource_range.layerCount               = 1;
+
+		vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
+		                     nullptr, 0, nullptr, 2, mem_barriers);
+	}
+
 	VkImageBlit region{};
 	region.srcSubresource = CreateColorSubresourceLayer();
 	region.dstSubresource = CreateColorSubresourceLayer();
@@ -260,15 +318,172 @@ void SharedImageHandleVk::ReceiveImageBlitCmd(VkCommandBuffer command_buffer, Vk
 	region.srcOffsets[1].y = this->_height;
 	region.srcOffsets[1].z = 1;
 
-	memcpy(region.dstOffsets, recv_image_extent, sizeof(VkOffset3D[2]));
+	memcpy(&region.dstOffsets, recv_image_extent, 2 * sizeof(VkOffset3D));
 
-	vkCmdBlitImage(command_buffer, this->_image, this->_image_layout, recv_image, recv_image_layout, 1, &region,
-	               VK_FILTER_NEAREST);
+	vkCmdBlitImage(command_buffer, this->_image, shared_image_requested_layout, recv_image,
+	               target_image_requested_layout, 1, &region, VK_FILTER_NEAREST);
+
+	// Image memory barrier after exiting VK_PIPELINE_STAGE_TRANSFER_BIT
+	{
+		VkImageMemoryBarrier &shared_img_mem_barrier          = mem_barriers[0];
+		shared_img_mem_barrier.image                          = this->_image;
+		shared_img_mem_barrier.srcAccessMask                  = VK_ACCESS_TRANSFER_READ_BIT;
+		shared_img_mem_barrier.dstAccessMask                  = VK_ACCESS_NONE;
+		shared_img_mem_barrier.oldLayout                      = shared_image_requested_layout;
+		shared_img_mem_barrier.newLayout                      = this->_image_layout;
+		shared_img_mem_barrier.srcQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		shared_img_mem_barrier.dstQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		VkImageSubresourceRange &shared_img_subresource_range = shared_img_mem_barrier.subresourceRange;
+		shared_img_subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+		shared_img_subresource_range.levelCount               = 1;
+		shared_img_subresource_range.layerCount               = 1;
+
+		VkImageMemoryBarrier &target_img_mem_barrier          = mem_barriers[1];
+		target_img_mem_barrier.image                          = recv_image;
+		target_img_mem_barrier.srcAccessMask                  = VK_ACCESS_TRANSFER_WRITE_BIT;
+		target_img_mem_barrier.dstAccessMask                  = VK_ACCESS_NONE;
+		target_img_mem_barrier.oldLayout                      = target_image_requested_layout;
+		target_img_mem_barrier.newLayout                      = post_recv_image_layout;
+		target_img_mem_barrier.srcQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		target_img_mem_barrier.dstQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		VkImageSubresourceRange &target_img_subresource_range = target_img_mem_barrier.subresourceRange;
+		target_img_subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+		target_img_subresource_range.levelCount               = 1;
+		target_img_subresource_range.layerCount               = 1;
+
+		vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0,
+		                     nullptr, 0, nullptr, 2, mem_barriers);
+	}
+
+	VK_CHECK(vkEndCommandBuffer(cmd));
+
+	// prepare the submission to the queue.
+	// we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
+	// we will signal the _renderSemaphore, to signal that rendering has finished
+
+	VkSubmitInfo submit = {};
+	submit.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submit.pNext        = nullptr;
+
+	//	VkPipelineStageFlags wait_stage[] = {VK_PIPELINE_STAGE_TRANSFER_BIT};
+	//	submit.pWaitDstStageMask          = wait_stage;
+
+	//	VkSemaphore wait_semaphores[] = {this->_semaphore_write};
+	//	submit.waitSemaphoreCount     = 1;
+	//	submit.pWaitSemaphores        = wait_semaphores;
+
+	//	VkSemaphore signal_semaphores[] = {this->_semaphore_read, this->_semaphore_write};
+	//	submit.signalSemaphoreCount     = submit.waitSemaphoreCount;
+	//	submit.pSignalSemaphores        = submit.pWaitSemaphores;
+
+	submit.commandBufferCount = 1;
+	submit.pCommandBuffers    = &command_buffer;
+
+	// submit command buffer to the queue and execute it.
+	//  if set, fence may block until the graphic commands finish execution
+	VK_CHECK(vkQueueSubmit(graphics_queue, 1, &submit, fence));
+
+	// Wait for the fence to signal that command buffer has finished executing
+	if(fence != VK_NULL_HANDLE)
+	{
+		VK_CHECK(vkWaitForFences(this->_device, 1, &fence, VK_TRUE, VkHelpers::DEFAULT_FENCE_TIMEOUT));
+		VK_CHECK(vkResetFences(this->_device, 1, &fence));
+	}
 }
 
-void SharedImageHandleVk::ClearImageCmd(VkCommandBuffer command_buffer, VkClearColorValue clear_color)
+void SharedImageHandleVk::ClearImage(VkQueue graphics_queue, VkCommandBuffer command_buffer,
+                                     VkClearColorValue clear_color, VkFence fence)
 {
-	VkHelpers::CmdClearColorImage(command_buffer, this->_image, clear_color, this->_image_layout);
+	// TODO: Test
+	// naming it cmd for shorter writing
+	VkCommandBuffer cmd = command_buffer;
+	VkCommandBufferBeginInfo cmd_begin_info = VkHelpers::CommandBufferBeginInfoSingleUse();
+
+	VK_CHECK(vkBeginCommandBuffer(cmd, &cmd_begin_info));
+
+	constexpr VkImageLayout shared_image_requested_layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+	// Image memory barrier before entering VK_PIPELINE_STAGE_TRANSFER_BIT
+	{
+		VkImageMemoryBarrier shared_img_mem_barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+		shared_img_mem_barrier.image                          = this->_image;
+		shared_img_mem_barrier.srcAccessMask                  = VK_ACCESS_NONE;
+		shared_img_mem_barrier.dstAccessMask                  = VK_ACCESS_TRANSFER_WRITE_BIT;
+		shared_img_mem_barrier.oldLayout                      = this->_image_layout;
+		shared_img_mem_barrier.newLayout                      = shared_image_requested_layout;
+		shared_img_mem_barrier.srcQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		shared_img_mem_barrier.dstQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		VkImageSubresourceRange &shared_img_subresource_range = shared_img_mem_barrier.subresourceRange;
+		shared_img_subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+		shared_img_subresource_range.levelCount               = 1;
+		shared_img_subresource_range.layerCount               = 1;
+
+		vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0,
+		                     nullptr, 0, nullptr, 1, &shared_img_mem_barrier);
+	}
+
+	VkImageSubresourceRange img_range;
+	img_range.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+	img_range.baseArrayLayer = 0;
+	img_range.layerCount     = 1;
+	img_range.baseMipLevel   = 0;
+	img_range.levelCount     = 1;
+
+	vkCmdClearColorImage(command_buffer, this->_image, shared_image_requested_layout, &clear_color, 1, &img_range);
+
+	// Image memory barrier after exiting VK_PIPELINE_STAGE_TRANSFER_BIT
+	{
+		VkImageMemoryBarrier shared_img_mem_barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+		shared_img_mem_barrier.image                          = this->_image;
+		shared_img_mem_barrier.srcAccessMask                  = VK_ACCESS_TRANSFER_WRITE_BIT;
+		shared_img_mem_barrier.dstAccessMask                  = VK_ACCESS_NONE;
+		shared_img_mem_barrier.oldLayout                      = shared_image_requested_layout;
+		shared_img_mem_barrier.newLayout                      = this->_image_layout;
+		shared_img_mem_barrier.srcQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		shared_img_mem_barrier.dstQueueFamilyIndex            = VK_QUEUE_FAMILY_IGNORED;
+		VkImageSubresourceRange &shared_img_subresource_range = shared_img_mem_barrier.subresourceRange;
+		shared_img_subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+		shared_img_subresource_range.levelCount               = 1;
+		shared_img_subresource_range.layerCount               = 1;
+
+		vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0,
+		                     nullptr, 0, nullptr, 1, &shared_img_mem_barrier);
+	}
+
+	VK_CHECK(vkEndCommandBuffer(cmd));
+
+	// prepare the submission to the queue.
+	// we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
+	// we will signal the _renderSemaphore, to signal that rendering has finished
+
+	VkSubmitInfo submit = {};
+	submit.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submit.pNext        = nullptr;
+
+	//	VkPipelineStageFlags wait_stage[] = {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT};
+	//	submit.pWaitDstStageMask          = wait_stage;
+
+	//	VkSemaphore wait_semaphores[] = {this->_semaphore_read, this->_semaphore_write};
+	//	submit.waitSemaphoreCount     = 2;
+	//	submit.pWaitSemaphores        = wait_semaphores;
+
+	//	VkSemaphore signal_semaphores[] = {this->_semaphore_write};
+	//	submit.signalSemaphoreCount     = submit.waitSemaphoreCount;
+	//	submit.pSignalSemaphores        = submit.pWaitSemaphores;
+
+	submit.commandBufferCount = 1;
+	submit.pCommandBuffers    = &command_buffer;
+
+	// submit command buffer to the queue and execute it.
+	//  if set, fence may block until the graphic commands finish execution
+	VK_CHECK(vkQueueSubmit(graphics_queue, 1, &submit, fence));
+
+	// Wait for the fence to signal that command buffer has finished executing
+	if(fence != VK_NULL_HANDLE)
+	{
+		VK_CHECK(vkWaitForFences(this->_device, 1, &fence, VK_TRUE, VkHelpers::DEFAULT_FENCE_TIMEOUT));
+		VK_CHECK(vkResetFences(this->_device, 1, &fence));
+	}
 }
 
 void SharedImageHandleVk::Cleanup()
@@ -305,97 +520,5 @@ VkImageSubresourceLayers SharedImageHandleVk::CreateColorSubresourceLayer()
 
 VkSemaphore SharedImageHandleVk::ImportSemaphoreHandle(VkDevice device, ExternalHandle::TYPE semaphore_handle)
 {
-	//	ExternalHandleVk::IMPORT_SEMAPHORE_INFO_KHR_T import_semapore_info =
-	// ExternalHandleVk::CreateImportSemaphoreInfoKHR(semaphore_handle);
-
-	//	VkSemaphoreCreateInfo semaphore_create_info{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, &import_semapore_info};
-	//	semaphore_create_info.flags = 0;
-
-	//	VkSemaphore semaphore;
-	//	VK_CHECK(vkCreateSemaphore(device, &semaphore_create_info, nullptr, &semaphore));
-
-	//	return semaphore;
-
 	return ExternalHandleVk::CreateImportSemaphoreKHR(device, semaphore_handle);
-}
-
-void SharedImageHandleVk::TransceiveImageRecordCmdBuf(
-	VkCommandBuffer command_buffer,
-	// VkImage transceive_image, VkImageLayout transceive_image_layout,
-	VkImageLayout shared_image_requested_layout, transceive_fcn_t f)
-{
-	// naming it cmd for shorter writing
-	VkCommandBuffer cmd = command_buffer;
-
-	// begin the command buffer recording. We will use this command buffer exactly once, so we want to let Vulkan know
-	// that
-	VkCommandBufferBeginInfo cmd_begin_info = {};
-	cmd_begin_info.sType                    = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	cmd_begin_info.pNext                    = nullptr;
-
-	cmd_begin_info.pInheritanceInfo = nullptr;
-	cmd_begin_info.flags            = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	VK_CHECK(vkBeginCommandBuffer(cmd, &cmd_begin_info));
-
-	const VkImageLayout old_image_layout = this->_image_layout;
-	if(this->_image_layout != shared_image_requested_layout)
-	{
-		VkHelpers::CmdPipelineMemoryBarrierColorImage(cmd, this->_image, this->_image_layout,
-		                                              shared_image_requested_layout, VK_ACCESS_NONE,
-		                                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-
-		this->_image_layout = shared_image_requested_layout;
-	}
-
-	// std::invoke(f, this, command_buffer, transceive_image, transceive_image_layout);
-	std::invoke(f);
-
-	if(old_image_layout != shared_image_requested_layout)
-	{
-		VkHelpers::CmdPipelineMemoryBarrierColorImage(cmd, this->_image, shared_image_requested_layout,
-		                                              old_image_layout, VK_ACCESS_NONE,
-		                                              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-
-		this->_image_layout = old_image_layout;
-	}
-
-	VK_CHECK(vkEndCommandBuffer(cmd));
-}
-
-void SharedImageHandleVk::SubmitCommandBuffer(VkQueue graphics_queue, VkCommandBuffer command_buffer,
-                                              VkSemaphore * /*wait_semaphores*/, uint32_t /*num_wait_semaphores*/,
-                                              VkSemaphore *signal_semaphores, uint32_t num_signal_semaphores,
-                                              VkFence fence)
-{
-	// prepare the submission to the queue.
-	// we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
-	// we will signal the _renderSemaphore, to signal that rendering has finished
-
-	VkSubmitInfo submit = {};
-	submit.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submit.pNext        = nullptr;
-
-	VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-	submit.pWaitDstStageMask        = &wait_stage;
-
-	//	submit.waitSemaphoreCount = num_wait_semaphores;
-	//	submit.pWaitSemaphores = wait_semaphores;
-
-	submit.signalSemaphoreCount = num_signal_semaphores;
-	submit.pSignalSemaphores    = signal_semaphores;
-
-	submit.commandBufferCount = 1;
-	submit.pCommandBuffers    = &command_buffer;
-
-	// submit command buffer to the queue and execute it.
-	//  if set, fence may block until the graphic commands finish execution
-	VK_CHECK(vkQueueSubmit(graphics_queue, 1, &submit, fence));
-
-	// Wait for the fence to signal that command buffer has finished executing
-	if(fence != VK_NULL_HANDLE)
-	{
-		VK_CHECK(vkWaitForFences(this->_device, 1, &fence, VK_TRUE, VkHelpers::DEFAULT_FENCE_TIMEOUT));
-		VK_CHECK(vkResetFences(this->_device, 1, &fence));
-	}
 }

@@ -18,6 +18,8 @@ VkFormat ExternalHandleVk::GetVkFormat(ExternalHandle::ImageFormat format)
 {
 	switch(format)
 	{
+		case ExternalHandle::ImageFormat::B8G8R8A8:
+			return VK_FORMAT_B8G8R8A8_UNORM;
 		case ExternalHandle::ImageFormat::R8G8B8A8:
 			return VK_FORMAT_R8G8B8A8_UNORM;
 		default:
@@ -29,6 +31,8 @@ ExternalHandle::ImageFormat ExternalHandleVk::GetImageFormat(VkFormat vk_format)
 {
 	switch(vk_format)
 	{
+		case VK_FORMAT_B8G8R8A8_UNORM:
+			return ExternalHandle::ImageFormat::B8G8R8A8;
 		case VK_FORMAT_R8G8B8A8_UNORM:
 			return ExternalHandle::ImageFormat::R8G8B8A8;
 		default:

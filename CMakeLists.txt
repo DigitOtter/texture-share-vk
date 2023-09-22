@@ -110,7 +110,7 @@ target_compile_options(ExternalHeader PUBLIC ${TSV_COMPILE_OPTIONS})
 
 target_include_directories(ExternalHeader
 	PUBLIC
-		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+	    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
 
@@ -125,7 +125,7 @@ target_compile_options(TSVIpcMemory PUBLIC ${TSV_COMPILE_OPTIONS})
 
 target_include_directories(TSVIpcMemory
 	PUBLIC
-		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+	    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
 
@@ -134,11 +134,11 @@ target_include_directories(TSVIpcMemory
 
 target_link_libraries(TSVIpcMemory
 	PUBLIC
-		Boost::boost
+	    Boost::boost
 		Boost::date_time
 
 	PRIVATE
-		"${NAMESPACE_NAME}::ExternalHeader"
+	    "${NAMESPACE_NAME}::ExternalHeader"
 )
 
 ##########################################
@@ -149,22 +149,22 @@ target_compile_options(${LIBRARY_NAME} PUBLIC ${TSV_COMPILE_OPTIONS})
 
 target_include_directories(${LIBRARY_NAME}
 	PUBLIC
-		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+	    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
 
 	PRIVATE
-		"${NAMESPACE_NAME}::ExternalHeader"
+	    "${NAMESPACE_NAME}::ExternalHeader"
 )
 
 target_link_libraries(${LIBRARY_NAME}
 	PUBLIC
-		Vulkan::Vulkan
+	    Vulkan::Vulkan
 
 		"${NAMESPACE_NAME}::TSVIpcMemory"
 
 	PRIVATE
-		vk-bootstrap::vk-bootstrap
+	    vk-bootstrap::vk-bootstrap
 		"${NAMESPACE_NAME}::ExternalHeader"
 )
 
@@ -177,22 +177,23 @@ target_compile_options(TextureShareOpenGL PUBLIC ${TSV_COMPILE_OPTIONS})
 
 target_include_directories(TextureShareOpenGL
 	PUBLIC
-		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+	    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
 		"$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>"
 
 	PRIVATE
-		"${NAMESPACE_NAME}::ExternalHeader"
+	    "${NAMESPACE_NAME}::ExternalHeader"
 )
 
 target_link_libraries(TextureShareOpenGL
 	PUBLIC
-		OpenGL::OpenGL
+	    OpenGL::OpenGL
+		OpenGL::GLX
 
 		"${NAMESPACE_NAME}::TSVIpcMemory"
 
 	PRIVATE
-		"${NAMESPACE_NAME}::ExternalHeader"
+	    "${NAMESPACE_NAME}::ExternalHeader"
 )
 
 
@@ -205,7 +206,7 @@ set_target_properties(TSVDaemon PROPERTIES OUTPUT_NAME ${TSV_DAEMON_NAME})
 
 target_link_libraries(TSVDaemon
 	PUBLIC
-		"${NAMESPACE_NAME}::${LIBRARY_NAME}"
+	    "${NAMESPACE_NAME}::${LIBRARY_NAME}"
 		"${NAMESPACE_NAME}::TSVIpcMemory"
 		"${NAMESPACE_NAME}::ExternalHeader"
 )
@@ -225,7 +226,7 @@ if(BUILD_EXECUTABLES)
 			SDL2::SDL2
 			vk-bootstrap::vk-bootstrap
 		)
-	endif()
+    endif()
 
 
 	##########################################
@@ -235,7 +236,7 @@ if(BUILD_EXECUTABLES)
 
 	target_link_libraries(TestGLImageShare
 		PUBLIC
-			"${NAMESPACE_NAME}::TextureShareOpenGL"
+		    "${NAMESPACE_NAME}::TextureShareOpenGL"
 
 			GLUT::GLUT
 	)
@@ -258,11 +259,11 @@ install(TARGETS ${LIBRARY_NAME} TSVIpcMemory TextureShareOpenGL
 install(DIRECTORY ${HEADER_DIRECTORY} "${CMAKE_BINARY_DIR}/include/${HEADER_DIRECTORY}"
 	DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 	FILES_MATCHING
-		PATTERN "*.h"
+	    PATTERN "*.h"
 		PATTERN "*.hpp")
 
 # Export target
-install(EXPORT ${LIB_EXPORT_NAME} 
+install(EXPORT ${LIB_EXPORT_NAME}
 	DESTINATION ${INSTALL_CONFIGDIR}
 	FILE "${LIB_EXPORT_NAME}.cmake"
 	NAMESPACE "${NAMESPACE_NAME}::")
@@ -279,7 +280,7 @@ configure_package_config_file("${CMAKE_CURRENT_LIST_DIR}/cmake/ProjectConfig.cma
 
 ## Install all the helper files
 install(FILES	"${CMAKE_CURRENT_BINARY_DIR}/${LIB_CONFIG_NAME}.cmake"
-		"${CMAKE_CURRENT_BINARY_DIR}/${LIB_VERSION_NAME}.cmake"
+	    "${CMAKE_CURRENT_BINARY_DIR}/${LIB_VERSION_NAME}.cmake"
 	DESTINATION ${INSTALL_CONFIGDIR})
 
 

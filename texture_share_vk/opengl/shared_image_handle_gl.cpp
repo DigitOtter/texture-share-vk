@@ -2,10 +2,9 @@
 
 #include <utility>
 
-
 SharedImageHandleGl::SharedImageHandleGl()
 {
-	glGenFramebuffersEXT(1, &this->_fbo);
+	// glGenFramebuffers(1, &this->_fbo);
 }
 
 SharedImageHandleGl::~SharedImageHandleGl()
@@ -15,8 +14,7 @@ SharedImageHandleGl::~SharedImageHandleGl()
 
 bool SharedImageHandleGl::InitializeGLExternal()
 {
-	// TODO: Load extensions
-	return false;
+	return ExternalHandleGl::LoadGlEXT();
 }
 
 void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::SharedImageInfo &&external_handles)
@@ -47,11 +45,11 @@ void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::ShareHandles &&
 	// Create the GL identifiers
 
 	// semaphores
-	glGenSemaphoresEXT(1, &this->_semaphore_read);
-	glGenSemaphoresEXT(1, &this->_semaphore_write);
+	ExternalHandleGl::GenSemaphoresEXT(1, &this->_semaphore_read);
+	ExternalHandleGl::GenSemaphoresEXT(1, &this->_semaphore_write);
 
 	// memory
-	glCreateMemoryObjectsEXT(1, &this->_mem);
+	ExternalHandleGl::CreateMemoryObjectsEXT(1, &this->_mem);
 
 	// Platform specific import.
 	ExternalHandleGl::ImportSemaphoreExt(this->_semaphore_read, ExternalHandleGl::GL_HANDLE_TYPE, this->_share_handles.ext_read);
@@ -61,9 +59,7 @@ void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::ShareHandles &&
 	// Use the imported memory as backing for the OpenGL texture.  The internalFormat, dimensions
 	// and mip count should match the ones used by Vulkan to create the image and determine it's memory
 	// allocation.
-	glTextureStorageMem2DEXT(this->_image_texture, 1, internal_format,
-	                         width, height,
-	                         this->_mem, 0);
+	ExternalHandleGl::TextureStorageMem2DEXT(this->_image_texture, 1, internal_format, width, height, this->_mem, 0);
 
 	this->_width = width;
 	this->_height = height;
@@ -82,19 +78,19 @@ void SharedImageHandleGl::Cleanup()
 
 	if(this->_semaphore_write)
 	{
-		glDeleteSemaphoresEXT(1, &this->_semaphore_write);
+		ExternalHandleGl::DeleteSemaphoresEXT(1, &this->_semaphore_write);
 		this->_semaphore_write = 0;
 	}
 
 	if(this->_semaphore_read)
 	{
-		glDeleteSemaphoresEXT(1, &this->_semaphore_read);
+		ExternalHandleGl::DeleteSemaphoresEXT(1, &this->_semaphore_read);
 		this->_semaphore_read = 0;
 	}
 
 	if(this->_fbo > 0)
 	{
-		glDeleteFramebuffersEXT(1, &this->_fbo);
+		glDeleteFramebuffers(1, &this->_fbo);
 		this->_fbo = 0;
 	}
 }
@@ -123,21 +119,39 @@ void SharedImageHandleGl::ClearImage(const void *clear_color, GLenum format, GLe
 	glClearTexImage(this->_image_texture, 0, format, type, clear_color);
 }
 
+#include <array>
+#include <iostream>
+#include <vector>
+
 void SharedImageHandleGl::BlitImage(GLuint src_texture_id, GLuint src_texture_target, const ImageExtent &src_dimensions, GLuint dst_texture_id, GLuint dst_texture_target, const ImageExtent &dst_dimensions, bool invert, GLuint prev_fbo)
 {
+	if(this->_fbo == 0)
+	{
+		auto code = glGetError();
+		glGenFramebuffers(1, &this->_fbo);
+		code = glGetError();
+	}
+
 	// bind the FBO (for both, READ_FRAMEBUFFER_EXT and DRAW_FRAMEBUFFER_EXT)
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, this->_fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, this->_fbo);
+	auto code = glGetError();
 
 	// Attach the Input texture (the shared texture) to the color buffer in our frame buffer - note texturetarget
-	glFramebufferTexture2DEXT(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, src_texture_target, src_texture_id, 0);
+	glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, src_texture_target, src_texture_id, 0);
+	code = glGetError();
 	glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
+	code = glGetError();
 
 	// Attach target texture (the one we write into and return) to second attachment point
-	glFramebufferTexture2DEXT(GL_DRAW_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT1_EXT, dst_texture_target, dst_texture_id, 0);
-	glDrawBuffer(GL_COLOR_ATTACHMENT1_EXT);
+	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, dst_texture_target, dst_texture_id, 0);
+	code = glGetError();
+
+	glDrawBuffer(GL_COLOR_ATTACHMENT1);
+	code = glGetError();
 
 	// Check read/draw fbo for completeness
-	GLuint status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+	GLuint status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	code          = glGetError();
 	if (status == GL_FRAMEBUFFER_COMPLETE_EXT)
 	{
 //		if (m_bBLITavailable)
@@ -146,20 +160,22 @@ void SharedImageHandleGl::BlitImage(GLuint src_texture_id, GLuint src_texture_ta
 		    if(!invert)
 			{
 				// Do not flip during blit
-				glBlitFramebufferEXT(src_dimensions.top_left[0], src_dimensions.top_left[1],            // srcX0, srcY0,
-				                     src_dimensions.bottom_right[0], src_dimensions.bottom_right[1],    // srcX1, srcY1
-				                     dst_dimensions.top_left[0], dst_dimensions.top_left[1],            // dstX0, dstY0,
-				                     dst_dimensions.bottom_right[0], dst_dimensions.bottom_right[1],   // dstX1, dstY1
-				                     GL_COLOR_BUFFER_BIT, GL_LINEAR);
+				glBlitFramebuffer(src_dimensions.top_left[0], src_dimensions.top_left[1],         // srcX0, srcY0,
+			                      src_dimensions.bottom_right[0], src_dimensions.bottom_right[1], // srcX1, srcY1
+			                      dst_dimensions.top_left[0], dst_dimensions.top_left[1],         // dstX0, dstY0,
+			                      dst_dimensions.bottom_right[0], dst_dimensions.bottom_right[1], // dstX1, dstY1
+			                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+				code = glGetError();
 			}
 			else
 			{
 				// copy one texture buffer to the other while flipping upside down
-				glBlitFramebufferEXT(src_dimensions.top_left[0], src_dimensions.top_left[1],            // srcX0, srcY0,
-				                     src_dimensions.bottom_right[0], src_dimensions.bottom_right[1],    // srcX1, srcY1
-				                     dst_dimensions.top_left[0], dst_dimensions.bottom_right[1],        // dstX0, dstY0,
-				                     dst_dimensions.bottom_right[0], dst_dimensions.top_left[1],        // dstX1, dstY1
-				                     GL_COLOR_BUFFER_BIT, GL_LINEAR);
+				glBlitFramebuffer(src_dimensions.top_left[0], src_dimensions.top_left[1],         // srcX0, srcY0,
+			                      src_dimensions.bottom_right[0], src_dimensions.bottom_right[1], // srcX1, srcY1
+			                      dst_dimensions.top_left[0], dst_dimensions.bottom_right[1],     // dstX0, dstY0,
+			                      dst_dimensions.bottom_right[0], dst_dimensions.top_left[1],     // dstX1, dstY1
+			                      GL_COLOR_BUFFER_BIT, GL_LINEAR);
+				code = glGetError();
 			}
 //	    }
 //	    else {
@@ -177,7 +193,26 @@ void SharedImageHandleGl::BlitImage(GLuint src_texture_id, GLuint src_texture_ta
 //		bRet = false;
 	}
 
+	//	std::array<uint8_t, 1920 * 1080 * 4> data;
+	//	data.fill(0);
+	//	glGetTextureImage(src_texture_id, 0, GL_BGRA, GL_UNSIGNED_BYTE, data.size(), data.data());
+	//	code = glGetError();
+
+	//	std::array<uint8_t, 1920 * 1080 * 4> rec_data;
+	//	rec_data.fill(0);
+	//	glGetTextureImage(src_texture_id, 0, GL_BGRA, GL_UNSIGNED_BYTE, rec_data.size(), rec_data.data());
+	//	code = glGetError();
+
+	//	int unequal = 0;
+	//	for(size_t i = 0; i < data.size(); ++i)
+	//	{
+	//			if(data.at(i) != rec_data.at(i))
+	//				++unequal;
+	//	}
+
 	// restore the previous fbo - default is 0
 	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); // 04.01.16
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, prev_fbo);
+	code = glGetError();
+	glBindFramebuffer(GL_FRAMEBUFFER, prev_fbo);
+	code = glGetError();
 }

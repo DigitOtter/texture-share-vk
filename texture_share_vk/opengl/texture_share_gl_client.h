@@ -97,7 +97,7 @@ class TextureShareGlClient
 		 */
 		SharedImageHandleGl *SharedImageHandle(const std::string &image_name);
 
-	private:
+		private:
 		/*!
 		 * \brief Ipc Memory Control
 		 */

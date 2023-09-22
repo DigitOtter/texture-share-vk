@@ -47,7 +47,7 @@ class VkTestImageShare
 
 		bool _is_initialized = false;
 
-		const std::string _shared_image_name = "test_vk";
+		const std::string _shared_image_name = "image_name"; //"test_vk";
 
 		VkInstance _instance;
 		VkDebugUtilsMessengerEXT _debug_messenger; // Vulkan debug output handle

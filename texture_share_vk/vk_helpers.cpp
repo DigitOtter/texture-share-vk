@@ -139,12 +139,15 @@ void VkHelpers::CleanupCommandBuffer(VkDevice device, VkCommandPool command_pool
 	vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
 }
 
-VkImageMemoryBarrier VkHelpers::CreateImageMemoryBarrier()
+VkCommandBufferBeginInfo VkHelpers::CommandBufferBeginInfoSingleUse()
 {
-	VkImageMemoryBarrier image_memory_barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	return image_memory_barrier;
+	VkCommandBufferBeginInfo cmd_begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+	cmd_begin_info.pNext = nullptr;
+
+	cmd_begin_info.pInheritanceInfo = nullptr;
+	cmd_begin_info.flags            = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	return cmd_begin_info;
 }
 
 void VkHelpers::ImmediateSubmit(VkDevice device, VkQueue queue, VkCommandBuffer command_buffer, const std::function<void (VkCommandBuffer)> &f, VkSemaphore signal_semaphore)
@@ -159,10 +162,7 @@ void VkHelpers::ImmediateSubmit(VkDevice device, VkQueue queue, VkCommandBuffer 
                                 VkSemaphore *wait_semaphores, uint32_t wait_semaphore_count,
                                 VkSemaphore *signal_semaphores, uint32_t signal_semaphore_count)
 {
-	VkCommandBufferBeginInfo cmd_begin_info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, nullptr};
-
-	cmd_begin_info.pInheritanceInfo = nullptr;
-	cmd_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	VkCommandBufferBeginInfo cmd_begin_info = CommandBufferBeginInfoSingleUse();
 
 	VK_CHECK(vkBeginCommandBuffer(command_buffer, &cmd_begin_info));
 
@@ -196,30 +196,14 @@ void VkHelpers::ImmediateSubmit(VkDevice device, VkQueue queue, VkCommandBuffer 
 	vkDestroyFence(device, fence, nullptr);
 }
 
-void VkHelpers::CmdClearColorImage(VkCommandBuffer command_buffer, VkImage image, const VkClearColorValue &color_value, VkImageLayout image_layout)
-{
-	VkImageSubresourceRange range{};
-	range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	range.baseArrayLayer = 0;
-	range.baseMipLevel = 0;
-	range.layerCount = 1;
-	range.levelCount = 1;
-
-	vkCmdClearColorImage(
-	            command_buffer,
-	            image,
-	            image_layout,
-	            &color_value,
-	            1,
-	            &range);
-}
-
 void VkHelpers::CmdPipelineMemoryBarrierColorImage(VkCommandBuffer command_buffer, VkImage image,
                                                    VkImageLayout old_layout, VkImageLayout new_layout,
                                                    VkAccessFlagBits src_access_mask, VkAccessFlagBits dst_access_mask,
                                                    VkPipelineStageFlagBits pipeline_stage_flags)
 {
-	VkImageMemoryBarrier image_memory_barrier  = VkHelpers::CreateImageMemoryBarrier();
+	VkImageMemoryBarrier image_memory_barrier  = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+	image_memory_barrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
+	image_memory_barrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
 	image_memory_barrier.image                 = image;
 	image_memory_barrier.srcAccessMask         = src_access_mask;
 	image_memory_barrier.dstAccessMask         = dst_access_mask;
@@ -230,14 +214,8 @@ void VkHelpers::CmdPipelineMemoryBarrierColorImage(VkCommandBuffer command_buffe
 	subresource_range.levelCount               = 1;
 	subresource_range.layerCount               = 1;
 
-	vkCmdPipelineBarrier(
-	    command_buffer,
-	    pipeline_stage_flags,
-	    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-	    0,
-	    0, nullptr,
-	    0, nullptr,
-	    1, &image_memory_barrier);
+	vkCmdPipelineBarrier(command_buffer, pipeline_stage_flags, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0,
+	                     nullptr, 0, nullptr, 1, &image_memory_barrier);
 }
 
 uint32_t VkHelpers::GetMemoryType(VkPhysicalDevice physical_device, uint32_t bits, VkMemoryPropertyFlags properties, VkBool32 *memory_type_found)

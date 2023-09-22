@@ -15,6 +15,7 @@ class ExternalHandle
 		enum ImageFormat
 		{
 			R8G8B8A8,
+			B8G8R8A8,
 			IMAGE_FORMAT_MAX_ENUM
 		};
 

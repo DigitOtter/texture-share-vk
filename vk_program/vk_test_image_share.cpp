@@ -38,28 +38,28 @@ void VkTestImageShare::Init()
 
 	for(VkImage &image : this->_swapchain_images)
 	{
-		VkHelpers::ImmediateSubmit(this->_device, this->_graphics_queue, this->_main_command_buffer,
-		                           [&](VkCommandBuffer image_command_buffer) {
-			                            VkImageMemoryBarrier image_memory_barrier  = VkHelpers::CreateImageMemoryBarrier();
-										image_memory_barrier.image                 = image;
-										image_memory_barrier.srcAccessMask         = 0;
-										image_memory_barrier.dstAccessMask         = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-										image_memory_barrier.oldLayout             = VK_IMAGE_LAYOUT_UNDEFINED;
-										image_memory_barrier.newLayout             = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; //VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-										VkImageSubresourceRange &subresource_range = image_memory_barrier.subresourceRange;
-										subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
-										subresource_range.levelCount               = 1;
-										subresource_range.layerCount               = 1;
+		VkHelpers::ImmediateSubmit(
+			this->_device, this->_graphics_queue, this->_main_command_buffer,
+			[&](VkCommandBuffer image_command_buffer) {
+				VkImageMemoryBarrier image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+				image_memory_barrier.srcQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+				image_memory_barrier.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+				image_memory_barrier.image                = image;
+				image_memory_barrier.srcAccessMask        = 0;
+				image_memory_barrier.dstAccessMask        = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				image_memory_barrier.oldLayout            = VK_IMAGE_LAYOUT_UNDEFINED;
+				image_memory_barrier.newLayout =
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				VkImageSubresourceRange &subresource_range = image_memory_barrier.subresourceRange;
+				subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+				subresource_range.levelCount               = 1;
+				subresource_range.layerCount               = 1;
 
-										vkCmdPipelineBarrier(
-										    image_command_buffer,
-										    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-										    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-										    0,
-										    0, nullptr,
-										    0, nullptr,
-										    1, &image_memory_barrier);},
-		                                VK_NULL_HANDLE);
+				vkCmdPipelineBarrier(image_command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+			                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1,
+			                         &image_memory_barrier);
+			},
+			VK_NULL_HANDLE);
 	}
 
 	sleep(2);
@@ -308,28 +308,28 @@ void VkTestImageShare::Draw()
 	uint32_t swapchain_image_index;
 	VK_CHECK(vkAcquireNextImageKHR(this->_device, this->_swapchain, 1000000000, this->_present_semaphore, nullptr, &swapchain_image_index));
 
-	VkHelpers::ImmediateSubmit(this->_device, this->_graphics_queue, this->_main_command_buffer,
-	                           [&](VkCommandBuffer image_command_buffer) {
-		                            VkImageMemoryBarrier image_memory_barrier  = VkHelpers::CreateImageMemoryBarrier();
-									image_memory_barrier.image                 = this->_swapchain_images[swapchain_image_index];
-									image_memory_barrier.srcAccessMask         = 0;
-									image_memory_barrier.dstAccessMask         = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-									image_memory_barrier.oldLayout             = VK_IMAGE_LAYOUT_UNDEFINED;
-									image_memory_barrier.newLayout             = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; //VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-									VkImageSubresourceRange &subresource_range = image_memory_barrier.subresourceRange;
-									subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
-									subresource_range.levelCount               = 1;
-									subresource_range.layerCount               = 1;
+	VkHelpers::ImmediateSubmit(
+		this->_device, this->_graphics_queue, this->_main_command_buffer,
+		[&](VkCommandBuffer image_command_buffer) {
+			VkImageMemoryBarrier image_memory_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+			image_memory_barrier.srcQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+			image_memory_barrier.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+			image_memory_barrier.image                = this->_swapchain_images[swapchain_image_index];
+			image_memory_barrier.srcAccessMask        = 0;
+			image_memory_barrier.dstAccessMask        = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			image_memory_barrier.oldLayout            = VK_IMAGE_LAYOUT_UNDEFINED;
+			image_memory_barrier.newLayout =
+				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			VkImageSubresourceRange &subresource_range = image_memory_barrier.subresourceRange;
+			subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+			subresource_range.levelCount               = 1;
+			subresource_range.layerCount               = 1;
 
-									vkCmdPipelineBarrier(
-									    image_command_buffer,
-									    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-									    VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-									    0,
-									    0, nullptr,
-									    0, nullptr,
-									    1, &image_memory_barrier);},
-	                                VK_NULL_HANDLE);
+			vkCmdPipelineBarrier(image_command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+		                         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1,
+		                         &image_memory_barrier);
+		},
+		VK_NULL_HANDLE);
 
 	this->DrawSharedImage(this->_swapchain_images[swapchain_image_index], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_NULL_HANDLE);
 
@@ -452,15 +452,17 @@ void VkTestImageShare::Draw()
 
 void VkTestImageShare::DrawSharedImage(VkImage swapchain_image, VkImageLayout image_layout, VkFence fence)
 {
-	VkClearColorValue img_clr{};
-	img_clr.float32[0] = 0.5*std::sin(2.0*M_PI * this->_frame_number / 120) + 0.5;
-	img_clr.float32[1] = 0.0f;
-	img_clr.float32[2] = 0.0f;
-	img_clr.float32[3] = 1.0f;
+//	VkClearColorValue img_clr{};
+//	img_clr.float32[0] = 0.5*std::sin(2.0*M_PI * this->_frame_number / 120) + 0.5;
+//	img_clr.float32[1] = 0.0f;
+//	img_clr.float32[2] = 0.0f;
+//	img_clr.float32[3] = 1.0f;
 
-	this->_shared_image_client.ClearImage(this->_shared_image_name, img_clr, fence);
+//	this->_shared_image_client.ClearImage(this->_shared_image_name, img_clr, fence);
 
-	this->_shared_image_client.RecvImageBlit(this->_shared_image_name, swapchain_image, image_layout, fence);
+	if(this->_shared_image_client.FindImage(this->_shared_image_name))
+		this->_shared_image_client.RecvImageBlit(this->_shared_image_name, swapchain_image, image_layout, image_layout,
+		                                         fence);
 }
 
 void VkTestImageShare::Cleanup()

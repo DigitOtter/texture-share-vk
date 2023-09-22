@@ -59,12 +59,27 @@ class SharedImageHandleGl
 		void ClearImage(const void *clear_color, GLenum format, GLenum type = GL_UNSIGNED_BYTE);
 
 		constexpr GLenum ImageFormat() const
-		{	return this->_image_format;	}
+		{
+			return this->_image_format;
+		}
 
 		constexpr GLuint TextureId() const
-		{	return this->_image_texture;	}
+		{
+			return this->_image_texture;
+		}
 
-	private:
+		constexpr GLsizei Width() const
+		{
+			return this->_width;
+		}
+
+		constexpr GLsizei Height() const
+		{
+			return this->_height;
+		}
+
+
+		private:
 		ExternalHandle::ShareHandles _share_handles;
 
 		// FBO to render image from/to (this is the recommended method of copying images)

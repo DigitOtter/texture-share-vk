@@ -47,27 +47,37 @@ class SharedImageHandleVk
 	void SendImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage send_image,
 	                   VkImageLayout send_image_layout, VkFence fence, const VkOffset3D send_image_extent[2]);
 	void RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage recv_image,
-	                   VkImageLayout recv_image_layout, VkFence fence);
+	                   VkImageLayout pre_recv_image_layout, VkImageLayout post_recv_image_layout, VkFence fence);
 	void RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage recv_image,
-	                   VkImageLayout recv_image_layout, VkFence fence, const VkOffset3D recv_image_extent[2]);
+	                   VkImageLayout pre_recv_image_layout, VkImageLayout post_recv_image_layout, VkFence fence,
+	                   const VkOffset3D recv_image_extent[2]);
 
 	void ClearImage(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkClearColorValue clear_color,
 	                VkFence fence);
 
-
-	void SendImageBlitCmd(VkCommandBuffer command_buffer, VkImage send_image, VkImageLayout send_image_layout);
-	void SendImageBlitCmd(VkCommandBuffer command_buffer, VkImage send_image, VkImageLayout send_image_layout,
-	                      const VkOffset3D send_image_extent[2]);
-
-	void ReceiveImageBlitCmd(VkCommandBuffer command_buffer, VkImage recv_image, VkImageLayout recv_image_layout);
-	void ReceiveImageBlitCmd(VkCommandBuffer command_buffer, VkImage recv_image, VkImageLayout recv_image_layout,
-	                         const VkOffset3D recv_image_extent[2]);
-
-	void ClearImageCmd(VkCommandBuffer command_buffer, VkClearColorValue clear_color);
-
 	void Cleanup();
 
 	static VkImageSubresourceLayers CreateColorSubresourceLayer();
+
+	constexpr VkFormat ImageFormat() const
+	{
+		return this->_format;
+	}
+
+	constexpr VkImage TextureId() const
+	{
+		return this->_image;
+	}
+
+	constexpr uint32_t Width() const
+	{
+		return this->_width;
+	}
+
+	constexpr uint32_t Height() const
+	{
+		return this->_height;
+	}
 
 	private:
 	VkDevice _device{VK_NULL_HANDLE};
@@ -84,16 +94,6 @@ class SharedImageHandleVk
 	VkFormat _format;
 
 	static VkSemaphore ImportSemaphoreHandle(VkDevice device, ExternalHandle::TYPE semaphore_handle);
-
-	// using transceive_fcn_t = void(SharedImageHandleVk::*)(VkCommandBuffer,VkImage,VkImageLayout);
-	using transceive_fcn_t = std::function<void()>;
-	void TransceiveImageRecordCmdBuf(VkCommandBuffer command_buffer,
-	                                 // VkImage transceive_image, VkImageLayout transceive_image_layout,
-	                                 VkImageLayout shared_image_requested_layout, transceive_fcn_t f);
-
-	void SubmitCommandBuffer(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkSemaphore *wait_semaphores,
-	                         uint32_t num_wait_semaphores, VkSemaphore *signal_semaphores,
-	                         uint32_t num_signal_semaphores, VkFence fence = VK_NULL_HANDLE);
 };
 
 #endif // SHARED_IMAGE_HANDLE_VK_H

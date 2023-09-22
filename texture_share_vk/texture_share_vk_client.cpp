@@ -83,7 +83,9 @@ void TextureShareVkClient::SendImageBlit(const std::string &image_name, VkImage 
 	                                     fence);
 }
 
-void TextureShareVkClient::RecvImageBlit(const std::string &image_name, VkImage recv_image, VkImageLayout recv_image_layout, VkFence fence, uint64_t micro_sec_wait_time)
+void TextureShareVkClient::RecvImageBlit(const std::string &image_name, VkImage recv_image,
+                                         VkImageLayout pre_recv_image_layout, VkImageLayout post_recv_image_layout,
+                                         VkFence fence, uint64_t micro_sec_wait_time)
 {
 	SharedImageData *img_data = this->GetImageData(image_name, micro_sec_wait_time);
 	if(!img_data)
@@ -96,9 +98,8 @@ void TextureShareVkClient::RecvImageBlit(const std::string &image_name, VkImage 
 			return;
 	}
 
-	img_data->shared_image.RecvImageBlit(this->_vk_data.GraphicsQueue(), this->_vk_data.CommandBuffer(),
-	                                     recv_image, recv_image_layout,
-	                                     fence);
+	img_data->shared_image.RecvImageBlit(this->_vk_data.GraphicsQueue(), this->_vk_data.CommandBuffer(), recv_image,
+	                                     pre_recv_image_layout, post_recv_image_layout, fence);
 }
 
 void TextureShareVkClient::ClearImage(const std::string &image_name, VkClearColorValue clear_color, VkFence fence, uint64_t micro_sec_wait_time)
