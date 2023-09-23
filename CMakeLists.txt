@@ -27,7 +27,21 @@ find_package(OpenGL REQUIRED)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-add_subdirectory("third_party/vk-bootstrap")
+# By default, don't install VkBootstrap
+option(INSTALL_VK_BOOTSTRAP "Install vk-bootstrap" OFF)
+if(NOT ${INSTALL_VK_BOOTSTRAP})
+	set(IVK EXCLUDE_FROM_ALL)
+else()
+	set(IVK)
+endif()
+
+
+# Build VkBootstrap as static library
+set(TMP_BSL ${BUILD_SHARED_LIBS})
+set(BUILD_SHARED_LIBS OFF)
+add_subdirectory("third_party/vk-bootstrap" ${IVK})
+set(BUILD_SHARED_LIBS ${TMP_BSL})
+
 add_subdirectory("third_party/volk")
 
 
