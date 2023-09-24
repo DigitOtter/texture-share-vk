@@ -22,14 +22,13 @@ void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::SharedImageInfo
 	const GLenum gl_format = ExternalHandleGl::GetGlFormat(external_handles.format);
 	const GLenum gl_internal_format = ExternalHandleGl::GetGlInternalFormat(external_handles.format);
 
-	return this->InitializeWithExternal(std::move(external_handles.handles),
-	                                    external_handles.width, external_handles.height,
-	                                    external_handles.allocation_size,
-	                                    gl_format, gl_internal_format);
+	return this->InitializeWithExternal(std::move(external_handles.handles), external_handles.width,
+	                                    external_handles.height, external_handles.handle_id,
+	                                    external_handles.allocation_size, gl_format, gl_internal_format);
 }
 
-void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::ShareHandles &&share_handles,
-                                                 GLsizei width, GLsizei height, GLuint64 allocation_size,
+void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::ShareHandles &&share_handles, GLsizei width,
+                                                 GLsizei height, uint64_t handle_id, GLuint64 allocation_size,
                                                  GLenum format, GLenum internal_format)
 {
 	// TODO: Should received share_handles be closed or does opengl take care of that?
@@ -64,6 +63,7 @@ void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::ShareHandles &&
 	this->_width = width;
 	this->_height = height;
 	this->_image_format = format;
+	this->_handle_id    = handle_id;
 
 	glBindTexture(SHARED_IMAGE_TEX_TARGET, 0);
 }

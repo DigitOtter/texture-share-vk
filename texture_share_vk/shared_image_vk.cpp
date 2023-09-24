@@ -54,9 +54,8 @@ SharedImageVk::~SharedImageVk()
 	this->Cleanup();
 }
 
-void SharedImageVk::Initialize(VkDevice device, VkPhysicalDevice physical_device,
-                               uint32_t image_width, uint32_t image_height,
-                               VkFormat image_format)
+void SharedImageVk::Initialize(VkDevice device, VkPhysicalDevice physical_device, uint32_t image_width,
+                               uint32_t image_height, uint64_t image_id, VkFormat image_format)
 {
 	this->device = device;
 
@@ -84,6 +83,7 @@ void SharedImageVk::Initialize(VkDevice device, VkPhysicalDevice physical_device
 	this->image_height = image_height;
 	this->image_width = image_width;
 	this->image_format = image_format;
+	this->image_id     = image_id;
 
 	VkMemoryRequirements memReqs{};
 	vkGetImageMemoryRequirements(device, this->image, &memReqs);

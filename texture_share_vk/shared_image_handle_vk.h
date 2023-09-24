@@ -79,6 +79,11 @@ class SharedImageHandleVk
 		return this->_height;
 	}
 
+	constexpr uint64_t HandleId() const
+	{
+		return this->_handle_id;
+	}
+
 	private:
 	VkDevice _device{VK_NULL_HANDLE};
 	VkImage _image{VK_NULL_HANDLE};
@@ -92,6 +97,7 @@ class SharedImageHandleVk
 	uint32_t _width;
 	uint32_t _height;
 	VkFormat _format;
+	uint64_t _handle_id = 0;
 
 	static VkSemaphore ImportSemaphoreHandle(VkDevice device, ExternalHandle::TYPE semaphore_handle);
 };

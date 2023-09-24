@@ -212,7 +212,8 @@ void DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles, const std::
 	/* Send real plus ancillary data */
 	int nr;
 
-	const auto chrono_wait_time = std::chrono::microseconds(micro_sec_wait_time)/10;
+	const auto chrono_wait_time =
+		std::min(std::chrono::microseconds(1000), std::chrono::microseconds(micro_sec_wait_time) / 10);
 	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
 	do
 	{
@@ -234,7 +235,7 @@ void DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles, const std::
 		throw std::runtime_error("Socket '" + socket_path.string() + "' encountered error on send: " + std::to_string(errno) + "\n\t" + strerror(errno));
 
 	// Give receiver time to get message before closing socket
-	std::this_thread::sleep_for(std::chrono::microseconds(micro_sec_wait_time));
+	std::this_thread::sleep_for(std::chrono::microseconds(100000));
 }
 
 ExternalHandle::ShareHandles DaemonComm::RecvHandles(const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time)
@@ -273,7 +274,8 @@ ExternalHandle::ShareHandles DaemonComm::RecvHandles(const std::filesystem::path
 	msgh.msg_controllen = sizeof(controlMsg.buf);
 
 	/* Receive real plus ancillary data; real data is ignored */
-	const auto chrono_wait_time = std::chrono::microseconds(micro_sec_wait_time)/10;
+	const auto chrono_wait_time =
+		std::min(std::chrono::microseconds(1000), std::chrono::microseconds(micro_sec_wait_time) / 10);
 	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
 	do
 	{
@@ -369,7 +371,8 @@ int DaemonComm::AcceptNamedUnixSocket(const FileDesc &sock_fd, uint64_t micro_se
 {
 	int conn_fd;
 
-	const auto chrono_wait_time = std::chrono::microseconds(micro_sec_wait_time)/10;
+	const auto chrono_wait_time =
+		std::min(std::chrono::microseconds(1000), std::chrono::microseconds(micro_sec_wait_time) / 10);
 	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
 	do
 	{
@@ -387,7 +390,7 @@ int DaemonComm::AcceptNamedUnixSocket(const FileDesc &sock_fd, uint64_t micro_se
 	}
 	while(std::chrono::high_resolution_clock::now() <= stop_time);
 
-	if (conn_fd < -1)
+	if(conn_fd < 0)
 	{
 		if(errno == EWOULDBLOCK || errno == EAGAIN)
 			throw std::runtime_error("Socket timed out while waiting to accept connection");
@@ -413,7 +416,8 @@ int DaemonComm::ConnectNamedUnixSocket(const std::filesystem::path &socket_path,
 
 	int nr;
 
-	const auto chrono_wait_time = std::chrono::microseconds(micro_sec_wait_time)/10;
+	const auto chrono_wait_time =
+		std::min(std::chrono::microseconds(1000), std::chrono::microseconds(micro_sec_wait_time) / 10);
 	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
 	do
 	{

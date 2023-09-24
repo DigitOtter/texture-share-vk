@@ -42,7 +42,7 @@ class DaemonComm
 				static int CreateLockFile(const std::string &file, bool create_directory);
 		};
 
-		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 1*1000*1000;//500*1000;
+		static constexpr uint64_t DEFAULT_CMD_WAIT_TIME = 1000 * 1000 * 1000; // 500*1000;
 
 		using PROC_T = pid_t;
 		static constexpr PROC_T INVALID_PROC = -1;

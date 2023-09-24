@@ -6,9 +6,8 @@
 
 #include <map>
 
-
 /*!
- * \brief Texture Share Client. 
+ * \brief Texture Share Client.
  * Connects to a central daemon and requests image data
  */
 class TextureShareVkClient
@@ -103,51 +102,59 @@ class TextureShareVkClient
 		return this->_vk_data;
 	}
 
-		/*!
-		 * \brief Directly access shared image handle. Only use this if you know what you're doing
-		 * \param image_name Shared image name
-		 */
-		SharedImageHandleVk *SharedImageHandle(const std::string &image_name);
+	/*!
+	 * \brief Has the memory footprint changed? If yes, texture must be reloaded with FindImage(...)
+	 * \param image_name Shared image name
+	 */
+	bool HasImageMemoryChanged(const std::string &image_name);
+
+	/*!
+	 * \brief Directly access shared image handle. Only use this if you know what you're doing
+	 * \param image_name Shared image name
+	 * \param update_data If true, retrieve updated data from shared memory
+	 */
+	SharedImageHandleVk *SharedImageHandle(const std::string &image_name, bool update_data = false);
 
 	private:
-		/*!
-		 * \brief Vulkan data
-		 */
-		TextureShareVk _vk_data;
-		
-		/*!
-		 * \brief Ipc Memory Control
-		 */
-		IpcMemory _ipc_memory;
+	/*!
+	 * \brief Vulkan data
+	 */
+	TextureShareVk _vk_data;
 
-		struct SharedImageData
-		{
-			SharedImageHandleVk shared_image;
-			IpcMemory::ImageData *ipc_img_data = nullptr;
-		};
+	/*!
+	 * \brief Ipc Memory Control
+	 */
+	IpcMemory _ipc_memory;
 
-		/*!
-		 * \brief Stored local image handles
-		 */
-		std::map<std::string, SharedImageData> _shared_image_data;
+	struct SharedImageData
+	{
+		SharedImageHandleVk shared_image;
+		IpcMemory::ImageData *ipc_img_data = nullptr;
+	};
 
-		/*!
-		 * \brief Internal find image. Calls daemon to retrieve image
-		 * \param image_name Shared image name
-		 * \param micro_sec_wait_time
-		 * \return Returns image data on success, or nullptr if image_name doesn't exist
-		 */
-		SharedImageData *FindImageInternal(const std::string &image_name,
-		                                   uint64_t micro_sec_wait_time = IpcMemory::DEFAULT_CMD_WAIT_TIME);
+	/*!
+	 * \brief Stored local image handles
+	 */
+	std::map<std::string, SharedImageData> _shared_image_data;
 
-		/*!
-		 * \brief Searches local _shared_image_data for image_name. If not found, tries to retrieve image from daemon
-		 * \param image_name Shared image name
-		 * \param micro_sec_wait_time
-		 * \return Returns image data on success, or nullptr if image_name doesn't exist
-		 */
-		SharedImageData *GetImageData(const std::string &image_name,
-		                              uint64_t micro_sec_wait_time = IpcMemory::DEFAULT_CMD_WAIT_TIME);
+	/*!
+	 * \brief Internal find image. Calls daemon to retrieve image
+	 * \param image_name Shared image name
+	 * \param micro_sec_wait_time
+	 * \return Returns image data on success, or nullptr if image_name doesn't exist
+	 */
+	SharedImageData *FindImageInternal(const std::string &image_name,
+	                                   uint64_t micro_sec_wait_time = IpcMemory::DEFAULT_CMD_WAIT_TIME);
+
+	/*!
+	 * \brief Searches local _shared_image_data for image_name. If not found, tries to retrieve image from daemon
+	 * \param image_name Shared image name
+	 * \param update_data If true, retrieve updated data from shared memory
+	 * \param micro_sec_wait_time
+	 * \return Returns image data on success, or nullptr if image_name doesn't exist
+	 */
+	SharedImageData *GetImageData(const std::string &image_name, bool update_data = false,
+	                              uint64_t micro_sec_wait_time = IpcMemory::DEFAULT_CMD_WAIT_TIME);
 };
 
-#endif //TEXTURE_SHARE_VK_CLIENT_H
+#endif // TEXTURE_SHARE_VK_CLIENT_H

@@ -292,8 +292,8 @@ void VkProgram::VkInitExternals()
 
 void VkProgram::VkInitSharedImage()
 {
-	this->_shared_image.Initialize(this->_device, this->_chosen_gpu,
-	                               this->_window_extent.width, this->_window_extent.height);
+	this->_shared_image.Initialize(this->_device, this->_chosen_gpu, this->_window_extent.width,
+	                               this->_window_extent.height, 0);
 	this->_shared_image.InitializeImageLayout(this->_device, this->_graphics_queue, this->_main_command_buffer);
 	sleep(2);
 }

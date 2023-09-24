@@ -161,7 +161,9 @@ char IpcMemoryProcessorVk::ProcessImageInitCmd(const IpcCmdImageInit &ipc_cmd)
 		if(ipc_cmd.overwrite_existing)
 		{
 			data_it->second.Cleanup();
-			data_it->second = this->_vk_data.CreateImage(ipc_cmd.imge_width, ipc_cmd.imge_height, ExternalHandleVk::GetVkFormat(ipc_cmd.image_format));
+			data_it->second =
+				this->_vk_data.CreateImage(ipc_cmd.imge_width, ipc_cmd.imge_height, this->_next_image_id++,
+			                               ExternalHandleVk::GetVkFormat(ipc_cmd.image_format));
 		}
 	}
 	else
@@ -171,7 +173,9 @@ char IpcMemoryProcessorVk::ProcessImageInitCmd(const IpcCmdImageInit &ipc_cmd)
 			this->_image_data.erase(old_img_it);
 
 		this->_image_data.emplace(ipc_cmd.image_name,
-		                          this->_vk_data.CreateImage(ipc_cmd.imge_width, ipc_cmd.imge_height, ExternalHandleVk::GetVkFormat(ipc_cmd.image_format)));
+		                          this->_vk_data.CreateImage(ipc_cmd.imge_width, ipc_cmd.imge_height,
+		                                                     this->_next_image_id++,
+		                                                     ExternalHandleVk::GetVkFormat(ipc_cmd.image_format)));
 
 		this->_image_map->emplace(ipc_cmd.image_name, IpcMemory::ImageData());
 	}

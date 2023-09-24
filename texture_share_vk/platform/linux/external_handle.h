@@ -42,6 +42,7 @@ class ExternalHandle
 			uint32_t width, height;
 			ImageFormat format;
 			uint64_t allocation_size;
+			uint64_t handle_id;
 		};
 
 	private:

@@ -16,9 +16,8 @@ class SharedImageVk
 		SharedImageVk(SharedImageVk &&other);
 		SharedImageVk &operator=(SharedImageVk &&other);
 
-		void Initialize(VkDevice device, VkPhysicalDevice physical_device,
-		                uint32_t image_width, uint32_t image_height,
-		                VkFormat image_format = VK_FORMAT_R8G8B8A8_UNORM);
+		void Initialize(VkDevice device, VkPhysicalDevice physical_device, uint32_t image_width, uint32_t image_height,
+	                    uint64_t image_id, VkFormat image_format = VK_FORMAT_R8G8B8A8_UNORM);
 		void InitializeImageLayout(VkDevice device, VkQueue queue, VkCommandBuffer command_buffer);
 
 		ExternalHandle::ShareHandles ExportHandles();
@@ -39,6 +38,7 @@ class SharedImageVk
 		uint32_t image_width  = 0;
 		uint32_t image_height = 0;
 		VkFormat image_format = VK_FORMAT_R8G8B8A8_UNORM;
+		uint64_t image_id     = 0;
 
 		struct SharedSemaphores
 		{

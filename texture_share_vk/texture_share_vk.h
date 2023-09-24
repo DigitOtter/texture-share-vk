@@ -5,6 +5,7 @@
 #include "texture_share_vk/shared_image_vk.h"
 #include "texture_share_vk/vk_helpers.h"
 
+#include <unistd.h>
 
 class TextureShareVk
 {
@@ -21,12 +22,8 @@ class TextureShareVk
 		                      bool import_only = true);
 		void CleanupVulkan();
 
-		SharedImageVk CreateImage(uint32_t width, uint32_t height, VkFormat format = DEFAULT_FORMAT);
+		SharedImageVk CreateImage(uint32_t width, uint32_t height, uint64_t image_id, VkFormat format = DEFAULT_FORMAT);
 		SharedImageHandleVk CreateImageHandle(ExternalHandle::SharedImageInfo &&image_info, VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		SharedImageHandleVk CreateImageHandle(ExternalHandle::ShareHandles &&handles,
-		                                      uint32_t width, uint32_t height,
-		                                      VkFormat format = DEFAULT_FORMAT,
-		                                      VkImageLayout layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
 		bool IsVulkanInitialized() const;
 

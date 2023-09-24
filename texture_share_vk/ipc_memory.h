@@ -20,8 +20,8 @@
 class IpcMemory
 {
 	public:
-	static constexpr uint64_t DEFAULT_CMD_WAIT_TIME                    = 1 * 1000 * 1000; // 500*1000;
-	static constexpr uint64_t DAEMON_STARTUP_DEFAULT_WAIT_TIME_MICRO_S = 1 * 1000 * 1000;
+	static constexpr uint64_t DEFAULT_CMD_WAIT_TIME                    = 100 * 1000 * 1000; // 500*1000;
+	static constexpr uint64_t DAEMON_STARTUP_DEFAULT_WAIT_TIME_MICRO_S = 100 * 1000 * 1000;
 
 	static constexpr std::string_view DEFAULT_IPC_CMD_MEMORY_NAME = "SharedTextureCmdMemory";
 	static constexpr std::string_view DEFAULT_IPC_MAP_MEMORY_NAME = "SharedTextureMapMemory";
@@ -130,21 +130,8 @@ class IpcMemory
 	ImageData *GetImageData(const std::string &image_name, uint64_t micro_sec_wait_time = DEFAULT_CMD_WAIT_TIME) const;
 
 	protected:
-	template<class T, class... Ts>
-	static constexpr size_t MultiMax()
-	{
-		if constexpr(sizeof...(Ts) > 0)
-		{
-			return std::max(sizeof(T), MultiMax<Ts...>());
-		}
-		else
-		{
-			return sizeof(T);
-		}
-	}
-
 	static constexpr size_t IPC_QUEUE_MSG_SIZE =
-		std::max(std::max(sizeof(IpcCmdImageInit), sizeof(IpcCmdRename)), sizeof(IpcCmdRequestImageHandles));
+		std::max({sizeof(IpcCmdImageInit), sizeof(IpcCmdRename), sizeof(IpcCmdRequestImageHandles)});
 
 	static constexpr unsigned int IPC_QUEUE_MSG_PRIORITY_DEFAULT = 50;
 
@@ -152,7 +139,8 @@ class IpcMemory
 	{
 		bool operator()(const IMAGE_NAME_T &x, const IMAGE_NAME_T &y) const
 		{
-			return strcmp(x.data(), y.data()) < 0;
+			constexpr size_t len = IMAGE_NAME_T().size();
+			return strncmp(x.data(), y.data(), len) < 0;
 		}
 	};
 
@@ -178,8 +166,6 @@ class IpcMemory
 	} _shmem_remover;
 
 	boost::interprocess::message_queue _cmd_memory_segment;
-
-
 	boost::interprocess::managed_shared_memory _map_memory_segment;
 	shmem_allocator_t _map_allocator;
 

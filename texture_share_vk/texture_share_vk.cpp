@@ -55,10 +55,10 @@ void TextureShareVk::CleanupVulkan()
 	}
 }
 
-SharedImageVk TextureShareVk::CreateImage(uint32_t width, uint32_t height, VkFormat format)
+SharedImageVk TextureShareVk::CreateImage(uint32_t width, uint32_t height, uint64_t image_id, VkFormat format)
 {
 	SharedImageVk shared_image(this->_vk_struct.device);
-	shared_image.Initialize(this->_vk_struct.device, this->_vk_struct.physical_device, width, height, format);
+	shared_image.Initialize(this->_vk_struct.device, this->_vk_struct.physical_device, width, height, image_id, format);
 	shared_image.InitializeImageLayout(this->_vk_struct.device, this->_vk_struct.graphics_queue, this->_command_buffer);
 
 	return shared_image;
@@ -72,19 +72,6 @@ SharedImageHandleVk TextureShareVk::CreateImageHandle(ExternalHandle::SharedImag
 	shared_image_handle.SetImageLayout(this->_vk_struct.graphics_queue, this->_command_buffer, layout);
 
 	return shared_image_handle;
-}
-
-SharedImageHandleVk TextureShareVk::CreateImageHandle(ExternalHandle::ShareHandles &&handles,
-                                                      uint32_t width, uint32_t height,
-                                                      VkFormat format, VkImageLayout layout)
-{
-	ExternalHandle::SharedImageInfo image_info;
-	image_info.handles = std::move(handles);
-	image_info.width = width;
-	image_info.height = height;
-	image_info.format = ExternalHandleVk::GetImageFormat(format);
-
-	return this->CreateImageHandle(std::move(image_info), layout);
 }
 
 bool TextureShareVk::IsVulkanInitialized() const

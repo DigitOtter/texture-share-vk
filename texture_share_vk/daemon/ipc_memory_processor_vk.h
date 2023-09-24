@@ -31,6 +31,8 @@ class IpcMemoryProcessorVk
 
 		std::set<DaemonComm::PROC_T> _registered_pids;
 
+		uint64_t _next_image_id = 1;
+
 		char ProcessRegisterProcCmd(const IpcCmdRegisterProc &ipc_cmd);
 		char ProcessImageInitCmd(const IpcCmdImageInit &ipc_cmd);
 		char ProcessRenameCmd(const IpcCmdRename &ipc_cmd);
