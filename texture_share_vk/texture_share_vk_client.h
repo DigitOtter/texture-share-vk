@@ -1,7 +1,7 @@
 #ifndef TEXTURE_SHARE_VK_CLIENT_H
 #define TEXTURE_SHARE_VK_CLIENT_H
 
-#include "texture_share_vk/ipc_memory.h"
+#include "texture_share_vk/ipc_memory/ipc_memory.h"
 #include "texture_share_vk/texture_share_vk.h"
 
 #include <map>

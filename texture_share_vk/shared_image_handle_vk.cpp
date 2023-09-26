@@ -14,6 +14,7 @@ SharedImageHandleVk &SharedImageHandleVk::operator=(SharedImageHandleVk &&other)
 	this->_format = std::move(other._format);
 	this->_height = std::move(other._height);
 	this->_width  = std::move(other._width);
+	this->_handle_id = std::move(other._handle_id);
 
 	this->_image_layout = std::move(other._image_layout);
 
@@ -48,6 +49,7 @@ void SharedImageHandleVk::ImportHandles(VkDevice device, VkPhysicalDevice physic
 	this->_width  = external_handles.width;
 	this->_height = external_handles.height;
 	this->_format = ExternalHandleVk::GetVkFormat(external_handles.format);
+	this->_handle_id = external_handles.handle_id;
 
 	VkExternalMemoryImageCreateInfo external_memory_image_create_info{
 		VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO};

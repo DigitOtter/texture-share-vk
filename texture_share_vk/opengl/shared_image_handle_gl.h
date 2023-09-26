@@ -27,8 +27,8 @@ class SharedImageHandleGl
 		SharedImageHandleGl(const SharedImageHandleGl&) = delete;
 		SharedImageHandleGl &operator=(const SharedImageHandleGl&) = delete;
 
-		SharedImageHandleGl(SharedImageHandleGl &&) = default;
-		SharedImageHandleGl &operator=(SharedImageHandleGl &&);
+		SharedImageHandleGl(SharedImageHandleGl &&)            = default;
+		SharedImageHandleGl &operator=(SharedImageHandleGl &&) = delete;
 
 		static bool InitializeGLExternal();
 
@@ -84,8 +84,6 @@ class SharedImageHandleGl
 		}
 
 		private:
-		ExternalHandle::ShareHandles _share_handles;
-
 		// FBO to render image from/to (this is the recommended method of copying images)
 		GLuint _fbo = 0;
 

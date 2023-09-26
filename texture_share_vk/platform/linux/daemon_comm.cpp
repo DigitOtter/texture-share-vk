@@ -1,6 +1,6 @@
 #include "daemon_comm.h"
 
-#include "texture_share_vk/ipc_memory.h"
+#include "texture_share_vk/ipc_memory/ipc_memory.h"
 #include "texture_share_vk/platform/config.h"
 
 #include <csignal>
@@ -40,6 +40,39 @@ DaemonComm::FileDesc::~FileDesc()
 		this->_fd = -1;
 	}
 }
+
+DaemonComm::NamedSock::NamedSock(const std::filesystem::path &socket_path, int fd)
+	: FileDesc(fd),
+	  _socket_path(socket_path)
+{}
+
+DaemonComm::NamedSock::~NamedSock()
+{
+	if((int)*this >= 0)
+	{
+		const std::filesystem::directory_entry dir_entry(this->_socket_path);
+		if(dir_entry.exists() && dir_entry.is_socket())
+			std::filesystem::remove(this->_socket_path);
+	}
+}
+
+DaemonComm::NamedSock::NamedSock(NamedSock &&other)
+	: FileDesc(std::move(other)),
+	  _socket_path(std::move(other._socket_path))
+{}
+
+DaemonComm::NamedSock &DaemonComm::NamedSock::operator=(NamedSock &&other)
+{
+	static_cast<FileDesc &>(*this) = std::move(static_cast<FileDesc &>(other));
+	this->_socket_path             = std::move(other._socket_path);
+
+	return *this;
+}
+
+DaemonComm::PipeConnection::PipeConnection(NamedSock &&sock, FileDesc &&conn)
+	: Socket(std::move(sock)),
+	  Connection(std::move(conn))
+{}
 
 DaemonComm::LockFile::LockFile(const std::string &file, bool create_directory)
     : _fd(CreateLockFile(file, create_directory))
@@ -158,11 +191,13 @@ void DaemonComm::Daemonize(const std::string &ipc_cmd_memory_segment, const std:
 		throw std::runtime_error("Failed to start daemon");
 }
 
-void DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles, const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time)
+DaemonComm::PipeConnection DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles,
+                                                   const std::filesystem::path &socket_path,
+                                                   uint64_t micro_sec_wait_time)
 {
 	// Create socket
 	NamedSock sock_fd(socket_path, socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0));
-	DaemonComm::CreateNamedUnixSocket(socket_path, sock_fd);
+	DaemonComm::ConfigureNamedUnixSocket(socket_path, sock_fd);
 
 	// Wait for receiver connect
 	FileDesc conn_fd = DaemonComm::AcceptNamedUnixSocket(sock_fd, micro_sec_wait_time);
@@ -214,7 +249,7 @@ void DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles, const std::
 
 	const auto chrono_wait_time =
 		std::min(std::chrono::microseconds(1000), std::chrono::microseconds(micro_sec_wait_time) / 10);
-	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
+	auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
 	do
 	{
 		nr = sendmsg(conn_fd, &msgh, 0);
@@ -235,7 +270,31 @@ void DaemonComm::SendHandles(ExternalHandle::ShareHandles &&handles, const std::
 		throw std::runtime_error("Socket '" + socket_path.string() + "' encountered error on send: " + std::to_string(errno) + "\n\t" + strerror(errno));
 
 	// Give receiver time to get message before closing socket
-	std::this_thread::sleep_for(std::chrono::microseconds(100000));
+	stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
+	do
+	{
+		ipc_commands::PipeHandleAck ack;
+		nr = recv(conn_fd, &ack, sizeof(ipc_commands::PipeHandleAck), MSG_DONTWAIT);
+		if(nr == -1)
+		{
+			// Stop loop at unexpected error
+			if(errno == EWOULDBLOCK || errno == EAGAIN)
+				std::this_thread::sleep_for(chrono_wait_time);
+			else
+				break;
+		}
+		else if(nr > 0)
+			break;
+	}
+	while(std::chrono::high_resolution_clock::now() <= stop_time);
+
+	if(nr == -1)
+		throw std::runtime_error("Socket '" + socket_path.string() + "' encountered error on ack received: " +
+		                         std::to_string(errno) + "\n\t" + strerror(errno));
+
+	// std::cout << "Sent 1 Handle at " << socket_path << std::endl;
+
+	return PipeConnection(std::move(sock_fd), std::move(conn_fd));
 }
 
 ExternalHandle::ShareHandles DaemonComm::RecvHandles(const std::filesystem::path &socket_path, uint64_t micro_sec_wait_time)
@@ -276,7 +335,7 @@ ExternalHandle::ShareHandles DaemonComm::RecvHandles(const std::filesystem::path
 	/* Receive real plus ancillary data; real data is ignored */
 	const auto chrono_wait_time =
 		std::min(std::chrono::microseconds(1000), std::chrono::microseconds(micro_sec_wait_time) / 10);
-	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
+	auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
 	do
 	{
 		nr = recvmsg(conn_fd, &msgh, 0);
@@ -293,7 +352,7 @@ ExternalHandle::ShareHandles DaemonComm::RecvHandles(const std::filesystem::path
 	}
 	while(std::chrono::high_resolution_clock::now() <= stop_time);
 
-	if (nr == -1)
+	if(nr == -1)
 	{
 		if(errno == EWOULDBLOCK || errno == EAGAIN)
 			throw std::runtime_error("Socket '" + socket_path.string() + "' timed out while waiting for image fd");
@@ -318,6 +377,30 @@ ExternalHandle::ShareHandles DaemonComm::RecvHandles(const std::filesystem::path
 	handles.ext_read = rec_fd[1];
 	handles.ext_write = rec_fd[2];
 
+	stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
+	do
+	{
+	   ipc_commands::PipeHandleAck ack{true};
+	   nr = send(conn_fd, &ack, sizeof(ack), 0);
+	   if(nr == -1)
+	   {
+			// Stop loop at unexpected error
+			if(errno == EWOULDBLOCK || errno == EAGAIN)
+				std::this_thread::sleep_for(chrono_wait_time);
+			else
+				break;
+	   }
+	   else
+			break;
+	}
+	while(std::chrono::high_resolution_clock::now() <= stop_time);
+
+	if(nr == -1)
+	   throw std::runtime_error("Socket '" + socket_path.string() +
+		                        "' encountered error on ack send: " + std::to_string(errno) + "\n\t" + strerror(errno));
+
+	// std::cout << "Received 1 Handle at " << socket_path << std::endl;
+
 	return handles;
 }
 
@@ -331,22 +414,7 @@ bool DaemonComm::CheckLockFile(const std::string &lock_file)
 	return LockFile::IsFileLocked(lock_file);
 }
 
-DaemonComm::NamedSock::NamedSock(const std::filesystem::path &socket_path, int fd)
-    : FileDesc(fd),
-      _socket_path(socket_path)
-{}
-
-DaemonComm::NamedSock::~NamedSock()
-{
-	if((int)*this >= 0)
-	{
-		const std::filesystem::directory_entry dir_entry(this->_socket_path);
-		if(dir_entry.exists() && dir_entry.is_socket())
-			std::filesystem::remove(this->_socket_path);
-	}
-}
-
-int DaemonComm::CreateNamedUnixSocket(const std::filesystem::path &socket_path, FileDesc &sock_fd)
+void DaemonComm::ConfigureNamedUnixSocket(const std::filesystem::path &socket_path, FileDesc &sock_fd)
 {
 	// Create socket
 	struct sockaddr_un named_socket;
@@ -361,10 +429,8 @@ int DaemonComm::CreateNamedUnixSocket(const std::filesystem::path &socket_path, 
 	if(bind(sock_fd, (struct sockaddr *)&named_socket, sizeof(struct sockaddr_un)) < 0)
 		throw std::runtime_error("Socket name '" + socket_path.string() + "' failed to bind:" + std::to_string(errno) + "\n\t" + strerror(errno));
 
-	if(listen(sock_fd, 10) < 0)
+	if(listen(sock_fd, 1) < 0)
 		throw std::runtime_error("Socket name '" + socket_path.string() + "' failed to listen: " + std::to_string(errno) + "\n\t" + strerror(errno));
-
-	return sock_fd;
 }
 
 int DaemonComm::AcceptNamedUnixSocket(const FileDesc &sock_fd, uint64_t micro_sec_wait_time)

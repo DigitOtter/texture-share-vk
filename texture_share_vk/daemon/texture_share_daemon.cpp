@@ -42,11 +42,11 @@ int TextureShareDaemon::Loop(volatile bool &run)
 		// If no processes are connected after a specified amount of time, exit the loop
 		if(this->_vk_memory.CheckConnectedProcs())
 			check_proc_time = std::chrono::high_resolution_clock::now();
-		else if(std::chrono::high_resolution_clock::now() >= check_proc_time + check_proc_wait)
-		{
-			std::cerr << "No processes connected. Stopping daemon." << std::endl;
-			break;
-		}
+		//		else if(std::chrono::high_resolution_clock::now() >= check_proc_time + check_proc_wait)
+		//		{
+		//			std::cerr << "No processes connected. Stopping daemon." << std::endl;
+		//			break;
+		//		}
 	}
 
 	return 0;

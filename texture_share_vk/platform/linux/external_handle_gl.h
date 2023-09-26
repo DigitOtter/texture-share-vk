@@ -31,6 +31,7 @@ class ExternalHandleGl
 
 		static void GenSemaphoresEXT(GLsizei n, const GLuint *semaphores);
 		static void CreateMemoryObjectsEXT(GLsizei n, GLuint *memoryObjects);
+		static void DeleteMemoryObjectsEXT(GLsizei n, const GLuint *memoryObjects);
 
 		static void TextureStorageMem2DEXT(GLuint texture, GLsizei levels, GLenum internalFormat, GLsizei width,
 	                                       GLsizei height, GLuint memory, GLuint64 offset);
@@ -52,6 +53,9 @@ class ExternalHandleGl
 		using import_memory_fd_fcn_t = void(GLuint memory, GLuint64 size, GLenum handle_type,
 	                                        ExternalHandle::TYPE ext_semaphore_handle);
 		static import_memory_fd_fcn_t *import_memory_fd_fcn;
+
+		using delete_memory_objects_fcn_t = void(GLsizei n, const GLuint *memoryObjects);
+		static delete_memory_objects_fcn_t *delete_memory_objects_fcn;
 
 		using texture_storage_mem_2d_fcn_t = void(GLuint texture, GLsizei levels, GLenum internalFormat, GLsizei width,
 	                                              GLsizei height, GLuint memory, GLuint64 offset);

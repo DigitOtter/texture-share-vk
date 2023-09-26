@@ -49,9 +49,7 @@ void TextureShareVkClient::InitImage(const std::string &image_name, uint32_t ima
 	if(!this->_ipc_memory.SubmitWaitImageInitCmd(image_name, image_width, image_height,
 	                                             ExternalHandleVk::GetImageFormat(image_format), overwrite_existing,
 	                                             micro_sec_wait_time))
-	{
 		throw std::runtime_error("Failed to initialize shared image");
-	}
 
 	if(!this->FindImage(image_name, micro_sec_wait_time))
 		throw std::runtime_error("Failed to retrieve image handles after initialization");
@@ -69,13 +67,10 @@ void TextureShareVkClient::SendImageBlit(const std::string &image_name, VkImage 
 	if(!img_data)
 		return;
 
-	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access,
-	                                                              bipc::try_to_lock);
+	const auto tp = bipc::ipcdetail::duration_to_ustime(std::chrono::microseconds(micro_sec_wait_time));
+	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access, tp);
 	if(!img_lock)
-	{
-		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-			return;
-	}
+		return;
 
 	img_data->shared_image.SendImageBlit(this->_vk_data.GraphicsQueue(), this->_vk_data.CommandBuffer(), send_image,
 	                                     send_image_layout, fence);
@@ -89,13 +84,10 @@ void TextureShareVkClient::RecvImageBlit(const std::string &image_name, VkImage 
 	if(!img_data || !img_data->ipc_img_data)
 		return;
 
-	bipc::sharable_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access,
-	                                                                bipc::try_to_lock);
+	const auto tp = bipc::ipcdetail::duration_to_ustime(std::chrono::microseconds(micro_sec_wait_time));
+	bipc::sharable_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access, tp);
 	if(!img_lock)
-	{
-		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-			return;
-	}
+		return;
 
 	img_data->shared_image.RecvImageBlit(this->_vk_data.GraphicsQueue(), this->_vk_data.CommandBuffer(), recv_image,
 	                                     pre_recv_image_layout, post_recv_image_layout, fence);
@@ -108,17 +100,16 @@ void TextureShareVkClient::ClearImage(const std::string &image_name, VkClearColo
 	if(!img_data)
 		return;
 
-	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access,
-	                                                              bipc::try_to_lock);
+	const auto tp = bipc::ipcdetail::duration_to_ustime(std::chrono::microseconds(micro_sec_wait_time));
+	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access, tp);
 	if(!img_lock)
-	{
-		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-			return;
-	}
+		return;
 
 	img_data->shared_image.ClearImage(this->_vk_data.GraphicsQueue(), this->_vk_data.CommandBuffer(), clear_color,
 	                                  fence);
 }
+
+#include <iostream>
 
 bool TextureShareVkClient::HasImageMemoryChanged(const std::string &image_name)
 {

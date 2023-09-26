@@ -1,4 +1,4 @@
-#include "texture_share_vk/ipc_memory.h"
+#include "ipc_memory.h"
 
 #include "texture_share_vk/platform/daemon_comm.h"
 
@@ -7,7 +7,7 @@
 #include <boost/interprocess/segment_manager.hpp>
 
 namespace bipc = boost::interprocess;
-
+using namespace ipc_commands;
 
 IpcMemory::IpcData::IpcData(IpcData &&other)
     : map_access(),
@@ -25,10 +25,10 @@ IpcMemory::IpcData &IpcMemory::IpcData::operator=(IpcData &&other)
 }
 
 IpcMemory::ImageData::ImageData(ImageData &&other)
-    : shared_image_info(std::move(other.shared_image_info)),
-      socket_filename(std::move(other.socket_filename)),
-      handle_access(),
-      connected_procs_count(std::move(other.connected_procs_count))
+	: shared_image_info(std::move(other.shared_image_info)),
+	  socket_filename(std::move(other.socket_filename)),
+	  handle_access(),
+	  connected_procs_count(std::move(other.connected_procs_count))
 {}
 
 IpcMemory::ImageData &IpcMemory::ImageData::operator=(ImageData &&other)
@@ -132,12 +132,10 @@ bool IpcMemory::SubmitWaitRegisterProcCmd(DaemonComm::PROC_T proc_id, uint64_t m
 
 	// Lock cmd_request_access until command is sent
 	{
-		bipc::scoped_lock lock(this->_lock_data->cmd_request_access, bipc::try_to_lock);
+		const auto tp = bipc::ipcdetail::duration_to_ustime(std::chrono::microseconds(micro_sec_wait_time));
+		bipc::scoped_lock lock(this->_lock_data->cmd_request_access, tp);
 		if(!lock)
-		{
-			if(!lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-				return false;
-		}
+			return false;
 
 		this->_lock_data->calling_pid = DaemonComm::GetProcId();
 		cmd_req_num = this->_lock_data->next_cmd_num++;
@@ -168,12 +166,10 @@ bool IpcMemory::SubmitWaitImageInitCmd(const std::string &image_name,
 
 	// Lock cmd_request_access until command is sent
 	{
-		bipc::scoped_lock lock(this->_lock_data->cmd_request_access, bipc::try_to_lock);
+		const auto tp = bipc::ipcdetail::duration_to_ustime(std::chrono::microseconds(micro_sec_wait_time));
+		bipc::scoped_lock lock(this->_lock_data->cmd_request_access, tp);
 		if(!lock)
-		{
-			if(!lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-				return false;
-		}
+			return false;
 
 		this->_lock_data->calling_pid = DaemonComm::GetProcId();
 		cmd_req_num = this->_lock_data->next_cmd_num++;
@@ -211,12 +207,10 @@ bool IpcMemory::SubmitWaitImageRenameCmd(const std::string &image_name, const st
 
 	// Lock cmd_request_access until command is sent
 	{
-		bipc::scoped_lock lock(this->_lock_data->cmd_request_access, bipc::try_to_lock);
+		const auto tp = bipc::ipcdetail::duration_to_ustime(std::chrono::microseconds(micro_sec_wait_time));
+		bipc::scoped_lock lock(this->_lock_data->cmd_request_access, tp);
 		if(!lock)
-		{
-			if(!lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-				return false;
-		}
+			return false;
 
 		this->_lock_data->calling_pid = DaemonComm::GetProcId();
 		cmd_req_num = this->_lock_data->next_cmd_num++;
@@ -248,12 +242,10 @@ bool IpcMemory::SubmitWaitImageRenameCmd(const std::string &image_name, const st
 ExternalHandle::SharedImageInfo IpcMemory::SubmitWaitExternalHandleCmd(const std::string &image_name, uint64_t micro_sec_wait_time)
 {
 	// Lock cmd_request_access until command is sent and handle is retrieved
-	bipc::scoped_lock lock(this->_lock_data->cmd_request_access, bipc::try_to_lock);
+	const auto tp = bipc::ipcdetail::duration_to_ustime(std::chrono::microseconds(micro_sec_wait_time));
+	bipc::scoped_lock lock(this->_lock_data->cmd_request_access, tp);
 	if(!lock)
-	{
-		if(!lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-			return ExternalHandle::SharedImageInfo{};
-	}
+		return ExternalHandle::SharedImageInfo{};
 
 	this->_lock_data->calling_pid = DaemonComm::GetProcId();
 	const uint32_t cmd_req_num = this->_lock_data->next_cmd_num++;
@@ -274,11 +266,16 @@ ExternalHandle::SharedImageInfo IpcMemory::SubmitWaitExternalHandleCmd(const std
 	}
 
 	// Check if socket name set up by server
+	const auto sleep_time =
+		std::min(std::chrono::microseconds(1000), std::chrono::microseconds(micro_sec_wait_time) / 10);
 	const auto stop_time = std::chrono::high_resolution_clock::now() + std::chrono::microseconds(micro_sec_wait_time);
-	while(img_data_it->second.socket_filename.front() == '\0' &&
-	      std::chrono::high_resolution_clock::now() < stop_time)
+	while(img_data_it->second.socket_filename.front() == '\0' && std::chrono::high_resolution_clock::now() < stop_time)
 	{
-		std::this_thread::sleep_for(std::chrono::microseconds(micro_sec_wait_time)/10);
+		//		volatile char *t = &(img_data_it->second.socket_filename.front());
+		//		if(*t != '\0')
+		//			break;
+
+		std::this_thread::sleep_for(sleep_time);
 	}
 
 	if(img_data_it->second.socket_filename.front() == '\0')
@@ -298,12 +295,10 @@ ExternalHandle::SharedImageInfo IpcMemory::SubmitWaitExternalHandleCmd(const std
 
 IpcMemory::ImageData *IpcMemory::GetImageData(const std::string &image_name, uint64_t micro_sec_wait_time) const
 {
-	bipc::sharable_lock<bipc::interprocess_sharable_mutex> map_lock(this->_lock_data->map_access, bipc::try_to_lock);
+	const auto tp = bipc::ipcdetail::duration_to_ustime(std::chrono::microseconds(micro_sec_wait_time));
+	bipc::sharable_lock<bipc::interprocess_sharable_mutex> map_lock(this->_lock_data->map_access, tp);
 	if(!map_lock)
-	{
-		if(!map_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-			return nullptr;
-	}
+		return nullptr;
 
 	const IMAGE_NAME_T &data = reinterpret_cast<const IMAGE_NAME_T &>(*image_name.c_str());
 	if(auto img_data_it = this->_image_map->find(data); img_data_it != this->_image_map->end())

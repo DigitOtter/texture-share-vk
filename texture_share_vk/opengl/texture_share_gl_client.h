@@ -1,7 +1,7 @@
 #ifndef TEXTURE_SHARE_GL_CLIENT_H
 #define TEXTURE_SHARE_GL_CLIENT_H
 
-#include "texture_share_vk/ipc_memory.h"
+#include "texture_share_vk/ipc_memory/ipc_memory.h"
 #include "texture_share_vk/opengl/shared_image_handle_gl.h"
 #include "texture_share_vk/platform/platform_gl.h"
 

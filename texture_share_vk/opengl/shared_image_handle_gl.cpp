@@ -31,10 +31,7 @@ void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::ShareHandles &&
                                                  GLsizei height, uint64_t handle_id, GLuint64 allocation_size,
                                                  GLenum format, GLenum internal_format)
 {
-	// TODO: Should received share_handles be closed or does opengl take care of that?
-	this->_share_handles = std::move(share_handles);
-
-	//glDisable(GL_DEPTH_TEST);
+	// glDisable(GL_DEPTH_TEST);
 
 	// Create the texture for the FBO color attachment.
 	// This only reserves the ID, it doesn't allocate memory
@@ -51,9 +48,16 @@ void SharedImageHandleGl::InitializeWithExternal(ExternalHandle::ShareHandles &&
 	ExternalHandleGl::CreateMemoryObjectsEXT(1, &this->_mem);
 
 	// Platform specific import.
-	ExternalHandleGl::ImportSemaphoreExt(this->_semaphore_read, ExternalHandleGl::GL_HANDLE_TYPE, this->_share_handles.ext_read);
-	ExternalHandleGl::ImportSemaphoreExt(this->_semaphore_write, ExternalHandleGl::GL_HANDLE_TYPE, this->_share_handles.ext_write);
-	ExternalHandleGl::ImportMemoryExt(this->_mem, allocation_size, ExternalHandleGl::GL_HANDLE_TYPE, this->_share_handles.memory);
+	ExternalHandleGl::ImportSemaphoreExt(this->_semaphore_read, ExternalHandleGl::GL_HANDLE_TYPE,
+	                                     share_handles.ext_read);
+	ExternalHandleGl::ImportSemaphoreExt(this->_semaphore_write, ExternalHandleGl::GL_HANDLE_TYPE,
+	                                     share_handles.ext_write);
+	ExternalHandleGl::ImportMemoryExt(this->_mem, allocation_size, ExternalHandleGl::GL_HANDLE_TYPE,
+	                                  share_handles.memory);
+
+	share_handles.ext_read  = -1;
+	share_handles.ext_write = -1;
+	share_handles.memory    = -1;
 
 	// Use the imported memory as backing for the OpenGL texture.  The internalFormat, dimensions
 	// and mip count should match the ones used by Vulkan to create the image and determine it's memory
@@ -74,6 +78,12 @@ void SharedImageHandleGl::Cleanup()
 	{
 		glDeleteTextures(1, &this->_image_texture);
 		this->_image_texture = 0;
+	}
+
+	if(this->_mem > 0)
+	{
+		ExternalHandleGl::DeleteMemoryObjectsEXT(1, &this->_mem);
+		this->_mem = 0;
 	}
 
 	if(this->_semaphore_write)

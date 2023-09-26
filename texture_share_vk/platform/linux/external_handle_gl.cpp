@@ -8,6 +8,7 @@ ExternalHandleGl::import_semaphore_fcn_fd_t *ExternalHandleGl::import_semaphore_
 ExternalHandleGl::delete_semaphores_fcn_t *ExternalHandleGl::delete_semaphores_fcn           = nullptr;
 ExternalHandleGl::create_memory_objects_fcn_t *ExternalHandleGl::create_memory_objects_fcn   = nullptr;
 ExternalHandleGl::import_memory_fd_fcn_t *ExternalHandleGl::import_memory_fd_fcn             = nullptr;
+ExternalHandleGl::delete_memory_objects_fcn_t *ExternalHandleGl::delete_memory_objects_fcn   = nullptr;
 ExternalHandleGl::texture_storage_mem_2d_fcn_t *ExternalHandleGl::texture_storage_mem_2d_fcn = nullptr;
 
 bool ExternalHandleGl::LoadGlEXT()
@@ -17,11 +18,12 @@ bool ExternalHandleGl::LoadGlEXT()
 	delete_semaphores_fcn     = (delete_semaphores_fcn_t *)glXGetProcAddress((GLubyte *)"glDeleteSemaphoresEXT");
 	create_memory_objects_fcn = (create_memory_objects_fcn_t *)glXGetProcAddress((GLubyte *)"glCreateMemoryObjectsEXT");
 	import_memory_fd_fcn      = (import_memory_fd_fcn_t *)glXGetProcAddress((GLubyte *)"glImportMemoryFdEXT");
+	delete_memory_objects_fcn = (delete_memory_objects_fcn_t *)glXGetProcAddress((GLubyte *)"glDeleteMemoryObjectsEXT");
 	texture_storage_mem_2d_fcn =
 		(texture_storage_mem_2d_fcn_t *)glXGetProcAddress((GLubyte *)"glTextureStorageMem2DEXT");
 
 	return (gen_semaphores_fcn && import_semaphore_fd_fcn && delete_semaphores_fcn && create_memory_objects_fcn &&
-	        import_memory_fd_fcn && texture_storage_mem_2d_fcn);
+	        import_memory_fd_fcn && delete_memory_objects_fcn && texture_storage_mem_2d_fcn);
 }
 
 GLenum ExternalHandleGl::GetGlFormat(ExternalHandle::ImageFormat format)
@@ -102,6 +104,12 @@ void ExternalHandleGl::CreateMemoryObjectsEXT(GLsizei n, GLuint *memoryObjects)
 {
 	assert(create_memory_objects_fcn);
 	return create_memory_objects_fcn(n, memoryObjects);
+}
+
+void ExternalHandleGl::DeleteMemoryObjectsEXT(GLsizei n, const GLuint *memoryObjects)
+{
+	assert(delete_memory_objects_fcn);
+	return delete_memory_objects_fcn(n, memoryObjects);
 }
 
 void ExternalHandleGl::TextureStorageMem2DEXT(GLuint texture, GLsizei levels, GLenum internalFormat, GLsizei width,

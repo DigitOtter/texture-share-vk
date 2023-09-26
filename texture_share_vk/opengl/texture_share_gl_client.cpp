@@ -39,13 +39,10 @@ void TextureShareGlClient::SendImageBlit(const std::string &image_name, GLuint s
 	if(!img_data)
 		return;
 
-	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access,
-	                                                              bipc::try_to_lock);
+	const auto tp = bipc::ipcdetail::duration_to_ustime(std::chrono::microseconds(micro_sec_wait_time));
+	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access, tp);
 	if(!img_lock)
-	{
-		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
 			return;
-	}
 
 	return img_data->shared_image.SendBlitImage(src_texture_id, src_texture_target, src_dimensions, invert, prev_fbo);
 }
@@ -56,15 +53,12 @@ void TextureShareGlClient::RecvImageBlit(const std::string &image_name, GLuint d
 {
 	SharedImageData *img_data = this->GetImageData(image_name, false, micro_sec_wait_time);
 	if(!img_data || !img_data->ipc_img_data)
-		return;
-
-	bipc::sharable_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access,
-	                                                                bipc::try_to_lock);
-	if(!img_lock)
-	{
-		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
 			return;
-	}
+
+	const auto tp = bipc::ipcdetail::duration_to_ustime(std::chrono::microseconds(micro_sec_wait_time));
+	bipc::sharable_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access, tp);
+	if(!img_lock)
+			return;
 
 	return img_data->shared_image.RecvBlitImage(dst_texture_id, dst_texture_target, dst_dimensions, invert, prev_fbo);
 }
@@ -76,13 +70,10 @@ void TextureShareGlClient::ClearImage(const std::string &image_name, const void 
 	if(!img_data)
 		return;
 
-	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access,
-	                                                              bipc::try_to_lock);
+	const auto tp = bipc::ipcdetail::duration_to_ustime(std::chrono::microseconds(micro_sec_wait_time));
+	bipc::scoped_lock<bipc::interprocess_sharable_mutex> img_lock(img_data->ipc_img_data->handle_access, tp);
 	if(!img_lock)
-	{
-		if(!img_lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time)))
-			return;
-	}
+		return;
 
 	return img_data->shared_image.ClearImage((u_char *)clear_color);
 }

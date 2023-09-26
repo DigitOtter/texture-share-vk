@@ -8,6 +8,7 @@
 
 
 namespace bipc = boost::interprocess;
+using namespace ipc_commands;
 
 IpcMemoryProcessorVk::IpcMemoryProcessorVk(const std::string &ipc_cmd_memory_segment, const std::string &ipc_map_memory_segment)
     : IpcMemory(ipc_cmd_memory_segment, ipc_map_memory_segment)
@@ -52,7 +53,7 @@ char IpcMemoryProcessorVk::ProcessCmd(uint64_t micro_sec_wait_time)
 {
 	// Process cmd
 	char ret_val;
-	unsigned char buffer[IpcMemory::IPC_QUEUE_MSG_SIZE];
+	unsigned char buffer[IPC_QUEUE_MSG_SIZE];
 	size_t recv_size;
 	unsigned int prio;
 
@@ -61,16 +62,12 @@ char IpcMemoryProcessorVk::ProcessCmd(uint64_t micro_sec_wait_time)
 		return -3;
 
 	// Lock map memory access
-	bipc::scoped_lock lock(this->_lock_data->map_access, bipc::try_to_lock);
+	const auto tp = bipc::ipcdetail::duration_to_ustime(std::chrono::microseconds(micro_sec_wait_time));
+	bipc::scoped_lock lock(this->_lock_data->map_access, tp);
 	if(!lock)
 	{
-		lock.try_lock_for(std::chrono::microseconds(micro_sec_wait_time));
-
-		if(!lock)
-		{
 			constexpr char ret_val = -2;
 			return ret_val;
-		}
 	}
 
 	uint32_t cmd_num = 0;
@@ -140,13 +137,13 @@ bool IpcMemoryProcessorVk::CheckConnectedProcs()
 	return !this->_registered_pids.empty();
 }
 
-char IpcMemoryProcessorVk::ProcessRegisterProcCmd(const IpcCmdRegisterProc &ipc_cmd)
+char IpcMemoryProcessorVk::ProcessRegisterProcCmd(const ipc_commands::IpcCmdRegisterProc &ipc_cmd)
 {
 	this->_registered_pids.emplace(ipc_cmd.proc_id);
 	return 1;
 }
 
-char IpcMemoryProcessorVk::ProcessImageInitCmd(const IpcCmdImageInit &ipc_cmd)
+char IpcMemoryProcessorVk::ProcessImageInitCmd(const ipc_commands::IpcCmdImageInit &ipc_cmd)
 {
 	if(auto old_map_it = this->_image_map->find(ipc_cmd.image_name); old_map_it != this->_image_map->end())
 	{
@@ -183,7 +180,7 @@ char IpcMemoryProcessorVk::ProcessImageInitCmd(const IpcCmdImageInit &ipc_cmd)
 	return 1;
 }
 
-char IpcMemoryProcessorVk::ProcessRenameCmd(const IpcCmdRename &ipc_cmd)
+char IpcMemoryProcessorVk::ProcessRenameCmd(const ipc_commands::IpcCmdRename &ipc_cmd)
 {
 	if(auto old_data_it = this->_image_map->find(ipc_cmd.image_name_old); old_data_it != this->_image_map->end())
 	{
@@ -201,7 +198,7 @@ char IpcMemoryProcessorVk::ProcessRenameCmd(const IpcCmdRename &ipc_cmd)
 	return 1;
 }
 
-char IpcMemoryProcessorVk::ProcessHandleRequestCmd(const IpcCmdRequestImageHandles &ipc_cmd)
+char IpcMemoryProcessorVk::ProcessHandleRequestCmd(const ipc_commands::IpcCmdRequestImageHandles &ipc_cmd)
 {
 	auto map_data = this->_image_map->find(ipc_cmd.image_name);
 	if(map_data == this->_image_map->end())

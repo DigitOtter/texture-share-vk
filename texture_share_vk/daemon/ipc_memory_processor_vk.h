@@ -1,7 +1,7 @@
 #ifndef IPC_MEMORY_PROCESSOR_VK_H
 #define IPC_MEMORY_PROCESSOR_VK_H
 
-#include "texture_share_vk/ipc_memory.h"
+#include "texture_share_vk/ipc_memory/ipc_memory.h"
 #include "texture_share_vk/platform/daemon_comm.h"
 #include "texture_share_vk/texture_share_vk.h"
 
@@ -33,10 +33,10 @@ class IpcMemoryProcessorVk
 
 		uint64_t _next_image_id = 1;
 
-		char ProcessRegisterProcCmd(const IpcCmdRegisterProc &ipc_cmd);
-		char ProcessImageInitCmd(const IpcCmdImageInit &ipc_cmd);
-		char ProcessRenameCmd(const IpcCmdRename &ipc_cmd);
-		char ProcessHandleRequestCmd(const IpcCmdRequestImageHandles &ipc_cmd);
+		char ProcessRegisterProcCmd(const ipc_commands::IpcCmdRegisterProc &ipc_cmd);
+		char ProcessImageInitCmd(const ipc_commands::IpcCmdImageInit &ipc_cmd);
+		char ProcessRenameCmd(const ipc_commands::IpcCmdRename &ipc_cmd);
+		char ProcessHandleRequestCmd(const ipc_commands::IpcCmdRequestImageHandles &ipc_cmd);
 };
 
 #endif // IPC_MEMORY_PROCESSOR_VK_H

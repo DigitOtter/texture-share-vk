@@ -57,7 +57,7 @@ set(EXTERNAL_HANDLE_LIB_SRC_FILES
 )
 
 set(IPC_MEMORY_LIB_SRC_FILES
-	"texture_share_vk/ipc_memory.cpp"
+	"texture_share_vk/ipc_memory/ipc_memory.cpp"
 	"texture_share_vk/platform/${PLATFORM_DIRECTORY}/daemon_comm.cpp"
 )
 
@@ -253,6 +253,12 @@ if(BUILD_EXECUTABLES)
 		    "${NAMESPACE_NAME}::TextureShareOpenGL"
 
 			GLUT::GLUT
+	)
+
+    add_executable(TSVTestDaemonComm "tests/daemon_comm/main.cpp")
+	target_link_libraries(TSVTestDaemonComm
+		PUBLIC
+		    "${NAMESPACE_NAME}::TSVIpcMemory"
 	)
 endif()
 
