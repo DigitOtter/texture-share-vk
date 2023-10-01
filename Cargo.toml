@@ -1,0 +1,18 @@
+[package]
+name = "rust-texture-share-vk"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# interprocess = "1.2.1"
+interprocess = { git = "https://github.com/kotauskas/interprocess.git", branch = "main"}
+memoffset = "0.9.0"
+raw_sync = "0.1.5"
+shared_memory = "0.12.4"
+vulkano = "0.33.0"
+
+[dev-dependencies]
+libc = "0.2.148"
+tempfile = "3.8.0"
