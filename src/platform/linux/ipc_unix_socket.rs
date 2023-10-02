@@ -1,15 +1,11 @@
 use std::cell::RefCell;
 use std::cmp::min;
 use std::io::{Error, ErrorKind, IoSlice, IoSliceMut, Read, Write};
-use std::mem::{size_of, size_of_val};
+use std::mem::size_of;
 use std::os::fd::{FromRawFd, OwnedFd, RawFd};
-use std::os::unix::net::{
-    AncillaryData, ScmRights, SocketAncillary, UnixDatagram, UnixListener, UnixStream,
-};
-use std::path::{Path, PathBuf};
+use std::os::unix::net::{AncillaryData, SocketAncillary, UnixListener, UnixStream};
+use std::thread;
 use std::time::{Duration, SystemTime};
-use std::{fs, thread};
-use vulkano::VulkanObject;
 
 use super::ipc_commands::{CommandMsg, ResultMsg};
 
@@ -28,6 +24,11 @@ struct IPCSocket {
 impl IPCConnection {
     pub fn new(conn: UnixStream, proc_id: i32, timeout: Duration) -> IPCConnection {
         conn.set_nonblocking(true).unwrap();
+
+        // TODO: Use socket timeout instead of own implementation
+        // conn.set_read_timeout(Some(timeout)).unwrap();
+        // conn.set_write_timeout(Some(timeout)).unwrap();
+
         IPCConnection {
             conn: RefCell::new(conn),
             proc_id,
@@ -96,9 +97,8 @@ impl IPCConnection {
         let mut fds = Vec::<OwnedFd>::new();
         let _ = IPCConnection::try_fcn_timeout(
             || {
-                let mut buf = [0 as u8; 4];
-                let abuf_len =
-                    IPCConnection::compute_cmsg_header_size() + handle_count * size_of::<RawFd>();
+                let abuf_len = IPCConnection::compute_cmsg_header_size()
+                    + (handle_count - fds.len()) * size_of::<RawFd>();
                 let mut abuf = vec![0 as u8; abuf_len];
                 let mut adat = SocketAncillary::new(&mut abuf);
                 let rec = self
@@ -312,9 +312,9 @@ impl IPCSocket {
     }
 }
 
-//#[cfg(tests)]
+#[cfg(test)]
 mod tests {
-    use std::{fs, mem::size_of_val, os::fd::AsRawFd};
+    use std::{fs, os::fd::AsRawFd};
 
     use super::*;
 
@@ -329,6 +329,7 @@ mod tests {
 
     fn _ipc_stream_create() -> (IPCSocket, IPCConnection) {
         let _ = fs::remove_file(SOCK_PATH);
+        thread::sleep(Duration::from_secs(1));
 
         let listen_thread = move || {
             let mut listener = IPCSocket::new(SOCK_PATH, TIMEOUT)?;
@@ -339,7 +340,7 @@ mod tests {
         };
 
         let connect_thread = || {
-            let mut conn = IPCConnection::try_connect(SOCK_PATH, TIMEOUT)?
+            let conn = IPCConnection::try_connect(SOCK_PATH, TIMEOUT)?
                 .expect("Failed to connect to socket");
             Ok::<_, Error>(conn)
         };
@@ -395,7 +396,7 @@ mod tests {
         let s_handle = thread::spawn(send_thread);
         let r_handle = thread::spawn(recv_thread);
 
-        let s_res = s_handle.join().unwrap().expect("Failed to send cmd");
+        let _s_res = s_handle.join().unwrap().expect("Failed to send cmd");
         let r_res = r_handle.join().unwrap().expect("Failed to recv cmd");
 
         //assert!(s_res, size_of::<CommandMsg>());
@@ -427,7 +428,7 @@ mod tests {
         let s_handle = thread::spawn(send_thread);
         let r_handle = thread::spawn(recv_thread);
 
-        let s_res = s_handle.join().unwrap().expect("Failed to send res");
+        let _s_res = s_handle.join().unwrap().expect("Failed to send res");
         let r_res = r_handle.join().unwrap().expect("Failed to recv res");
 
         //assert_eq!(s_res, size_of::<ResultMsg>());
