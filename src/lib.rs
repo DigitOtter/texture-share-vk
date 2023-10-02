@@ -1,6 +1,7 @@
 #![feature(unix_socket_ancillary_data)]
 
 mod platform;
+mod shared_image;
 mod vulkan;
 
 pub fn add(left: usize, right: usize) -> usize {
