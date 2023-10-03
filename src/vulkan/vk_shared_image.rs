@@ -1,81 +1,69 @@
-use std::{alloc::Layout, sync::Arc};
-
-use vulkano::{
-    command_buffer::{
-        allocator::CommandBufferAllocator, AutoCommandBufferBuilder, BlitImageInfo,
-        CommandBufferUsage, CopyImageInfo, PrimaryCommandBufferAbstract,
-    },
-    device::Device,
-    format::Format,
-    image::{
-        sys::{Image, ImageCreateInfo, RawImage},
-        ImageCreateFlags, ImageDimensions, ImageError, ImageLayout, ImageUsage, StorageImage,
-    },
-    memory::{
-        allocator::{
-            AllocationCreateInfo, AllocationType, MemoryAllocatePreference, MemoryAllocator,
-        },
-        DedicatedAllocation, ExternalMemoryHandleTypes,
-    },
-    sync::MemoryBarrier,
-};
-
-struct VkSharedImage {
-    image: Image,
-    layout: ImageLayout,
-}
-
-impl VkSharedImage {
-    fn new(
-        vk_device: Arc<Device>,
+#[cxx::bridge]
+mod ffi {
+    struct SharedImageData {
+        id: u32,
         width: u32,
         height: u32,
-        format: Format,
-        memory_alloc: Arc<dyn MemoryAllocator>,
-    ) -> Result<VkSharedImage, ImageError> {
-        let layout = ImageLayout::Undefined;
-
-        let mut image_create_info = ImageCreateInfo::default();
-        image_create_info.dimensions = ImageDimensions::Dim2d {
-            width,
-            height,
-            array_layers: 1,
-        };
-        image_create_info.external_memory_handle_types = ExternalMemoryHandleTypes::OPAQUE_FD;
-        image_create_info.initial_layout = layout;
-        image_create_info.mip_levels = 1;
-        image_create_info.usage =
-            ImageUsage::COLOR_ATTACHMENT | ImageUsage::TRANSFER_DST | ImageUsage::TRANSFER_SRC;
-        image_create_info.format = Some(format);
-
-        let image = RawImage::new(vk_device, image_create_info)?;
-        let alloc = memory_alloc.allocate(
-            *image.memory_requirements().first().unwrap(),
-            AllocationType::Linear,
-            AllocationCreateInfo {
-                allocate_preference: MemoryAllocatePreference::AlwaysAllocate,
-                ..Default::default()
-            },
-            Some(DedicatedAllocation::Image(&image)),
-        );
-        let image = image.bind_memory(alloc).map_err(|e| e.0)?;
-
-        Ok(VkSharedImage { image, layout })
+        format: u32,
+        allocation_size: u32,
     }
 
-    fn send_image<A: CommandBufferAllocator>(
-        &self,
-        send_image: &Image,
-        send_image_layout: Layout,
-        cmd_buf_allocator: &A,
-        queue_index: u32,
-    ) {
-        let cb = AutoCommandBufferBuilder::primary(
-            cmd_buf_allocator,
-            queue_index,
-            CommandBufferUsage::OneTimeSubmit,
-        )
-        .unwrap()
-        .blit_image(blit_image_info);
+    extern "Rust" {}
+
+    unsafe extern "C++" {
+        include!("vk_shared_image/vk_shared_image.h");
+
+        type SharedImageData;
+
+        type VkSharedImage;
+        fn vk_shared_image_new() -> UniquePtr<VkSharedImage>;
+
+        #[rust_name = "cleanup"]
+        fn Cleanup(self: Pin<&mut VkSharedImage>);
+
+        #[rust_name = "get_image_data"]
+        fn ImageData(self: &VkSharedImage) -> &SharedImageData;
+
+        #[rust_name = "get_image_data_mut"]
+        fn ImageData(self: Pin<&mut VkSharedImage>) -> &mut SharedImageData;
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ffi::vk_shared_image_new;
+    use super::ffi::SharedImageData;
+
+    #[test]
+    fn vk_shared_image_create() {
+        let _ = vk_shared_image_new();
+    }
+
+    #[test]
+    fn vk_shared_image_cleanup() {
+        let mut vk_shared_image = vk_shared_image_new();
+        vk_shared_image.as_mut().unwrap().cleanup();
+    }
+
+    #[test]
+    fn vk_shared_image_data() {
+        let mut vk_shared_image = vk_shared_image_new();
+        const TEST_VAL: u32 = 12345;
+
+        {
+            let mut sh_dat = vk_shared_image.as_mut().unwrap().get_image_data_mut();
+            sh_dat.id = TEST_VAL;
+        }
+
+        {
+            let sh_dat = vk_shared_image.get_image_data();
+            assert_eq!(sh_dat.id, TEST_VAL);
+        }
+    }
+
+    // #[test]
+    // fn vk_shared_image_bridge_data() {
+    //     let vk_shared_image = vk_shared_image_new();
+    //     unsafe { vk_shared_image.as_ref().unwrap().ImageData() };
+    // }
 }

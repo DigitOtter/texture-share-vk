@@ -1,0 +1,6 @@
+[submodule "third_party/volk"]
+	path = cpp/third_party/volk
+	url = https://github.com/zeux/volk
+[submodule "third_party/vk-bootstrap"]
+	path = cpp/third_party/vk-bootstrap
+	url = https://github.com/charles-lunarg/vk-bootstrap.git
