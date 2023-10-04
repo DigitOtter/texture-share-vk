@@ -13,7 +13,7 @@ class ExternalHandle
 
 	struct ShareHandles
 	{
-		ExternalHandle::TYPE memory{ExternalHandle::INVALID_VALUE};
+		ExternalHandle::TYPE memory = ExternalHandle::INVALID_VALUE;
 		// ExternalHandle::TYPE ext_read{ExternalHandle::INVALID_VALUE};
 		// ExternalHandle::TYPE ext_write{ExternalHandle::INVALID_VALUE};
 
@@ -27,6 +27,7 @@ class ExternalHandle
 		ShareHandles() = default;
 		~ShareHandles();
 	};
+
 
 	private:
 };

@@ -5,7 +5,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
 struct SharedImageData
@@ -23,10 +22,10 @@ class VkSharedImage
 	VkSharedImage() = default;
 	~VkSharedImage();
 
-	static void InitializeVulkan();
+	static void InitializeVulkan(VkInstance instance, VkPhysicalDevice physical_device);
 
-	void Initialize(VkDevice device, VkPhysicalDevice physical_device, uint32_t width, uint32_t height, VkFormat format,
-	                uint32_t id = 0);
+	void Initialize(VkDevice device, VkPhysicalDevice physical_device, VkQueue queue, VkCommandBuffer command_buffer,
+	                uint32_t width, uint32_t height, VkFormat format, uint32_t id = 0);
 	void Cleanup();
 
 	void ImportFromHandle(VkDevice device, VkPhysicalDevice physical_device,
@@ -61,15 +60,17 @@ class VkSharedImage
 	private:
 	VkImage _image        = VK_NULL_HANDLE;
 	VkImageLayout _layout = VK_IMAGE_LAYOUT_UNDEFINED;
+	// VkImageView _view     = VK_NULL_HANDLE;
 
 	SharedImageData _data;
 
 	VkDevice _device       = VK_NULL_HANDLE;
 	VkDeviceMemory _memory = VK_NULL_HANDLE;
 
+	void SetImageLayout(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImageLayout target_layout,
+	                    VkFence fence = VK_NULL_HANDLE);
+
 	void ImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage src_image,
 	               VkImageLayout src_image_layout, const VkOffset3D src_image_extent[2], VkImage dst_image,
 	               VkImageLayout dst_image_layout, const VkOffset3D dst_image_extent[2], VkFence fence);
 };
-
-std::unique_ptr<VkSharedImage> vk_shared_image_new();

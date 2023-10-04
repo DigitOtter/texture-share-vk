@@ -1,6 +1,8 @@
 #include "vk_shared_image.h"
 
 #include "platform/external_handle_vk.h"
+#include "vk_shared_image/platform/linux/external_handle_vk.h"
+#include "vk_shared_image/vk_helpers.h"
 #include <memory>
 #include <vulkan/vulkan_core.h>
 
@@ -9,8 +11,15 @@ VkSharedImage::~VkSharedImage()
 	this->Cleanup();
 }
 
-void VkSharedImage::Initialize(VkDevice device, VkPhysicalDevice physical_device, uint32_t width, uint32_t height,
-                               VkFormat format, uint32_t id)
+void VkSharedImage::InitializeVulkan(VkInstance instance, VkPhysicalDevice physical_device)
+{
+	ExternalHandleVk::LoadVulkanHandleExtensions(instance);
+	ExternalHandleVk::LoadCompatibleSemaphorePropsInfo(physical_device);
+}
+
+void VkSharedImage::Initialize(VkDevice device, VkPhysicalDevice physical_device, VkQueue queue,
+                               VkCommandBuffer command_buffer, uint32_t width, uint32_t height, VkFormat format,
+                               uint32_t id)
 {
 	this->Cleanup();
 
@@ -71,9 +80,17 @@ void VkSharedImage::Initialize(VkDevice device, VkPhysicalDevice physical_device
 	// viewCreateInfo.viewType         = VK_IMAGE_VIEW_TYPE_2D;
 	// viewCreateInfo.image            = this->_image;
 	// viewCreateInfo.format           = format;
-	// viewCreateInfo.subresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1,
-	//                                                           0, 1};
-	// vkCreateImageView(device, &viewCreateInfo, nullptr, &this->view);
+	// viewCreateInfo.subresourceRange = VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+	// vkCreateImageView(device, &viewCreateInfo, nullptr, &this->_view);
+
+	// Initialize image
+	VkFence fence                  = VK_NULL_HANDLE;
+	VkFenceCreateInfo fence_create = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr, 0};
+	vkCreateFence(device, &fence_create, nullptr, &fence);
+
+	this->SetImageLayout(queue, command_buffer, VK_IMAGE_LAYOUT_GENERAL, fence);
+
+	vkDestroyFence(device, fence, nullptr);
 }
 
 void VkSharedImage::Cleanup()
@@ -86,7 +103,7 @@ void VkSharedImage::Cleanup()
 		// vkDestroySemaphore(this->_device, this->_shared_semaphores.ext_write, nullptr);
 		vkDestroyImage(this->_device, this->_image, nullptr);
 		// vkDestroySampler(this->_device, this->sampler, nullptr);
-		// vkDestroyImageView(this->_device, this->view, nullptr);
+		// vkDestroyImageView(this->_device, this->_view, nullptr);
 		vkFreeMemory(this->_device, this->_memory, nullptr);
 
 		this->_device = VK_NULL_HANDLE;
@@ -211,6 +228,72 @@ ExternalHandle::ShareHandles VkSharedImage::ExportHandles()
 	// handles.ext_write = ExternalHandleVk::GetSemaphoreKHR(this->_device, this->_shared_semaphores.ext_write);
 
 	return handles;
+}
+
+void VkSharedImage::SetImageLayout(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImageLayout target_layout,
+                                   VkFence fence)
+{
+	// naming it cmd for shorter writing
+	VkCommandBuffer cmd                     = command_buffer;
+	VkCommandBufferBeginInfo cmd_begin_info = VkHelpers::CommandBufferBeginInfoSingleUse();
+
+	VK_CHECK(vkBeginCommandBuffer(cmd, &cmd_begin_info));
+
+	VkImageMemoryBarrier mem_barrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+
+	// Image memory barrier before entering VK_PIPELINE_STAGE_TRANSFER_BIT
+	mem_barrier.image               = this->_image;
+	mem_barrier.srcAccessMask       = VK_ACCESS_NONE;
+	mem_barrier.dstAccessMask       = VK_ACCESS_TRANSFER_READ_BIT;
+	mem_barrier.oldLayout           = this->_layout;
+	mem_barrier.newLayout           = target_layout;
+	mem_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	mem_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+	VkImageSubresourceRange &src_img_subresource_range = mem_barrier.subresourceRange;
+	src_img_subresource_range.aspectMask               = VK_IMAGE_ASPECT_COLOR_BIT;
+	src_img_subresource_range.levelCount               = 1;
+	src_img_subresource_range.layerCount               = 1;
+
+	vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0,
+	                     nullptr, 0, nullptr, 1, &mem_barrier);
+
+	VK_CHECK(vkEndCommandBuffer(cmd));
+
+	// prepare the submission to the queue.
+	// we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
+	// we will signal the _renderSemaphore, to signal that rendering has finished
+
+	VkSubmitInfo submit = {};
+	submit.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submit.pNext        = nullptr;
+
+	// VkPipelineStageFlags wait_stage[] = {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT};
+	// submit.pWaitDstStageMask          = wait_stage;
+
+	//	VkSemaphore wait_semaphores[] = {this->_semaphore_read, this->_semaphore_write};
+	//	submit.waitSemaphoreCount     = 2;
+	//	submit.pWaitSemaphores        = wait_semaphores;
+
+	//	VkSemaphore signal_semaphores[] = {this->_semaphore_write};
+	//	submit.signalSemaphoreCount     = submit.waitSemaphoreCount;
+	//	submit.pSignalSemaphores        = submit.pWaitSemaphores;
+
+	submit.commandBufferCount = 1;
+	submit.pCommandBuffers    = &command_buffer;
+
+	// submit command buffer to the queue and execute it.
+	//  if set, fence may block until the graphic commands finish execution
+	VK_CHECK(vkQueueSubmit(graphics_queue, 1, &submit, fence));
+
+	this->_layout = target_layout;
+
+	// Wait for the fence to signal that command buffer has finished executing
+	if(fence != VK_NULL_HANDLE)
+	{
+		VK_CHECK(vkWaitForFences(this->_device, 1, &fence, VK_TRUE, VkHelpers::DEFAULT_FENCE_TIMEOUT));
+		VK_CHECK(vkResetFences(this->_device, 1, &fence));
+	}
 }
 
 void VkSharedImage::ImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage src_image,
@@ -339,9 +422,4 @@ void VkSharedImage::ImageBlit(VkQueue graphics_queue, VkCommandBuffer command_bu
 		VK_CHECK(vkWaitForFences(this->_device, 1, &fence, VK_TRUE, VkHelpers::DEFAULT_FENCE_TIMEOUT));
 		VK_CHECK(vkResetFences(this->_device, 1, &fence));
 	}
-}
-
-std::unique_ptr<VkSharedImage> vk_shared_image_new()
-{
-	return std::make_unique<VkSharedImage>();
 }

@@ -16,21 +16,21 @@ VkSemaphoreCreateInfo ExternalHandleVk::semaphore_create_info{};
 
 bool ExternalHandleVk::LoadVulkanHandleExtensions(VkInstance instance)
 {
-	if(!ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR)
-		ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR =
-			(PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR)vkGetInstanceProcAddr(
-				instance, "vkGetPhysicalDeviceExternalSemaphorePropertiesKHR");
+	// if(!ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR)
+	ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR =
+		(PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR)vkGetInstanceProcAddr(
+			instance, "vkGetPhysicalDeviceExternalSemaphorePropertiesKHR");
 
-	if(!ExternalHandleVk::pvkGetMemoryFdKHR)
-		ExternalHandleVk::pvkGetMemoryFdKHR = (PFN_vkGetMemoryFdKHR)vkGetInstanceProcAddr(instance, "vkGetMemoryFdKHR");
+	// if(!ExternalHandleVk::pvkGetMemoryFdKHR)
+	ExternalHandleVk::pvkGetMemoryFdKHR = (PFN_vkGetMemoryFdKHR)vkGetInstanceProcAddr(instance, "vkGetMemoryFdKHR");
 
-	if(!ExternalHandleVk::pvkGetSemaphoreFdKHR)
-		ExternalHandleVk::pvkGetSemaphoreFdKHR =
-			(PFN_vkGetSemaphoreFdKHR)vkGetInstanceProcAddr(instance, "vkGetSemaphoreFdKHR");
+	// if(!ExternalHandleVk::pvkGetSemaphoreFdKHR)
+	ExternalHandleVk::pvkGetSemaphoreFdKHR =
+		(PFN_vkGetSemaphoreFdKHR)vkGetInstanceProcAddr(instance, "vkGetSemaphoreFdKHR");
 
-	if(!ExternalHandleVk::pvkImportSemaphoreFdKHR)
-		ExternalHandleVk::pvkImportSemaphoreFdKHR =
-			(PFN_vkImportSemaphoreFdKHR)vkGetInstanceProcAddr(instance, "vkImportSemaphoreFdKHR");
+	// if(!ExternalHandleVk::pvkImportSemaphoreFdKHR)
+	ExternalHandleVk::pvkImportSemaphoreFdKHR =
+		(PFN_vkImportSemaphoreFdKHR)vkGetInstanceProcAddr(instance, "vkImportSemaphoreFdKHR");
 
 	return ExternalHandleVk::pvkGetMemoryFdKHR &&
 	       ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR &&

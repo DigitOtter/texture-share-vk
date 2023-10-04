@@ -43,16 +43,17 @@ add_subdirectory("third_party/volk")
 # cmake-format: off
 set(LIB_SRC_FILES
 	"vk_shared_image/vk_helpers.cpp"
+	"vk_shared_image/vk_setup.cpp"
 	"vk_shared_image/vk_shared_image.cpp"
 	"vk_shared_image/platform/linux/external_handle_vk.cpp"
-	"vk_shared_image/platform/linux/external_handle_vk.cpp"
-	"wrapper/vk_shared_image_wrapper.cpp"
+	"vk_shared_image/platform/linux/external_handle.cpp"
+	#"wrapper/vk_shared_image_wrapper.cpp"
 )
 # cmake-format: on
 
 # ##############################################################################################################################################################
 # Library
-add_library("${LIBRARY_NAME}" SHARED ${LIB_SRC_FILES})
+add_library("${LIBRARY_NAME}" ${LIB_SRC_FILES})
 add_library("${NAMESPACE_NAME}::${LIBRARY_NAME}" ALIAS ${LIBRARY_NAME})
 target_compile_options(${LIBRARY_NAME} PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:-Wall -Wextra>)
 

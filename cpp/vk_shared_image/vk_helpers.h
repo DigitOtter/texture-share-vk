@@ -4,7 +4,7 @@
 #include <functional>
 #include <iostream>
 
-#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan.h>
 
 
 #define VK_CHECK(x)                                                     \
