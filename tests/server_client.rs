@@ -14,7 +14,7 @@ use rust_texture_share_vk::{
     server::Server,
     vulkan::{
         vk_setup::ffi::vk_setup_new,
-        vk_shared_image::ffi::{vk_share_handles_new, vk_shared_image_new, VkFormat},
+        vk_shared_image::ffi::{vk_shared_image_new, VkFormat},
     },
 };
 

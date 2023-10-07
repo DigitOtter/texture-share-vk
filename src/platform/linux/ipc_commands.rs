@@ -1,9 +1,6 @@
 use crate::platform::img_data::{ImgData, ImgFormat, ImgName, ShmemName};
 
-use std::{
-    mem::{size_of, ManuallyDrop},
-    os::fd::RawFd,
-};
+use std::mem::{size_of, ManuallyDrop};
 
 #[repr(C)]
 pub struct CommandMsg {
@@ -21,7 +18,7 @@ pub struct ResultMsg {
 #[derive(Debug, PartialEq)]
 pub enum CommandTag {
     InitImage,
-    RenameImage,
+    //RenameImage,
     FindImage,
 }
 

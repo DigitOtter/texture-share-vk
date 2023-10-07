@@ -1,4 +1,4 @@
-use std::{ffi::CStr, mem::size_of, os::fd::RawFd};
+use std::{mem::size_of};
 
 pub(crate) type ImgName = [u8; 1024];
 pub(crate) type ShmemName = [u8; 1024];

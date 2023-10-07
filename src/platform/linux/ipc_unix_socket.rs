@@ -1,4 +1,3 @@
-use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::io::{Error, ErrorKind, IoSlice, IoSliceMut, Read, Write};
@@ -13,7 +12,7 @@ use super::ipc_commands::{CommandMsg, ResultMsg};
 
 pub(crate) struct IpcConnection {
     conn: RefCell<UnixStream>,
-    proc_id: i32,
+    //proc_id: i32,
     timeout: Duration,
 }
 
@@ -24,7 +23,7 @@ pub(crate) struct IpcSocket {
 }
 
 impl IpcConnection {
-    pub fn new(conn: UnixStream, proc_id: i32, timeout: Duration) -> IpcConnection {
+    pub fn new(conn: UnixStream, timeout: Duration) -> IpcConnection {
         conn.set_nonblocking(true).unwrap();
 
         // TODO: Use socket timeout instead of own implementation
@@ -33,7 +32,7 @@ impl IpcConnection {
 
         IpcConnection {
             conn: RefCell::new(conn),
-            proc_id,
+            //proc_id,
             timeout,
         }
     }
@@ -46,10 +45,7 @@ impl IpcConnection {
             || {
                 //let sock = UnixStream::unbound()?;
                 match UnixStream::connect(socket_path) {
-                    Ok(c) => {
-                        let pid = 0; //c.get_peer_credentials().unwrap().pid;
-                        Ok(Some(IpcConnection::new(c, pid, timeout)))
-                    }
+                    Ok(c) => Ok(Some(IpcConnection::new(c, timeout))),
                     Err(e) => match e.kind() {
                         ErrorKind::AddrNotAvailable
                         | ErrorKind::NotFound
@@ -191,6 +187,7 @@ impl IpcConnection {
         Ok(recv_res.and_then(|_| Some(msg)))
     }
 
+    #[allow(dead_code)]
     pub fn recv_command(&self) -> Result<Option<CommandMsg>, Error> {
         let mut msg = CommandMsg::default();
 
@@ -339,8 +336,7 @@ impl IpcSocket {
                         _ => Err(e),
                     },
                     Ok(c) => {
-                        let pid = 0; //c.get_peer_credentials().unwrap().pid;
-                        let ipc_conn = IpcConnection::new(c.0, pid, self.timeout);
+                        let ipc_conn = IpcConnection::new(c.0, self.timeout);
                         self.connections
                             .lock()
                             .unwrap()
@@ -380,7 +376,7 @@ mod tests {
         thread::sleep(Duration::from_secs(1));
 
         let listen_thread = move || {
-            let mut listener = IpcSocket::new(SOCK_PATH, TIMEOUT)?;
+            let listener = IpcSocket::new(SOCK_PATH, TIMEOUT)?;
             let _ = listener
                 .try_accept()?
                 .expect("Failed to listen for connection");

@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::spawn;
 use std::time::Duration;
 
-use crate::platform::img_data::{ImgData, ImgFormat};
+use crate::platform::img_data::ImgData;
 use crate::platform::linux::ipc_commands::{
     CommFindImage, CommInitImage, CommandTag, ResultData, ResultFindImage, ResultInitImage,
     ResultMsg,
@@ -151,6 +151,7 @@ impl Server {
                 //     vk_setup,
                 //     images,
                 // ),
+                #[allow(unreachable_patterns)]
                 _ => Err::<(), Box<dyn std::error::Error>>(Box::new(Error::new(
                     ErrorKind::InvalidData,
                     "Unknown command received",

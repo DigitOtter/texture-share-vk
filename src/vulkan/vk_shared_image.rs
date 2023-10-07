@@ -1,4 +1,4 @@
-use std::{os::fd::RawFd, pin::Pin};
+
 
 use crate::platform::linux::ipc_shmem::ShmemDataInternal;
 
@@ -595,7 +595,7 @@ mod tests {
         let mut vk_setup = vk_setup_new();
         vk_setup.as_mut().unwrap().initialize_vulkan();
 
-        let instance = vk_setup.as_ref().unwrap().get_vk_instance();
+        let _instance = vk_setup.as_ref().unwrap().get_vk_instance();
         let device = vk_setup.as_ref().unwrap().get_vk_device();
         let physical_device = vk_setup.as_ref().unwrap().get_vk_physical_device();
         // let queue = vk_setup.as_ref().unwrap().get_vk_queue();

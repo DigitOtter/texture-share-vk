@@ -3,7 +3,7 @@ use libc::c_void;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct VkInstance {
+pub struct VkInstance {
     _ptr: *mut c_void,
 }
 
@@ -47,7 +47,7 @@ unsafe impl ExternType for VkQueue {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct VkCommandPool {
+pub struct VkCommandPool {
     _ptr: *mut c_void,
 }
 

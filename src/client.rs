@@ -2,7 +2,7 @@ use cxx::UniquePtr;
 use raw_sync::locks::ReadLockGuard;
 use raw_sync::Timeout;
 use std::collections::HashMap;
-use std::ffi::CStr;
+
 use std::io::{Error, ErrorKind};
 use std::{
     mem::ManuallyDrop,
@@ -10,7 +10,6 @@ use std::{
     time::Duration,
 };
 
-use crate::platform::img_data::ImgName;
 use crate::platform::linux::ipc_commands::CommFindImage;
 use crate::platform::linux::ipc_shmem::ShmemDataInternal;
 use crate::vulkan::vk_setup::VkFence;
@@ -18,21 +17,18 @@ use crate::vulkan::vk_shared_image::ffi::{VkImageLayout, VkOffset3D};
 use crate::vulkan::vk_shared_image::VkImage;
 use crate::{
     platform::{
-        img_data::{self, ImgData, ImgFormat},
+        img_data::{ImgData, ImgFormat},
         linux::{
-            ipc_commands::{CommInitImage, CommandData, CommandMsg, CommandTag, ResultInitImage},
+            ipc_commands::{CommInitImage, CommandData, CommandMsg, CommandTag},
             ipc_shmem::IpcShmem,
             ipc_unix_socket::IpcConnection,
         },
     },
     vulkan::{
         vk_setup::ffi::VkSetup,
-        vk_shared_image::{
-            self,
-            ffi::{
-                vk_share_handles_from_fd, vk_shared_image_new, ShareHandles, SharedImageData,
-                VkFormat, VkSharedImage,
-            },
+        vk_shared_image::ffi::{
+            vk_share_handles_from_fd, vk_shared_image_new, ShareHandles, SharedImageData,
+            VkSharedImage,
         },
     },
 };
@@ -43,7 +39,7 @@ pub struct Client {
     connection: IpcConnection,
     vk_setup: UniquePtr<VkSetup>,
     shared_images: HashMap<String, ImageData>,
-    timeout: Duration,
+    //timeout: Duration,
 }
 
 impl Drop for Client {
@@ -75,7 +71,7 @@ impl Client {
             connection: connection.unwrap(),
             vk_setup,
             shared_images,
-            timeout,
+            //timeout,
         })
     }
 
@@ -436,7 +432,6 @@ mod tests {
 
     const TIMEOUT: Duration = Duration::from_millis(2000);
     const SOCKET_PATH: &str = "test_socket.sock";
-    const SHMEM_PREFIX: &str = "shared_images_";
 
     fn _create_server_socket() -> IpcSocket {
         IpcSocket::new(SOCKET_PATH, TIMEOUT).unwrap()

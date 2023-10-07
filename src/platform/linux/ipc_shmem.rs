@@ -10,7 +10,7 @@ use shared_memory::Shmem;
 use shared_memory::ShmemConf;
 use shared_memory::ShmemError;
 use std::cell::UnsafeCell;
-use std::ffi::CStr;
+
 use std::io::{Error, ErrorKind};
 use std::mem::size_of;
 
@@ -69,7 +69,7 @@ impl<'a> IpcShmem {
         let lock = IpcShmem::init_rw_lock(&shmem, !create)?;
 
         if create {
-            let rw_lock = lock.lock()?;
+            let _rw_lock = lock.lock()?;
             unsafe {
                 let raw_data_ptr = shmem.as_ptr().add(offset_of!(ShmemData, data));
                 *(raw_data_ptr.cast::<UnsafeCell<ShmemDataInternal>>()) =
@@ -189,7 +189,7 @@ impl ShmemDataInternal {
 
 #[cfg(test)]
 mod tests {
-    use std::{ffi::CString, time::Duration};
+    use std::{time::Duration};
 
     use raw_sync::Timeout;
 
