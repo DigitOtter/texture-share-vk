@@ -1,3 +1,6 @@
+/launch.json
+/.clang-format
+/.cmake-format.yaml
 /cpp/build
 .cache
 compile_commands.json
