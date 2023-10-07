@@ -3,38 +3,41 @@
 // #include "texture_share_vk/logging.h"
 #include "vk_shared_image/vk_helpers.h"
 
+// PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR
+// 	ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR = nullptr;
+// PFN_vkGetMemoryFdKHR ExternalHandleVk::pvkGetMemoryFdKHR                 = nullptr;
+// PFN_vkGetSemaphoreFdKHR ExternalHandleVk::pvkGetSemaphoreFdKHR           = nullptr;
+// PFN_vkImportSemaphoreFdKHR ExternalHandleVk::pvkImportSemaphoreFdKHR     = nullptr;
 
-PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR
-	ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR = nullptr;
-PFN_vkGetMemoryFdKHR ExternalHandleVk::pvkGetMemoryFdKHR                 = nullptr;
-PFN_vkGetSemaphoreFdKHR ExternalHandleVk::pvkGetSemaphoreFdKHR           = nullptr;
-PFN_vkImportSemaphoreFdKHR ExternalHandleVk::pvkImportSemaphoreFdKHR     = nullptr;
+// VkExportSemaphoreCreateInfo ExternalHandleVk::export_semaphore_create_info{};
+// VkSemaphoreTypeCreateInfo ExternalHandleVk::semaphore_type_create_info{};
+// VkSemaphoreCreateInfo ExternalHandleVk::semaphore_create_info{};
 
-VkExportSemaphoreCreateInfo ExternalHandleVk::export_semaphore_create_info{};
-VkSemaphoreTypeCreateInfo ExternalHandleVk::semaphore_type_create_info{};
-VkSemaphoreCreateInfo ExternalHandleVk::semaphore_create_info{};
+ExternalHandleVk::ExternalHandleVk(VkInstance instance, VkPhysicalDevice physical_device)
+{
+	this->LoadVulkanHandleExtensions(instance);
+	this->LoadCompatibleSemaphorePropsInfo(physical_device);
+}
 
 bool ExternalHandleVk::LoadVulkanHandleExtensions(VkInstance instance)
 {
 	// if(!ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR)
-	ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR =
+	this->pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR =
 		(PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR)vkGetInstanceProcAddr(
 			instance, "vkGetPhysicalDeviceExternalSemaphorePropertiesKHR");
 
 	// if(!ExternalHandleVk::pvkGetMemoryFdKHR)
-	ExternalHandleVk::pvkGetMemoryFdKHR = (PFN_vkGetMemoryFdKHR)vkGetInstanceProcAddr(instance, "vkGetMemoryFdKHR");
+	this->pvkGetMemoryFdKHR = (PFN_vkGetMemoryFdKHR)vkGetInstanceProcAddr(instance, "vkGetMemoryFdKHR");
 
 	// if(!ExternalHandleVk::pvkGetSemaphoreFdKHR)
-	ExternalHandleVk::pvkGetSemaphoreFdKHR =
-		(PFN_vkGetSemaphoreFdKHR)vkGetInstanceProcAddr(instance, "vkGetSemaphoreFdKHR");
+	this->pvkGetSemaphoreFdKHR = (PFN_vkGetSemaphoreFdKHR)vkGetInstanceProcAddr(instance, "vkGetSemaphoreFdKHR");
 
 	// if(!ExternalHandleVk::pvkImportSemaphoreFdKHR)
-	ExternalHandleVk::pvkImportSemaphoreFdKHR =
+	this->pvkImportSemaphoreFdKHR =
 		(PFN_vkImportSemaphoreFdKHR)vkGetInstanceProcAddr(instance, "vkImportSemaphoreFdKHR");
 
-	return ExternalHandleVk::pvkGetMemoryFdKHR &&
-	       ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR &&
-	       ExternalHandleVk::pvkGetSemaphoreFdKHR && ExternalHandleVk::pvkImportSemaphoreFdKHR;
+	return this->pvkGetMemoryFdKHR && this->pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR &&
+	       this->pvkGetSemaphoreFdKHR && this->pvkImportSemaphoreFdKHR;
 }
 
 bool ExternalHandleVk::LoadCompatibleSemaphorePropsInfo(VkPhysicalDevice physical_device)
@@ -55,7 +58,7 @@ bool ExternalHandleVk::LoadCompatibleSemaphorePropsInfo(VkPhysicalDevice physica
 	for(size_t i = 0; i < sizeof(flags) / sizeof(flags[0]); i++)
 	{
 		zzzz.handleType = flags[i];
-		ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR(physical_device, &zzzz, &aaaa);
+		this->pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR(physical_device, &zzzz, &aaaa);
 		if(aaaa.compatibleHandleTypes & flags[i] &&
 		   aaaa.externalSemaphoreFeatures & VK_EXTERNAL_SEMAPHORE_FEATURE_EXPORTABLE_BIT)
 		{
@@ -68,15 +71,14 @@ bool ExternalHandleVk::LoadCompatibleSemaphorePropsInfo(VkPhysicalDevice physica
 	if(!found)
 		return false;
 
-	ExternalHandleVk::export_semaphore_create_info = {VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO, nullptr,
-	                                                  VkExternalSemaphoreHandleTypeFlags(compatable_semaphore_type)};
+	this->export_semaphore_create_info = {VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO, nullptr,
+	                                      VkExternalSemaphoreHandleTypeFlags(compatable_semaphore_type)};
 	//	ExternalHandleVk::semaphore_type_create_info = {
 	//	    VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
 	//	    &export_semaphore_create_info,
 	//	    VK_SEMAPHORE_TYPE_TIMELINE,
 	//	    0};
-	ExternalHandleVk::semaphore_create_info = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, &export_semaphore_create_info,
-	                                           0};
+	this->semaphore_create_info = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, &export_semaphore_create_info, 0};
 
 	return true;
 }
@@ -94,29 +96,29 @@ ExternalHandleVk::MEMORY_GET_INFO_T ExternalHandleVk::CreateMemoryGetInfoKHR(VkD
 	                            VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT};
 }
 
-void ExternalHandleVk::GetMemoryKHR(VkDevice device, const MEMORY_GET_INFO_T *info, ExternalHandle::TYPE *memory)
+void ExternalHandleVk::GetMemoryKHR(VkDevice device, const MEMORY_GET_INFO_T *info, ExternalHandle::TYPE *memory) const
 {
 	VK_CHECK(ExternalHandleVk::pvkGetMemoryFdKHR(device, info, memory));
 }
 
-VkSemaphore ExternalHandleVk::CreateExternalSemaphore(VkDevice device)
+VkSemaphore ExternalHandleVk::CreateExternalSemaphore(VkDevice device) const
 {
 	VkSemaphore semaphore{VK_NULL_HANDLE};
 
 	// Create semaphores. Ensure ExternalHandleVk::FindCompatibleSemaphoreProps() was already run before
-	VK_CHECK(vkCreateSemaphore(device, &ExternalHandleVk::ExternalSemaphoreCreateInfo(), nullptr, &semaphore));
+	VK_CHECK(vkCreateSemaphore(device, &this->ExternalSemaphoreCreateInfo(), nullptr, &semaphore));
 
 	return semaphore;
 }
 
-ExternalHandle::TYPE ExternalHandleVk::GetSemaphoreKHR(VkDevice device, VkSemaphore semaphore)
+ExternalHandle::TYPE ExternalHandleVk::GetSemaphoreKHR(VkDevice device, VkSemaphore semaphore) const
 {
 	VkSemaphoreGetFdInfoKHR semaphoreGetFdInfo{
 		VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR, nullptr, semaphore,
-		(VkExternalSemaphoreHandleTypeFlagBits)export_semaphore_create_info.handleTypes};
+		(VkExternalSemaphoreHandleTypeFlagBits)this->export_semaphore_create_info.handleTypes};
 
 	ExternalHandle::TYPE fd;
-	VK_CHECK(ExternalHandleVk::pvkGetSemaphoreFdKHR(device, &semaphoreGetFdInfo, &fd));
+	VK_CHECK(this->pvkGetSemaphoreFdKHR(device, &semaphoreGetFdInfo, &fd));
 	return fd;
 }
 
@@ -135,17 +137,17 @@ ExternalHandleVk::IMPORT_MEMORY_INFO_KHR_T ExternalHandleVk::CreateImportMemoryI
 //	return import_semaphore_info;
 //}
 
-VkSemaphore ExternalHandleVk::CreateImportSemaphoreKHR(VkDevice device, ExternalHandle::TYPE handle)
+VkSemaphore ExternalHandleVk::CreateImportSemaphoreKHR(VkDevice device, ExternalHandle::TYPE handle) const
 {
-	VkSemaphore semaphore = ExternalHandleVk::CreateExternalSemaphore(device);
+	VkSemaphore semaphore = this->CreateExternalSemaphore(device);
 
 	VkImportSemaphoreFdInfoKHR import_semaphore_info{VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR, nullptr};
 	import_semaphore_info.fd = handle;
 	import_semaphore_info.handleType =
-		(VkExternalSemaphoreHandleTypeFlagBits)ExternalHandleVk::export_semaphore_create_info.handleTypes;
+		(VkExternalSemaphoreHandleTypeFlagBits)this->export_semaphore_create_info.handleTypes;
 	import_semaphore_info.semaphore = semaphore;
 
-	VK_CHECK(ExternalHandleVk::pvkImportSemaphoreFdKHR(device, &import_semaphore_info));
+	VK_CHECK(this->pvkImportSemaphoreFdKHR(device, &import_semaphore_info));
 
 	return semaphore;
 }

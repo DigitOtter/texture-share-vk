@@ -11,12 +11,6 @@ VkSharedImage::~VkSharedImage()
 	this->Cleanup();
 }
 
-void VkSharedImage::InitializeVulkan(VkInstance instance, VkPhysicalDevice physical_device)
-{
-	ExternalHandleVk::LoadVulkanHandleExtensions(instance);
-	ExternalHandleVk::LoadCompatibleSemaphorePropsInfo(physical_device);
-}
-
 void VkSharedImage::Initialize(VkDevice device, VkPhysicalDevice physical_device, VkQueue queue,
                                VkCommandBuffer command_buffer, uint32_t width, uint32_t height, VkFormat format,
                                uint32_t id)
@@ -218,11 +212,11 @@ void VkSharedImage::RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer comman
 	return this->RecvImageBlit(graphics_queue, command_buffer, src_image, src_image_layout, fence, src_image_extent);
 }
 
-ExternalHandle::ShareHandles VkSharedImage::ExportHandles()
+ExternalHandle::ShareHandles VkSharedImage::ExportHandles(const ExternalHandleVk &external_handle_info)
 {
 	ExternalHandle::ShareHandles handles;
 	const auto memoryFdInfo = ExternalHandleVk::CreateMemoryGetInfoKHR(this->_memory);
-	ExternalHandleVk::GetMemoryKHR(this->_device, &memoryFdInfo, &handles.memory);
+	external_handle_info.GetMemoryKHR(this->_device, &memoryFdInfo, &handles.memory);
 
 	// handles.ext_read = ExternalHandleVk::GetSemaphoreKHR(this->_device, this->_shared_semaphores.ext_read);
 	// handles.ext_write = ExternalHandleVk::GetSemaphoreKHR(this->_device, this->_shared_semaphores.ext_write);

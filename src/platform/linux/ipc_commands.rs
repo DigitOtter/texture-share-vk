@@ -1,4 +1,4 @@
-use crate::platform::img_data::{ImgData, ImgFormat, ImgName};
+use crate::platform::img_data::{ImgData, ImgFormat, ImgName, ShmemName};
 
 use std::{
     mem::{size_of, ManuallyDrop},
@@ -41,13 +41,15 @@ pub union ResultData {
 
 pub struct CommInitImage {
     pub image_name: ImgName,
+    pub shmem_name: ShmemName,
     pub width: u32,
     pub height: u32,
     pub format: ImgFormat,
+    pub overwrite_existing: bool,
 }
 
 pub struct ResultInitImage {
-    pub shared_img_fd: RawFd,
+    pub image_created: bool,
     pub img_data: ImgData,
 }
 
@@ -57,6 +59,7 @@ pub struct CommRenameImage {
 }
 
 pub struct ResultRenameImage {
+    pub image_found: bool,
     pub img_data: ImgData,
 }
 
@@ -65,7 +68,7 @@ pub struct CommFindImage {
 }
 
 pub struct ResultFindImage {
-    pub shared_img_fd: RawFd,
+    pub image_found: bool,
     pub img_data: ImgData,
 }
 
@@ -75,7 +78,7 @@ impl Default for CommandMsg {
             tag: CommandTag::FindImage,
             data: CommandData {
                 find_img: ManuallyDrop::new(CommFindImage {
-                    image_name: [0 as i8; size_of::<ImgName>()],
+                    image_name: [0 as u8; size_of::<ImgName>()],
                 }),
             },
         }
@@ -88,7 +91,7 @@ impl Default for ResultMsg {
             tag: CommandTag::FindImage,
             data: ResultData {
                 find_img: ManuallyDrop::new(ResultFindImage {
-                    shared_img_fd: -1,
+                    image_found: false,
                     img_data: ImgData::default(),
                 }),
             },

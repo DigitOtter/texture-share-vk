@@ -14,17 +14,18 @@ use std::ffi::CStr;
 use std::io::{Error, ErrorKind};
 use std::mem::size_of;
 
+use crate::platform::img_data::ImgData;
 use crate::platform::img_data::ImgFormat;
 use crate::platform::img_data::ImgName;
 
 #[repr(C)]
 pub struct ShmemDataInternal {
-    name: ImgName,
-    handle_id: u32,
-    width: u32,
-    height: u32,
-    format: ImgFormat,
-    allocation_size: u32,
+    pub name: ImgName,
+    pub handle_id: u32,
+    pub width: u32,
+    pub height: u32,
+    pub format: ImgFormat,
+    pub allocation_size: u32,
 }
 
 #[repr(C)]
@@ -33,7 +34,7 @@ struct ShmemData {
     data: UnsafeCell<ShmemDataInternal>,
 }
 
-struct IpcShmem {
+pub(crate) struct IpcShmem {
     lock: Box<dyn LockImpl>,
     shmem: Shmem,
 }
@@ -41,7 +42,7 @@ struct IpcShmem {
 impl<'a> IpcShmem {
     pub fn new(
         name: &str,
-        img_name: &CStr,
+        img_name: &str,
         create: bool,
     ) -> Result<IpcShmem, Box<dyn std::error::Error>> {
         let conf = ShmemConf::new().os_id(name).size(size_of::<ShmemData>());
@@ -105,7 +106,7 @@ impl<'a> IpcShmem {
         self.lock.try_rlock(timeout)
     }
 
-    pub fn acquire_rdata(lock: &'a ReadLockGuard<'a>) -> &'a ShmemDataInternal {
+    pub fn acquire_rdata(lock: &ReadLockGuard<'a>) -> &'a ShmemDataInternal {
         unsafe {
             lock.cast::<UnsafeCell<ShmemDataInternal>>()
                 .as_ref()
@@ -144,6 +145,10 @@ impl<'a> IpcShmem {
         }
     }
 
+    pub fn get_name(&self) -> &str {
+        self.shmem.get_os_id()
+    }
+
     fn delete_shmem(shmem_name: &str) {
         let conf = ShmemConf::new().os_id(shmem_name);
 
@@ -159,8 +164,8 @@ impl<'a> IpcShmem {
 }
 
 impl ShmemDataInternal {
-    fn new(img_name: &CStr) -> Result<ShmemDataInternal, Error> {
-        if img_name.to_bytes_with_nul().len() > size_of::<ImgName>() {
+    fn new(img_name: &str) -> Result<ShmemDataInternal, Error> {
+        if img_name.as_bytes().len() > size_of::<ImgName>() {
             Err(Error::new(
                 ErrorKind::OutOfMemory,
                 format!(
@@ -170,7 +175,7 @@ impl ShmemDataInternal {
             ))
         } else {
             let shmem_internal = ShmemDataInternal {
-                name: [0; size_of::<ImgName>()],
+                name: ImgData::convert_shmem_str_to_array(img_name),
                 handle_id: 0,
                 width: 0,
                 height: 0,
@@ -188,13 +193,15 @@ mod tests {
 
     use raw_sync::Timeout;
 
+    use crate::platform::img_data::ImgData;
+
     use super::IpcShmem;
 
     const SHMEM_NAME: &str = "shmem_name";
     const TIMEOUT: Timeout = Timeout::Val(Duration::from_secs(10));
 
-    fn img_name() -> CString {
-        CString::new("img_name").unwrap()
+    fn img_name() -> String {
+        "img_name".to_string()
     }
 
     #[test]
@@ -208,6 +215,16 @@ mod tests {
             IpcShmem::new(SHMEM_NAME, &img_name(), false).expect("Failed to share shmem");
 
         (created_shmem, shared_shmem)
+    }
+
+    #[test]
+    fn shmem_name() {
+        let shmem = IpcShmem::new(SHMEM_NAME, &img_name(), true).expect("Failed to create shmem");
+
+        let rlock = shmem.acquire_rlock(TIMEOUT).unwrap();
+        let rdata = IpcShmem::acquire_rdata(&rlock);
+
+        assert_eq!(ImgData::convert_shmem_array_to_str(&rdata.name), img_name());
     }
 
     #[test]

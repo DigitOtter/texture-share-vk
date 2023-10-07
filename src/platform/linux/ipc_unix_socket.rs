@@ -1,35 +1,37 @@
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::io::{Error, ErrorKind, IoSlice, IoSliceMut, Read, Write};
 use std::mem::size_of;
 use std::os::fd::{FromRawFd, OwnedFd, RawFd};
 use std::os::unix::net::{AncillaryData, SocketAncillary, UnixListener, UnixStream};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime};
 
 use super::ipc_commands::{CommandMsg, ResultMsg};
 
-struct IPCConnection {
+pub(crate) struct IpcConnection {
     conn: RefCell<UnixStream>,
     proc_id: i32,
     timeout: Duration,
 }
 
-struct IPCSocket {
+pub(crate) struct IpcSocket {
     listener_socket: UnixListener,
-    connections: Vec<RefCell<IPCConnection>>,
-    timeout: Duration,
+    pub connections: Arc<Mutex<Vec<RefCell<IpcConnection>>>>,
+    pub timeout: Duration,
 }
 
-impl IPCConnection {
-    pub fn new(conn: UnixStream, proc_id: i32, timeout: Duration) -> IPCConnection {
+impl IpcConnection {
+    pub fn new(conn: UnixStream, proc_id: i32, timeout: Duration) -> IpcConnection {
         conn.set_nonblocking(true).unwrap();
 
         // TODO: Use socket timeout instead of own implementation
         // conn.set_read_timeout(Some(timeout)).unwrap();
         // conn.set_write_timeout(Some(timeout)).unwrap();
 
-        IPCConnection {
+        IpcConnection {
             conn: RefCell::new(conn),
             proc_id,
             timeout,
@@ -39,14 +41,14 @@ impl IPCConnection {
     pub fn try_connect(
         socket_path: &str,
         timeout: Duration,
-    ) -> Result<Option<IPCConnection>, Error> {
-        IPCConnection::try_fcn_timeout(
+    ) -> Result<Option<IpcConnection>, Error> {
+        IpcConnection::try_fcn_timeout(
             || {
                 //let sock = UnixStream::unbound()?;
                 match UnixStream::connect(socket_path) {
                     Ok(c) => {
                         let pid = 0; //c.get_peer_credentials().unwrap().pid;
-                        Ok(Some(IPCConnection::new(c, pid, timeout)))
+                        Ok(Some(IpcConnection::new(c, pid, timeout)))
                     }
                     Err(e) => match e.kind() {
                         ErrorKind::AddrNotAvailable
@@ -57,15 +59,15 @@ impl IPCConnection {
                 }
             },
             &timeout,
-            &IPCConnection::sleep_interval(timeout),
+            &IpcConnection::sleep_interval(timeout),
         )
     }
 
     fn compute_cmsg_header_size() -> usize {
         #[cfg(target_pointer_width = "64")]
-        return 8 + 2 * 4;
+        return 8 + 3 * 4;
         #[cfg(target_pointer_width = "32")]
-        return 4 + 2 * 4;
+        return 4 + 3 * 4;
     }
 
     pub fn send_anillary_handles(&self, handles: &[RawFd]) -> Result<usize, Error> {
@@ -75,11 +77,12 @@ impl IPCConnection {
             let buf = [0 as u8; 4];
 
             let abuf_len =
-                IPCConnection::compute_cmsg_header_size() + handles.len() * size_of::<RawFd>();
+                IpcConnection::compute_cmsg_header_size() + handles.len() * size_of::<RawFd>();
             let mut abuf = vec![0 as u8; abuf_len];
             let mut ancillary = SocketAncillary::new(&mut abuf);
             if !ancillary.add_fds(handles) {
-                panic!("Failed to add file descriptors to 48illary data");
+                // This means that the compute_cmsg_header_size() fcn is incorrect
+                panic!("Failed to add file descriptors to ancillary data");
             }
             self.conn
                 .borrow()
@@ -95,9 +98,9 @@ impl IPCConnection {
     pub fn recv_ancillary(&self, handle_count: usize) -> Result<Vec<OwnedFd>, Error> {
         let mut buf = [0 as u8; 4];
         let mut fds = Vec::<OwnedFd>::new();
-        let _ = IPCConnection::try_fcn_timeout(
+        let _ = IpcConnection::try_fcn_timeout(
             || {
-                let abuf_len = IPCConnection::compute_cmsg_header_size()
+                let abuf_len = IpcConnection::compute_cmsg_header_size()
                     + (handle_count - fds.len()) * size_of::<RawFd>();
                 let mut abuf = vec![0 as u8; abuf_len];
                 let mut adat = SocketAncillary::new(&mut abuf);
@@ -125,7 +128,7 @@ impl IPCConnection {
                 }
             },
             &self.timeout,
-            &IPCConnection::sleep_interval(self.timeout),
+            &IpcConnection::sleep_interval(self.timeout),
         )?;
 
         Ok(fds)
@@ -145,7 +148,7 @@ impl IPCConnection {
         self.conn.borrow_mut().write_all(msg)
     }
 
-    pub fn recv_command(&self) -> Result<Option<CommandMsg>, Error> {
+    pub fn recv_command_if_available(&self) -> Result<Option<CommandMsg>, Error> {
         let mut msg = CommandMsg::default();
 
         const MSG_LEN: usize = size_of::<CommandMsg>();
@@ -156,8 +159,20 @@ impl IPCConnection {
                 .unwrap()
         };
 
-        let mut rec_bytes: usize = 0;
-        let recv_res = IPCConnection::try_fcn_timeout(
+        // Check if a message is waiting
+        let first_read = match self.conn.borrow_mut().read(buf) {
+            Err(e) => match e.kind() {
+                ErrorKind::WouldBlock => Ok(0 as usize),
+                _ => Err(e),
+            },
+            s => s,
+        }?;
+        if first_read == 0 {
+            return Ok(None);
+        }
+
+        let mut rec_bytes: usize = first_read;
+        let recv_res = IpcConnection::try_fcn_timeout(
             || {
                 let rec_buf: &mut [u8] = buf.split_at_mut(rec_bytes).1;
                 self.conn.borrow_mut().read_exact(rec_buf)?;
@@ -170,7 +185,38 @@ impl IPCConnection {
                 }
             },
             &self.timeout,
-            &IPCConnection::sleep_interval(self.timeout),
+            &IpcConnection::sleep_interval(self.timeout),
+        )?;
+
+        Ok(recv_res.and_then(|_| Some(msg)))
+    }
+
+    pub fn recv_command(&self) -> Result<Option<CommandMsg>, Error> {
+        let mut msg = CommandMsg::default();
+
+        const MSG_LEN: usize = size_of::<CommandMsg>();
+        let buf: &mut [u8; MSG_LEN] = unsafe {
+            (&mut msg as *mut CommandMsg)
+                .cast::<[u8; MSG_LEN]>()
+                .as_mut()
+                .unwrap()
+        };
+
+        let mut rec_bytes: usize = 0;
+        let recv_res = IpcConnection::try_fcn_timeout(
+            || {
+                let rec_buf: &mut [u8] = buf.split_at_mut(rec_bytes).1;
+                self.conn.borrow_mut().read_exact(rec_buf)?;
+                rec_bytes += rec_buf.len();
+
+                if rec_bytes >= MSG_LEN {
+                    Ok::<Option<()>, Error>(Some(()))
+                } else {
+                    Ok(None)
+                }
+            },
+            &self.timeout,
+            &IpcConnection::sleep_interval(self.timeout),
         )?;
 
         Ok(recv_res.and_then(|_| Some(msg)))
@@ -188,7 +234,7 @@ impl IPCConnection {
         };
 
         let mut rec_bytes: usize = 0;
-        let recv_res = IPCConnection::try_fcn_timeout(
+        let recv_res = IpcConnection::try_fcn_timeout(
             || {
                 let rec_buf = buf.split_at_mut(rec_bytes).1;
                 self.conn.borrow_mut().read_exact(rec_buf)?;
@@ -201,7 +247,7 @@ impl IPCConnection {
                 }
             },
             &self.timeout,
-            &IPCConnection::sleep_interval(self.timeout),
+            &IpcConnection::sleep_interval(self.timeout),
         )?;
 
         Ok(recv_res.and_then(|_| Some(msg)))
@@ -213,7 +259,7 @@ impl IPCConnection {
 
     pub fn recv_ack(&self) -> Result<Option<()>, Error> {
         let mut buf = [0 as u8];
-        IPCConnection::try_fcn_timeout(
+        IpcConnection::try_fcn_timeout(
             || {
                 self.conn
                     .borrow_mut()
@@ -221,7 +267,7 @@ impl IPCConnection {
                     .map(|_| Some(()))
             },
             &self.timeout,
-            &IPCConnection::sleep_interval(self.timeout),
+            &IpcConnection::sleep_interval(self.timeout),
         )
     }
 
@@ -258,9 +304,9 @@ impl IPCConnection {
     }
 }
 
-impl IPCSocket {
-    pub fn new(socket_path: &str, timeout: Duration) -> Result<IPCSocket, Error> {
-        let listener_socket = IPCConnection::try_fcn_timeout(
+impl IpcSocket {
+    pub fn new(socket_path: &str, timeout: Duration) -> Result<IpcSocket, Error> {
+        let listener_socket = IpcConnection::try_fcn_timeout(
             || match UnixListener::bind(socket_path) {
                 Err(e) => match e.kind() {
                     ErrorKind::AddrInUse
@@ -271,20 +317,20 @@ impl IPCSocket {
                 Ok(r) => Ok(Some(r)),
             },
             &timeout,
-            &IPCConnection::sleep_interval(timeout),
+            &IpcConnection::sleep_interval(timeout),
         )?
         .expect("Failed to create socket");
         listener_socket.set_nonblocking(true)?;
 
-        Ok(IPCSocket {
+        Ok(IpcSocket {
             listener_socket,
-            connections: Vec::new(),
+            connections: Arc::new(Mutex::new(Vec::new())),
             timeout,
         })
     }
 
-    pub fn try_accept(&mut self) -> Result<Option<&RefCell<IPCConnection>>, Error> {
-        let res = IPCConnection::try_fcn_timeout(
+    pub fn try_accept(&self) -> Result<Option<()>, Error> {
+        let res = IpcConnection::try_fcn_timeout(
             || {
                 print!("Trying to accept\n");
                 match self.listener_socket.accept() {
@@ -294,18 +340,21 @@ impl IPCSocket {
                     },
                     Ok(c) => {
                         let pid = 0; //c.get_peer_credentials().unwrap().pid;
-                        let ipc_conn = IPCConnection::new(c.0, pid, self.timeout);
-                        self.connections.push(RefCell::new(ipc_conn));
+                        let ipc_conn = IpcConnection::new(c.0, pid, self.timeout);
+                        self.connections
+                            .lock()
+                            .unwrap()
+                            .push(RefCell::new(ipc_conn));
                         Ok(Some(()))
                     }
                 }
             },
             &self.timeout,
-            &IPCConnection::sleep_interval(self.timeout),
+            &IpcConnection::sleep_interval(self.timeout),
         )?;
 
         if res.is_some() {
-            Ok(Some(self.connections.last().unwrap()))
+            Ok(Some(()))
         } else {
             Ok(None)
         }
@@ -324,15 +373,14 @@ mod tests {
     #[test]
     fn socket_creation() {
         let _ = fs::remove_file(SOCK_PATH);
-        let _ = IPCSocket::new(SOCK_PATH, TIMEOUT).unwrap();
+        let _ = IpcSocket::new(SOCK_PATH, TIMEOUT).unwrap();
     }
 
-    fn _ipc_stream_create() -> (IPCSocket, IPCConnection) {
-        let _ = fs::remove_file(SOCK_PATH);
+    fn _ipc_stream_create() -> (IpcSocket, IpcConnection) {
         thread::sleep(Duration::from_secs(1));
 
         let listen_thread = move || {
-            let mut listener = IPCSocket::new(SOCK_PATH, TIMEOUT)?;
+            let mut listener = IpcSocket::new(SOCK_PATH, TIMEOUT)?;
             let _ = listener
                 .try_accept()?
                 .expect("Failed to listen for connection");
@@ -340,7 +388,7 @@ mod tests {
         };
 
         let connect_thread = || {
-            let conn = IPCConnection::try_connect(SOCK_PATH, TIMEOUT)?
+            let conn = IpcConnection::try_connect(SOCK_PATH, TIMEOUT)?
                 .expect("Failed to connect to socket");
             Ok::<_, Error>(conn)
         };
@@ -355,16 +403,24 @@ mod tests {
 
     #[test]
     fn ipc_stream_create() {
+        let _ = fs::remove_file(SOCK_PATH);
         let _ = _ipc_stream_create();
     }
 
     #[test]
     fn ipc_ack() {
+        let _ = fs::remove_file(SOCK_PATH);
         let (listener, conn) = _ipc_stream_create();
 
+        let conn_vector = listener.connections.clone();
         let send_thread = move || {
-            let send_conn = listener.connections.last().unwrap();
-            send_conn.borrow().send_ack()
+            conn_vector
+                .lock()
+                .unwrap()
+                .last()
+                .unwrap()
+                .borrow_mut()
+                .send_ack()
         };
 
         let recv_thread = move || conn.recv_ack();
@@ -382,13 +438,20 @@ mod tests {
 
     #[test]
     fn ipc_msg() {
+        let _ = fs::remove_file(SOCK_PATH);
         let (listener, conn) = _ipc_stream_create();
 
+        let conn_vector = listener.connections.clone();
         let send_thread = move || {
-            let send_conn = listener.connections.last().unwrap();
             let mut msg = CommandMsg::default();
             unsafe { (*msg.data.find_img).image_name.fill(1) };
-            send_conn.borrow().send_command(msg)
+            conn_vector
+                .lock()
+                .unwrap()
+                .last()
+                .unwrap()
+                .borrow()
+                .send_command(msg)
         };
 
         let recv_thread = move || conn.recv_command();
@@ -414,13 +477,20 @@ mod tests {
 
     #[test]
     fn ipc_result_msg() {
+        let _ = fs::remove_file(SOCK_PATH);
         let (listener, conn) = _ipc_stream_create();
 
         let send_thread = move || {
-            let send_conn = listener.connections.last().unwrap();
             let mut msg = ResultMsg::default();
             unsafe { (*msg.data.find_img).img_data.height = 1024 };
-            send_conn.borrow().send_result(msg)
+            listener
+                .connections
+                .lock()
+                .unwrap()
+                .last()
+                .unwrap()
+                .borrow()
+                .send_result(msg)
         };
 
         let recv_thread = move || conn.recv_result();
@@ -446,6 +516,7 @@ mod tests {
 
     #[test]
     fn ipc_ancillary() {
+        let _ = fs::remove_file(SOCK_PATH);
         let (listener, conn) = _ipc_stream_create();
 
         let tmp1 = tempfile::NamedTempFile::new().unwrap();
@@ -458,8 +529,14 @@ mod tests {
         let handle_count = handles.len();
 
         let send_thread = move || {
-            let send_conn = listener.connections.last().unwrap();
-            send_conn.borrow().send_anillary_handles(&handles)
+            listener
+                .connections
+                .lock()
+                .unwrap()
+                .last()
+                .unwrap()
+                .borrow()
+                .send_anillary_handles(&handles)
         };
 
         let recv_thread = move || conn.recv_ancillary(handle_count);
@@ -471,7 +548,11 @@ mod tests {
         let _s_res = s_handle.join().unwrap().expect("Failed to send ancillary");
 
         //assert_ne!(s_res, 0);
-        assert_eq!(r_res.len(), 2);
+        assert_eq!(r_res.len(), handle_count);
+        for fd in r_res.iter() {
+            assert!(fd.as_raw_fd() >= 0);
+        }
+
         r_res.clear();
 
         //tmp1.close().unwrap();

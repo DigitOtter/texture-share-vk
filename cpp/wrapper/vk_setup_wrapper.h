@@ -1,5 +1,6 @@
 #pragma once
 
+#include "vk_shared_image/platform/linux/external_handle_vk.h"
 #include "vk_shared_image/vk_setup.h"
 #include <memory>
 #include <vulkan/vulkan_core.h>
@@ -37,6 +38,11 @@ class VkSetupWrapper : public VkSetup
 		return this->CleanupVulkan();
 	}
 
+	constexpr const ExternalHandleVk &get_external_handle_info() const
+	{
+		return this->ExternalHandle();
+	}
+
 	constexpr VkInstance get_vk_instance() const
 	{
 		return this->VulkanInstance();
@@ -70,6 +76,21 @@ class VkSetupWrapper : public VkSetup
 	constexpr VkCommandBuffer get_vk_command_buffer() const
 	{
 		return this->CommandBuffer();
+	}
+
+	VkFence create_vk_fence()
+	{
+		VkFence fence = VK_NULL_HANDLE;
+
+		VkFenceCreateInfo create_info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr, 0};
+		vkCreateFence(this->VulkanDevice(), &create_info, nullptr, &fence);
+
+		return fence;
+	}
+
+	void destroy_vk_fence(VkFence fence)
+	{
+		vkDestroyFence(this->VulkanDevice(), fence, nullptr);
 	}
 };
 

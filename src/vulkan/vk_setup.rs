@@ -3,7 +3,7 @@ use libc::c_void;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct VkInstance {
+pub(crate) struct VkInstance {
     _ptr: *mut c_void,
 }
 
@@ -14,7 +14,7 @@ unsafe impl ExternType for VkInstance {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct VkDevice {
+pub struct VkDevice {
     _ptr: *mut c_void,
 }
 
@@ -25,7 +25,7 @@ unsafe impl ExternType for VkDevice {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct VkPhysicalDevice {
+pub struct VkPhysicalDevice {
     _ptr: *mut c_void,
 }
 
@@ -36,7 +36,7 @@ unsafe impl ExternType for VkPhysicalDevice {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct VkQueue {
+pub struct VkQueue {
     _ptr: *mut c_void,
 }
 
@@ -47,7 +47,7 @@ unsafe impl ExternType for VkQueue {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct VkCommandPool {
+pub(crate) struct VkCommandPool {
     _ptr: *mut c_void,
 }
 
@@ -58,7 +58,7 @@ unsafe impl ExternType for VkCommandPool {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct VkCommandBuffer {
+pub struct VkCommandBuffer {
     _ptr: *mut c_void,
 }
 
@@ -69,7 +69,7 @@ unsafe impl ExternType for VkCommandBuffer {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct VkFence {
+pub struct VkFence {
     _ptr: *mut c_void,
 }
 
@@ -79,7 +79,7 @@ unsafe impl ExternType for VkFence {
 }
 
 #[cxx::bridge]
-pub(super) mod ffi {
+pub mod ffi {
     unsafe extern "C++" {
         include!("wrapper/vk_setup_wrapper.h");
 
@@ -90,6 +90,8 @@ pub(super) mod ffi {
         type VkCommandPool = super::VkCommandPool;
         type VkCommandBuffer = super::VkCommandBuffer;
         type VkFence = super::VkFence;
+
+        type ExternalHandleVk;
 
         #[rust_name = "VkSetup"]
         type VkSetupWrapper;
@@ -124,6 +126,11 @@ pub(super) mod ffi {
         fn get_vk_queue_index(self: &VkSetup) -> u32;
         fn get_vk_command_pool(self: &VkSetup) -> VkCommandPool;
         fn get_vk_command_buffer(self: &VkSetup) -> VkCommandBuffer;
+
+        fn get_external_handle_info(self: &VkSetup) -> &ExternalHandleVk;
+
+        fn create_vk_fence(self: Pin<&mut VkSetup>) -> VkFence;
+        fn destroy_vk_fence(self: Pin<&mut VkSetup>, fence: VkFence);
     }
 }
 
@@ -154,6 +161,13 @@ mod tests {
     fn vk_setup_cleanup() {
         let mut vk_setup = _init_vulkan();
         vk_setup.as_mut().unwrap().cleanup_vulkan();
+    }
+
+    #[test]
+    fn vk_setup_init_multiple_instances() {
+        // Note: This fails if debug layer is enabled. It's a problem with VkBootstrap from what I can tell
+        let _inst1 = _init_vulkan();
+        let _inst2 = _init_vulkan();
     }
 
     #[test]
@@ -196,5 +210,14 @@ mod tests {
 
         vk_setup_import.as_mut().unwrap().cleanup_vulkan();
         vk_setup_own.as_mut().unwrap().cleanup_vulkan();
+    }
+
+    #[test]
+    fn vk_setup_fence() {
+        let mut vk_setup = vk_setup_new();
+        vk_setup.as_mut().unwrap().initialize_vulkan();
+
+        let vk_fence = vk_setup.as_mut().unwrap().create_vk_fence();
+        vk_setup.as_mut().unwrap().destroy_vk_fence(vk_fence);
     }
 }

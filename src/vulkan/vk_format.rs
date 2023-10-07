@@ -1,24 +1,27 @@
+use super::vk_shared_image::ffi::VkFormat;
 use crate::platform::img_data::ImgFormat;
-use vulkano;
 
-pub type VkImgFormat = vulkano::format::Format;
-
-pub fn convert_vk_to_img_format(format: VkImgFormat) -> Option<ImgFormat> {
-	match format {
-		VkImgFormat::R8G8B8A8_UNORM => Some(ImgFormat::B8G8R8A8),
-		VkImgFormat::R8G8B8_UNORM => Some(ImgFormat::R8G8B8),
-		VkImgFormat::B8G8R8A8_UNORM => Some(ImgFormat::B8G8R8A8),
-		VkImgFormat::B8G8R8_UNORM => Some(ImgFormat::B8G8R8),
-		_ => None,
-	}
+impl From<ImgFormat> for VkFormat {
+    fn from(value: ImgFormat) -> Self {
+        match value {
+            ImgFormat::B8G8R8 => VkFormat::VK_FORMAT_B8G8R8_UNORM,
+            ImgFormat::B8G8R8A8 => VkFormat::VK_FORMAT_B8G8R8A8_UNORM,
+            ImgFormat::R8G8B8 => VkFormat::VK_FORMAT_R8G8B8_UNORM,
+            ImgFormat::R8G8B8A8 => VkFormat::VK_FORMAT_R8G8B8A8_UNORM,
+            ImgFormat::Undefined => VkFormat::VK_FORMAT_UNDEFINED,
+        }
+    }
 }
 
-pub fn convert_img_to_vkformat(format: ImgFormat) -> Option<VkImgFormat> {
-	match format {
-		ImgFormat::R8G8B8A8 => Some(VkImgFormat::R8G8B8A8_UNORM),
-		ImgFormat::R8G8B8 => Some(VkImgFormat::R8G8B8_UNORM),
-		ImgFormat::B8G8R8A8 => Some(VkImgFormat::B8G8R8A8_UNORM),
-		ImgFormat::B8G8R8 => Some(VkImgFormat::B8G8R8_UNORM),
-		_ => None,
-	}
+impl Into<ImgFormat> for VkFormat {
+    fn into(self) -> ImgFormat {
+        match self {
+            VkFormat::VK_FORMAT_B8G8R8_UNORM => ImgFormat::B8G8R8,
+            VkFormat::VK_FORMAT_B8G8R8A8_UNORM => ImgFormat::B8G8R8A8,
+            VkFormat::VK_FORMAT_R8G8B8_UNORM => ImgFormat::R8G8B8,
+            VkFormat::VK_FORMAT_R8G8B8A8_UNORM => ImgFormat::R8G8B8A8,
+            VkFormat::VK_FORMAT_UNDEFINED => ImgFormat::Undefined,
+            _ => panic!("VkFormat {:?} not implemented", self),
+        }
+    }
 }

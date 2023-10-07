@@ -2,6 +2,7 @@
 
 #include "vk_helpers.h"
 #include "vk_shared_image/platform/linux/external_handle.h"
+#include "vk_shared_image/platform/linux/external_handle_vk.h"
 
 #include <cstdint>
 #include <memory>
@@ -21,8 +22,6 @@ class VkSharedImage
 	public:
 	VkSharedImage() = default;
 	~VkSharedImage();
-
-	static void InitializeVulkan(VkInstance instance, VkPhysicalDevice physical_device);
 
 	void Initialize(VkDevice device, VkPhysicalDevice physical_device, VkQueue queue, VkCommandBuffer command_buffer,
 	                uint32_t width, uint32_t height, VkFormat format, uint32_t id = 0);
@@ -45,7 +44,7 @@ class VkSharedImage
 	                   VkImageLayout src_image_layout, VkFence fence);
 
 
-	ExternalHandle::ShareHandles ExportHandles();
+	ExternalHandle::ShareHandles ExportHandles(const ExternalHandleVk &external_handle_info);
 
 	constexpr const SharedImageData &ImageData() const
 	{
@@ -55,6 +54,16 @@ class VkSharedImage
 	constexpr SharedImageData &ImageData()
 	{
 		return this->_data;
+	}
+
+	constexpr const VkImage &GetVkImage() const
+	{
+		return this->_image;
+	}
+
+	constexpr const VkImageLayout &GetVkImageLayout() const
+	{
+		return this->_layout;
 	}
 
 	private:

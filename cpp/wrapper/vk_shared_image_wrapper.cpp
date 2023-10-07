@@ -1,5 +1,6 @@
 #include "vk_shared_image_wrapper.h"
 #include "vk_shared_image/platform/linux/external_handle.h"
+#include "vk_shared_image/platform/linux/external_handle_vk.h"
 #include <memory>
 
 std::unique_ptr<VkSharedImageWrapper> vk_shared_image_new()
@@ -12,7 +13,9 @@ std::unique_ptr<ShareHandlesWrapper> vk_share_handles_new()
 	return std::make_unique<ShareHandlesWrapper>();
 }
 
-void initialize_vulkan(VkInstance instance, VkPhysicalDevice physical_device)
+std::unique_ptr<ShareHandlesWrapper> vk_share_handles_from_fd(int memory_fd)
 {
-	return VkSharedImageWrapper::initialize_vulkan(instance, physical_device);
+	ExternalHandle::ShareHandles handles;
+	handles.memory = memory_fd;
+	return std::make_unique<ShareHandlesWrapper>(std::move(handles));
 }

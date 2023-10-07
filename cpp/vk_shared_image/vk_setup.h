@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vk_helpers.h"
+#include "vk_shared_image/platform/linux/external_handle_vk.h"
 
 #include <unistd.h>
 
@@ -54,9 +55,16 @@ class VkSetup
 		return this->_command_buffer;
 	}
 
+	constexpr const ExternalHandleVk &ExternalHandle() const
+	{
+		return this->_external_handle;
+	}
+
 	private:
 	VkHelpers::TextureShareVkStruct _vk_struct{};
 	bool _cleanup_vk = true;
+
+	ExternalHandleVk _external_handle;
 
 	VkCommandPool _command_pool{VK_NULL_HANDLE};
 	VkCommandBuffer _command_buffer{VK_NULL_HANDLE};

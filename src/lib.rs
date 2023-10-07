@@ -1,8 +1,11 @@
 #![feature(unix_socket_ancillary_data)]
+#![allow(dead_code, unused_imports)]
 
-mod platform;
+pub mod client;
+pub mod platform;
+pub mod server;
 mod shared_image;
-mod vulkan;
+pub mod vulkan;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right

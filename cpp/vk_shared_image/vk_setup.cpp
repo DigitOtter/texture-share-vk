@@ -14,8 +14,8 @@ void VkSetup::InitializeVulkan()
 	// Destroy vulkan if not importing
 	this->_cleanup_vk = true;
 
-	ExternalHandleVk::LoadVulkanHandleExtensions(this->_vk_struct.instance);
-	ExternalHandleVk::LoadCompatibleSemaphorePropsInfo(this->_vk_struct.physical_device);
+	this->_external_handle.LoadVulkanHandleExtensions(this->_vk_struct.instance);
+	this->_external_handle.LoadCompatibleSemaphorePropsInfo(this->_vk_struct.physical_device);
 
 	this->InitCommandBuffer();
 }
@@ -33,8 +33,8 @@ void VkSetup::InitializeVulkan(VkInstance instance, VkDevice device, VkPhysicalD
 	// Destroy vulkan if not importing
 	this->_cleanup_vk = !import_only;
 
-	ExternalHandleVk::LoadVulkanHandleExtensions(this->_vk_struct.instance);
-	ExternalHandleVk::LoadCompatibleSemaphorePropsInfo(this->_vk_struct.physical_device);
+	this->_external_handle.LoadVulkanHandleExtensions(this->_vk_struct.instance);
+	this->_external_handle.LoadCompatibleSemaphorePropsInfo(this->_vk_struct.physical_device);
 
 	this->InitCommandBuffer();
 }

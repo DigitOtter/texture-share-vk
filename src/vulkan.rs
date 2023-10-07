@@ -1,3 +1,3 @@
 mod vk_format;
-mod vk_setup;
-mod vk_shared_image;
+pub mod vk_setup;
+pub mod vk_shared_image;

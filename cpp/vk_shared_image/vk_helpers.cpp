@@ -10,12 +10,14 @@ VkHelpers::TextureShareVkStruct VkHelpers::CreateTextureShareVkInstance()
 {
 	// make the Vulkan instance, with basic debug features
 	vkb::InstanceBuilder builder;
-	auto inst_ret = builder.set_app_name("Vulkan Texture Share Test")
-	                    .request_validation_layers(true)
+	auto inst_ret = builder
+	                    .set_app_name("Vulkan Texture Share Test")
+	                    //.request_validation_layers(true)
+	                    .request_validation_layers(false)
 	                    .require_api_version(1, 2, 0)
 	                    .set_headless(true)
-	                    .use_default_debug_messenger()
-	                    .enable_extension(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)
+	                    //.use_default_debug_messenger()
+	                    //.enable_extension(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)
 
 	                    .enable_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)
 

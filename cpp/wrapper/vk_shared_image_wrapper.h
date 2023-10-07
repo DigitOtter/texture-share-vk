@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vk_shared_image/platform/linux/external_handle.h"
+#include "vk_shared_image/platform/linux/external_handle_vk.h"
 #include "vk_shared_image/vk_shared_image.h"
 #include <cstdint>
 #include <memory>
@@ -35,11 +36,6 @@ class VkSharedImageWrapper : public VkSharedImage
 	public:
 	VkSharedImageWrapper()  = default;
 	~VkSharedImageWrapper() = default;
-
-	static void initialize_vulkan(VkInstance instance, VkPhysicalDevice physical_device)
-	{
-		return VkSharedImage::InitializeVulkan(instance, physical_device);
-	}
 
 	void initialize(VkDevice device, VkPhysicalDevice physical_device, VkQueue queue, VkCommandBuffer command_buffer,
 	                uint32_t width, uint32_t height, VkFormat format, uint32_t id)
@@ -86,9 +82,9 @@ class VkSharedImageWrapper : public VkSharedImage
 		return this->RecvImageBlit(graphics_queue, command_buffer, src_image, src_image_layout, fence);
 	}
 
-	std::unique_ptr<ShareHandlesWrapper> export_handles()
+	std::unique_ptr<ShareHandlesWrapper> export_handles(const ExternalHandleVk &external_handle_info)
 	{
-		return std::make_unique<ShareHandlesWrapper>(this->ExportHandles());
+		return std::make_unique<ShareHandlesWrapper>(this->ExportHandles(external_handle_info));
 	}
 
 	constexpr const SharedImageData &get_image_data() const
@@ -100,9 +96,19 @@ class VkSharedImageWrapper : public VkSharedImage
 	{
 		return this->ImageData();
 	}
+
+	constexpr VkImage get_vk_image() const
+	{
+		return this->GetVkImage();
+	}
+
+	constexpr VkImageLayout get_vk_image_layout() const
+	{
+		return this->GetVkImageLayout();
+	}
 };
 
 std::unique_ptr<VkSharedImageWrapper> vk_shared_image_new();
-std::unique_ptr<ShareHandlesWrapper> vk_share_handles_new();
 
-void initialize_vulkan(VkInstance instance, VkPhysicalDevice physical_device);
+std::unique_ptr<ShareHandlesWrapper> vk_share_handles_new();
+std::unique_ptr<ShareHandlesWrapper> vk_share_handles_from_fd(int memory_fd);

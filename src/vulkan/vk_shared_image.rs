@@ -1,11 +1,18 @@
 use std::{os::fd::RawFd, pin::Pin};
 
-use super::vk_setup::{VkCommandBuffer, VkDevice, VkFence, VkInstance, VkPhysicalDevice, VkQueue};
+use crate::platform::linux::ipc_shmem::ShmemDataInternal;
+
+use self::ffi::{SharedImageData, VkFormat};
+
+use super::vk_setup::{
+    ffi::ExternalHandleVk, VkCommandBuffer, VkDevice, VkFence, VkInstance, VkPhysicalDevice,
+    VkQueue,
+};
 use cxx::{type_id, ExternType};
 use libc::c_void;
 
 #[repr(C)]
-pub(super) struct VkImage {
+pub struct VkImage {
     _ptr: *mut c_void,
 }
 
@@ -25,7 +32,7 @@ unsafe impl ExternType for VkImage {
 // }
 
 #[cxx::bridge]
-mod ffi {
+pub mod ffi {
     #[derive(Debug)]
     enum VkFormat {
         VK_FORMAT_UNDEFINED = 0,
@@ -395,11 +402,11 @@ mod ffi {
     }
 
     struct SharedImageData {
-        id: u32,
-        width: u32,
-        height: u32,
-        format: VkFormat,
-        allocation_size: u32,
+        pub id: u32,
+        pub width: u32,
+        pub height: u32,
+        pub format: VkFormat,
+        pub allocation_size: u32,
     }
 
     // struct ShareHandles {
@@ -428,6 +435,8 @@ mod ffi {
         type VkImage = super::VkImage;
         type VkFence = super::VkFence;
 
+        type ExternalHandleVk = super::ExternalHandleVk;
+
         #[rust_name = "ShareHandles"]
         type ShareHandlesWrapper;
 
@@ -440,6 +449,7 @@ mod ffi {
         type VkSharedImageWrapper;
 
         fn vk_share_handles_new() -> UniquePtr<ShareHandles>;
+        fn vk_share_handles_from_fd(memory_fd: i32) -> UniquePtr<ShareHandles>;
 
         fn get_memory_handle(self: &ShareHandles) -> i32;
         fn release_memory_handle(self: Pin<&mut ShareHandles>) -> i32;
@@ -468,7 +478,10 @@ mod ffi {
             image_data: &SharedImageData,
         );
 
-        fn export_handles(self: Pin<&mut VkSharedImage>) -> UniquePtr<ShareHandles>;
+        fn export_handles(
+            self: Pin<&mut VkSharedImage>,
+            external_handle_info: &ExternalHandleVk,
+        ) -> UniquePtr<ShareHandles>;
 
         fn get_image_data(self: &VkSharedImage) -> &SharedImageData;
 
@@ -511,6 +524,21 @@ mod ffi {
             src_image_layout: VkImageLayout,
             fence: VkFence,
         );
+
+        fn get_vk_image(self: &VkSharedImage) -> VkImage;
+        fn get_vk_image_layout(self: &VkSharedImage) -> VkImageLayout;
+    }
+}
+
+impl SharedImageData {
+    pub(crate) fn from_shmem_img_data(data: &ShmemDataInternal) -> SharedImageData {
+        SharedImageData {
+            id: data.handle_id,
+            width: data.width,
+            height: data.height,
+            format: VkFormat::from(data.format),
+            allocation_size: data.allocation_size,
+        }
     }
 }
 
@@ -597,7 +625,10 @@ mod tests {
         );
         assert_eq!(vk_shared_image.get_image_data().id, 3);
 
-        let _ = vk_shared_image.as_mut().unwrap().export_handles();
+        let _ = vk_shared_image
+            .as_mut()
+            .unwrap()
+            .export_handles(vk_setup.get_external_handle_info());
     }
 
     #[test]
@@ -620,7 +651,10 @@ mod tests {
             0,
         );
 
-        let share_handles = original_img.as_mut().unwrap().export_handles();
+        let share_handles = original_img
+            .as_mut()
+            .unwrap()
+            .export_handles(vk_setup.get_external_handle_info());
 
         let mut import_img = vk_shared_image_new();
         let image_data = original_img.get_image_data();

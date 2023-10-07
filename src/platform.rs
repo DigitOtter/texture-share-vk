@@ -1,2 +1,2 @@
 pub mod img_data;
-mod linux;
+pub(crate) mod linux;
