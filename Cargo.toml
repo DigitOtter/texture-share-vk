@@ -1,23 +1,28 @@
-[package]
-name = "rust-texture-share-vk"
-version = "0.1.0"
-edition = "2021"
+# [package]
+# name = "rust-texture-share-vk"
+# version = "0.1.0"
+# edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-cxx = "1.0.107"
-libc = "0.2.148"
-# interprocess = "1.2.1"
-memoffset = "0.9.0"
-raw_sync = "0.1.5"
-shared_memory = "0.12.4"
-# vulkano = "0.33.0"
+[workspace]
+resolver = "2"
+members = [ "ipc", "texture-share-vk-base", "texture-share-vk-server", "texture-share-vk-client"
+]
 
-[dev-dependencies]
-tempfile = "3.8.0"
+# [dependencies]
+# cxx = "1.0.107"
+# libc = "0.2.148"
+# # interprocess = "1.2.1"
+# memoffset = "0.9.0"
+# raw_sync = "0.1.5"
+# shared_memory = "0.12.4"
+# # vulkano = "0.33.0"
 
-[build-dependencies]
-cc = "1.0.83"
-cmake = "0.1.50"
-cxx-build = "1.0.107"
+# [dev-dependencies]
+# tempfile = "3.8.0"
+
+# [build-dependencies]
+# cc = "1.0.83"
+# cmake = "0.1.50"
+# cxx-build = "1.0.107"
