@@ -7,7 +7,11 @@
 
 [workspace]
 resolver = "2"
-members = [ "ipc", "texture-share-vk-base", "texture-share-vk-server", "texture-share-vk-client"
+members = [
+        "texture-share-ipc",
+        "texture-share-vk-base",
+        "texture-share-vk-server",
+        "texture-share-vk-client"
 ]
 
 # [dependencies]
