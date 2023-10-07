@@ -1,9 +1,7 @@
 #![feature(unix_socket_ancillary_data)]
 //#![allow(dead_code, unused_imports)]
 
-pub mod client;
 pub mod platform;
-pub mod server;
 mod shared_image;
 pub mod vulkan;
 

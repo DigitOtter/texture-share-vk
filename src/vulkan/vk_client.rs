@@ -33,30 +33,30 @@ use crate::{
     },
 };
 
-use super::server::ImageData;
+use super::vk_server::ImageData;
 
-pub struct Client {
+pub struct VkClient {
     connection: IpcConnection,
     vk_setup: UniquePtr<VkSetup>,
     shared_images: HashMap<String, ImageData>,
     //timeout: Duration,
 }
 
-impl Drop for Client {
+impl Drop for VkClient {
     fn drop(&mut self) {
         // Ensure that images are cleared before destroying vulkan instance
         self.shared_images.clear();
     }
 }
 
-impl Client {
+impl VkClient {
     const IPC_TIMEOUT: Duration = Duration::from_millis(5000);
 
     pub fn new(
         socket_path: &str,
         vk_setup: UniquePtr<VkSetup>,
         timeout: Duration,
-    ) -> Result<Client, Error> {
+    ) -> Result<VkClient, Error> {
         let connection = IpcConnection::try_connect(socket_path, timeout)?;
         if connection.is_none() {
             return Err(Error::new(
@@ -67,7 +67,7 @@ impl Client {
 
         let shared_images = HashMap::default();
 
-        Ok(Client {
+        Ok(VkClient {
             connection: connection.unwrap(),
             vk_setup,
             shared_images,
@@ -171,7 +171,7 @@ impl Client {
             Some(image_data) => {
                 let rlock: ReadLockGuard = image_data
                     .ipc_info
-                    .acquire_rlock(Timeout::Val(Client::IPC_TIMEOUT))?;
+                    .acquire_rlock(Timeout::Val(VkClient::IPC_TIMEOUT))?;
                 let rdata = IpcShmem::acquire_rdata(&rlock);
                 Some((rlock, rdata))
             }
@@ -326,7 +326,7 @@ impl Client {
         )?;
 
         let vk_shared_image = {
-            let rlock = shmem.acquire_rlock(raw_sync::Timeout::Val(Client::IPC_TIMEOUT))?;
+            let rlock = shmem.acquire_rlock(raw_sync::Timeout::Val(VkClient::IPC_TIMEOUT))?;
             let rdata = IpcShmem::acquire_rdata(&rlock);
 
             let mut vk_shared_image: UniquePtr<VkSharedImage> = vk_shared_image_new();
@@ -428,7 +428,7 @@ mod tests {
     use crate::platform::linux::ipc_unix_socket::IpcSocket;
     use crate::vulkan::vk_setup::ffi::vk_setup_new;
 
-    use super::Client;
+    use super::VkClient;
 
     const TIMEOUT: Duration = Duration::from_millis(2000);
     const SOCKET_PATH: &str = "test_socket.sock";
@@ -451,7 +451,7 @@ mod tests {
         let mut vk_setup = vk_setup_new();
         vk_setup.as_mut().unwrap().initialize_vulkan();
 
-        let _client = Client::new(SOCKET_PATH, vk_setup, TIMEOUT).unwrap();
+        let _client = VkClient::new(SOCKET_PATH, vk_setup, TIMEOUT).unwrap();
 
         let server_res = server_thread.join().unwrap();
         assert!(server_res.is_some());

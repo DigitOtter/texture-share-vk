@@ -25,7 +25,7 @@ pub(super) struct ImageData {
     pub vk_shared_image: UniquePtr<VkSharedImage>,
 }
 
-pub struct Server {
+pub struct VkServer {
     socket: Arc<Mutex<IpcSocket>>,
     socket_path: String,
     shmem_prefix: String,
@@ -33,7 +33,7 @@ pub struct Server {
     images: Vec<ImageData>,
 }
 
-impl Drop for Server {
+impl Drop for VkServer {
     fn drop(&mut self) {
         // Ensure that images are cleared before vk_setup is destroyed
         self.images.clear();
@@ -42,14 +42,14 @@ impl Drop for Server {
     }
 }
 
-impl Server {
+impl VkServer {
     const IPC_TIMEOUT: Duration = Duration::from_millis(5000);
 
     pub fn new(
         socket_path: &str,
         shmem_prefix: &str,
         connection_timeout: Duration,
-    ) -> Result<Server, Box<dyn std::error::Error>> {
+    ) -> Result<VkServer, Box<dyn std::error::Error>> {
         let _ = fs::remove_file(socket_path.to_owned());
 
         let socket = Arc::new(Mutex::new(
@@ -60,7 +60,7 @@ impl Server {
         vk_setup.as_mut().unwrap().initialize_vulkan();
 
         let images = Vec::default();
-        Ok(Server {
+        Ok(VkServer {
             socket,
             socket_path: socket_path.to_string(),
             shmem_prefix: shmem_prefix.to_string(),
@@ -83,7 +83,7 @@ impl Server {
         let stop_clone = stop_bit.clone();
         let accept_thread_fcn = move || {
             while !stop_clone.load(Ordering::Relaxed) {
-                Server::try_accept(&listener_clone)?;
+                VkServer::try_accept(&listener_clone)?;
             }
 
             Ok::<(), io::Error>(())
@@ -93,7 +93,7 @@ impl Server {
 
         let connections_clone = self.socket.clone().lock().unwrap().connections.clone();
         while !accept_thread.is_finished() && !stop_bit.load(Ordering::Relaxed) {
-            Server::process_commands(
+            VkServer::process_commands(
                 connections_clone.clone(),
                 self.vk_setup.as_ref().unwrap(),
                 &self.shmem_prefix,
@@ -132,14 +132,14 @@ impl Server {
 
             let cmd = cmd.unwrap();
             match cmd.tag {
-                CommandTag::InitImage => Server::process_cmd_init_image(
+                CommandTag::InitImage => VkServer::process_cmd_init_image(
                     &conn.borrow(),
                     unsafe { &cmd.data.init_img },
                     vk_setup,
                     shmem_prefix,
                     images,
                 ),
-                CommandTag::FindImage => Server::process_cmd_find_image(
+                CommandTag::FindImage => VkServer::process_cmd_find_image(
                     &conn.borrow(),
                     unsafe { &cmd.data.find_img },
                     vk_setup,
@@ -176,7 +176,7 @@ impl Server {
         let image_index = images.iter_mut().position(|it| {
             let rlock = it
                 .ipc_info
-                .acquire_rlock(raw_sync::Timeout::Val(Server::IPC_TIMEOUT))
+                .acquire_rlock(raw_sync::Timeout::Val(VkServer::IPC_TIMEOUT))
                 .unwrap();
             let rdata = IpcShmem::acquire_rdata(&rlock);
             ImgData::convert_shmem_array_to_str(&rdata.name)
@@ -186,7 +186,7 @@ impl Server {
 
         // Update image, keep lock
         let shmem_name = shmem_prefix.to_owned() + &img_name_str;
-        let (result_msg_data, vk_shared_image, _lock) = Server::update_shared_image(
+        let (result_msg_data, vk_shared_image, _lock) = VkServer::update_shared_image(
             cmd,
             vk_setup,
             images,
@@ -233,7 +233,7 @@ impl Server {
             images.iter_mut().find_map(|it| {
                 let rlock = it
                     .ipc_info
-                    .acquire_rlock(raw_sync::Timeout::Val(Server::IPC_TIMEOUT))
+                    .acquire_rlock(raw_sync::Timeout::Val(VkServer::IPC_TIMEOUT))
                     .unwrap();
                 let rdata = IpcShmem::acquire_rdata(&rlock);
 
@@ -351,7 +351,7 @@ impl Server {
         // Lock access
         let lock = image
             .ipc_info
-            .acquire_lock(raw_sync::Timeout::Val(Server::IPC_TIMEOUT))
+            .acquire_lock(raw_sync::Timeout::Val(VkServer::IPC_TIMEOUT))
             .unwrap();
         let mut data = IpcShmem::acquire_data(&lock);
 
@@ -368,7 +368,7 @@ impl Server {
         );
 
         // Update Shmem data
-        Server::update_shmem_data(&mut data, &image.vk_shared_image);
+        VkServer::update_shmem_data(&mut data, &image.vk_shared_image);
 
         // Generate ResultMsg data
         let img_data = ImgData {
@@ -416,19 +416,19 @@ mod tests {
 
     use crate::platform::linux::ipc_unix_socket::IpcConnection;
 
-    use super::Server;
+    use super::VkServer;
 
     const TIMEOUT: Duration = Duration::from_millis(2000);
     const SOCKET_PATH: &str = "test_socket.sock";
     const SHMEM_PREFIX: &str = "shared_images_";
 
-    fn _server_create() -> Server {
-        Server::new(SOCKET_PATH, SHMEM_PREFIX, TIMEOUT).unwrap()
+    fn _server_create() -> VkServer {
+        VkServer::new(SOCKET_PATH, SHMEM_PREFIX, TIMEOUT).unwrap()
     }
 
     #[test]
     fn server_create() {
-        let _ = Server::new(SOCKET_PATH, SHMEM_PREFIX, TIMEOUT).unwrap();
+        let _ = VkServer::new(SOCKET_PATH, SHMEM_PREFIX, TIMEOUT).unwrap();
     }
 
     #[test]

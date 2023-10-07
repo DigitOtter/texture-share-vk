@@ -9,9 +9,9 @@ use std::{
 };
 
 use rust_texture_share_vk::{
-    client::Client,
     platform::img_data::ImgFormat,
-    server::Server,
+    vulkan::vk_client::VkClient,
+    vulkan::vk_server::VkServer,
     vulkan::{
         vk_setup::ffi::vk_setup_new,
         vk_shared_image::ffi::{vk_shared_image_new, VkFormat},
@@ -22,14 +22,14 @@ const TIMEOUT: Duration = Duration::from_secs(2);
 const SOCKET_PATH: &str = "test_socket.sock";
 const SHMEM_PREFIX: &str = "shared_images_";
 
-fn _server_create() -> Server {
-    Server::new(SOCKET_PATH, SHMEM_PREFIX, TIMEOUT).unwrap()
+fn _server_create() -> VkServer {
+    VkServer::new(SOCKET_PATH, SHMEM_PREFIX, TIMEOUT).unwrap()
 }
 
-fn _client_create() -> Client {
+fn _client_create() -> VkClient {
     let mut vk_setup = vk_setup_new();
     vk_setup.as_mut().unwrap().initialize_vulkan();
-    Client::new(SOCKET_PATH, vk_setup, TIMEOUT).expect("Client failed to connect to server")
+    VkClient::new(SOCKET_PATH, vk_setup, TIMEOUT).expect("Client failed to connect to server")
 }
 
 #[test]
