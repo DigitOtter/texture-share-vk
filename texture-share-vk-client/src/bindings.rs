@@ -21,17 +21,17 @@ fn get_str<'a>(buf: &'a *const c_char) -> Cow<'a, str> {
     unsafe { CStr::from_ptr(buf.to_owned()) }.to_string_lossy()
 }
 
-#[repr(transparent)]
-struct ClientImageData<'a>(&'a ShmemDataInternal);
+//#[repr(transparent)]
+//struct ClientImageData(ShmemDataInternal);
 
 struct ClientImageDataGuard<'a> {
     read_lock: ReadLockGuard<'a>,
-    image_data: ClientImageData<'a>,
+    image_data: &'a ShmemDataInternal,
 }
 
 impl<'a> ClientImageDataGuard<'a> {
     #[no_mangle]
-    extern "C" fn get_image_data(&self) -> &ClientImageData {
+    extern "C" fn get_image_data(&self) -> &ShmemDataInternal {
         &self.image_data
     }
 }
@@ -132,7 +132,7 @@ extern "C" fn vk_client_find_image_data<'a>(
         Ok(Some(d)) => {
             return Box::into_raw(Box::new(ClientImageDataGuard {
                 read_lock: d.0,
-                image_data: ClientImageData(d.1),
+                image_data: d.1,
             }))
         }
         Ok(None) => return null_mut(),
@@ -146,7 +146,7 @@ extern "C" fn vk_client_find_image_data<'a>(
 #[no_mangle]
 extern "C" fn vk_client_image_data_guard_read<'a>(
     image_data_guard: *const ClientImageDataGuard<'a>,
-) -> &ClientImageData<'a> {
+) -> &'a ShmemDataInternal {
     &unsafe { image_data_guard.as_ref() }.unwrap().image_data
 }
 
