@@ -19,3 +19,4 @@ texture-share-ipc = { path = "../texture-share-ipc" }
 cc = "1.0.83"
 cmake = "0.1.50"
 cxx-build = "1.0.107"
+cbindgen = "0.26.0"

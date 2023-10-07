@@ -39,6 +39,19 @@ pub struct IpcShmem {
     shmem: Shmem,
 }
 
+impl Default for ShmemDataInternal {
+    fn default() -> Self {
+        ShmemDataInternal {
+            name: [0 as u8; size_of::<ImgName>()],
+            handle_id: 0,
+            width: 0,
+            height: 0,
+            format: ImgFormat::default(),
+            allocation_size: 0,
+        }
+    }
+}
+
 impl<'a> IpcShmem {
     pub fn new(
         name: &str,

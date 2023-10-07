@@ -3,7 +3,7 @@ use std::mem::size_of;
 pub(crate) type ImgName = [u8; 1024];
 pub(crate) type ShmemName = [u8; 1024];
 
-#[repr(u32)]
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ImgFormat {
     R8G8B8A8,

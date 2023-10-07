@@ -209,6 +209,25 @@ impl VkClient {
         fence: VkFence,
         extents: &[VkOffset3D; 2],
     ) -> Result<Option<()>, Box<dyn std::error::Error>> {
+        unsafe {
+            self.send_image_with_extents_unchecked(
+                image_name,
+                image,
+                layout,
+                fence,
+                extents.as_ptr(),
+            )
+        }
+    }
+
+    pub(crate) unsafe fn send_image_with_extents_unchecked(
+        &mut self,
+        image_name: &str,
+        image: VkImage,
+        layout: VkImageLayout,
+        fence: VkFence,
+        extents: *const VkOffset3D,
+    ) -> Result<Option<()>, Box<dyn std::error::Error>> {
         let local_image = self.shared_images.get_mut(image_name);
         if local_image.is_none() {
             return Ok(None);
@@ -225,7 +244,7 @@ impl VkClient {
                     image,
                     layout,
                     fence,
-                    extents.as_ptr(),
+                    extents,
                 );
         }
         Ok(Some(()))
@@ -267,6 +286,25 @@ impl VkClient {
         fence: VkFence,
         extents: &[VkOffset3D; 2],
     ) -> Result<Option<()>, Box<dyn std::error::Error>> {
+        unsafe {
+            self.recv_image_with_extents_unchecked(
+                image_name,
+                image,
+                layout,
+                fence,
+                extents.as_ptr(),
+            )
+        }
+    }
+
+    pub(crate) unsafe fn recv_image_with_extents_unchecked(
+        &mut self,
+        image_name: &str,
+        image: VkImage,
+        layout: VkImageLayout,
+        fence: VkFence,
+        extents: *const VkOffset3D,
+    ) -> Result<Option<()>, Box<dyn std::error::Error>> {
         let local_image = self.shared_images.get_mut(image_name);
         if local_image.is_none() {
             return Ok(None);
@@ -283,7 +321,7 @@ impl VkClient {
                     image,
                     layout,
                     fence,
-                    extents.as_ptr(),
+                    extents,
                 );
         }
         Ok(Some(()))

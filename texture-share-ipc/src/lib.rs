@@ -1,6 +1,9 @@
 #![feature(unix_socket_ancillary_data)]
 //#![allow(dead_code, unused_imports)]
 
+mod bindings;
+
+// cbindgen:ignore
 pub mod platform {
     pub mod img_data;
     pub mod ipc_commands;
