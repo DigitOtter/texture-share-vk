@@ -1,16 +1,14 @@
 use std::{
-    borrow::{BorrowMut, Cow},
-    ffi::{c_char, c_int, CStr, CString},
-    pin::Pin,
+    borrow::Cow,
+    ffi::{c_char, c_int, CStr},
     ptr::{null_mut, NonNull},
-    slice,
     sync::{atomic::AtomicBool, Arc},
     time::Duration,
 };
 
 use crate::VkServer;
 
-type c_str = [c_char; 1024];
+//type c_str = [c_char; 1024];
 
 fn get_str<'a>(buf: &'a *const c_char) -> Cow<'a, str> {
     unsafe { CStr::from_ptr(buf.to_owned()) }.to_string_lossy()

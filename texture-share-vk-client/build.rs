@@ -11,5 +11,5 @@ fn main() {
         .write_to_file("../target/gen_include/texture_share_vk/texture_share_vk_client.h");
 
     // Generate cxx bindings
-    cxx_build::bridge("src/bindings/bindings_cpp.rs").compile("cxx_vk_client");
+    //cxx_build::bridge("src/bindings/bindings_cpp.rs").compile("cxx_vk_client");
 }

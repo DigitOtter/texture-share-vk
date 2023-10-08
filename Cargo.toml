@@ -4,5 +4,6 @@ members = [
         "texture-share-ipc",
         "texture-share-vk-base",
         "texture-share-vk-server",
-        "texture-share-vk-client"
+        "texture-share-vk-client",
+        "texture-share-gl-client",
 ]

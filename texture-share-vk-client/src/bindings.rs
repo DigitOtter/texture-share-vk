@@ -2,13 +2,12 @@ use std::{
     borrow::Cow,
     ffi::{c_char, c_int, CStr},
     ptr::{null_mut, NonNull},
-    slice,
     time::Duration,
 };
 use texture_share_vk_base::{
     cxx::UniquePtr,
     ipc::platform::{img_data::ImgFormat, ReadLockGuard, ShmemDataInternal},
-    vk_setup::{self, ffi::VkSetup, VkFence},
+    vk_setup::{ffi::VkSetup, VkFence},
     vk_shared_image::{
         ffi::{VkImageLayout, VkOffset3D},
         VkImage,
@@ -25,7 +24,7 @@ fn get_str<'a>(buf: &'a *const c_char) -> Cow<'a, str> {
 //struct ClientImageData(ShmemDataInternal);
 
 struct ClientImageDataGuard<'a> {
-    read_lock: ReadLockGuard<'a>,
+    _read_lock: ReadLockGuard<'a>,
     image_data: &'a ShmemDataInternal,
 }
 
@@ -131,7 +130,7 @@ extern "C" fn vk_client_find_image_data<'a>(
     match local_image {
         Ok(Some(d)) => {
             return Box::into_raw(Box::new(ClientImageDataGuard {
-                read_lock: d.0,
+                _read_lock: d.0,
                 image_data: d.1,
             }))
         }
