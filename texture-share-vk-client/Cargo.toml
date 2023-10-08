@@ -7,8 +7,8 @@ edition = "2021"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
+cxx = "1.0.107"
 texture-share-vk-base = { path = "../texture-share-vk-base" }
-# vulkano = "0.33.0"
 
 [dev-dependencies]
 texture-share-vk-server = { path = "../texture-share-vk-server" }
@@ -18,4 +18,4 @@ texture-share-vk-server = { path = "../texture-share-vk-server" }
 cbindgen = "0.26.0"
 # cc = "1.0.83"
 # cmake = "0.1.50"
-# cxx-build = "1.0.107"
+cxx-build = "1.0.107"

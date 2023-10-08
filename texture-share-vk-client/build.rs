@@ -1,4 +1,5 @@
 fn main() {
+    // Generate C bindings
     cbindgen::Builder::new()
         .with_crate(".")
         .with_pragma_once(true)
@@ -8,4 +9,7 @@ fn main() {
         .generate()
         .expect("Failed to generate bindings")
         .write_to_file("../target/gen_include/texture_share_vk/texture_share_vk_client.h");
+
+    // Generate cxx bindings
+    cxx_build::bridge("src/bindings/bindings_cpp.rs").compile("cxx_vk_client");
 }
