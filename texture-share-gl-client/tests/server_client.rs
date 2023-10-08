@@ -1,5 +1,4 @@
 use std::{
-    ffi::{c_int, c_uint},
     fs,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -16,7 +15,7 @@ use std::{
 // };
 use texture_share_gl_client::{
     gl_shared_image::{
-        ffi::{gl_shared_image_new, GlFormat, SharedImageData},
+        ffi::{gl_external_initialize, gl_shared_image_new, GlFormat, SharedImageData},
         GLsizei, GLuint, GLuint64,
     },
     GlClient,
@@ -33,6 +32,7 @@ fn _server_create() -> VkServer {
 }
 
 fn _client_create() -> GlClient {
+    gl_external_initialize();
     GlClient::new(SOCKET_PATH, TIMEOUT).expect("Client failed to connect to server")
 }
 

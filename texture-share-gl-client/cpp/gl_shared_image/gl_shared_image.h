@@ -7,6 +7,9 @@
 #include <cstdint>
 #include <sys/types.h>
 
+namespace opengl
+{
+
 struct SharedImageData
 {
 	uint32_t Id             = 0;
@@ -14,6 +17,12 @@ struct SharedImageData
 	GLsizei Height          = 0;
 	GLenum Format           = GL_FALSE;
 	GLuint64 AllocationSize = 0;
+};
+
+struct ImageExtent
+{
+	GLsizei top_left[2];
+	GLsizei bottom_right[2];
 };
 
 /*!
@@ -25,12 +34,7 @@ class GlSharedImage
 	static constexpr GLuint SHARED_IMAGE_TEX_TARGET = GL_TEXTURE_2D;
 
 	public:
-	struct ImageExtent
-	{
-		GLsizei top_left[2];
-		GLsizei bottom_right[2];
-	};
-
+	using ImageExtent = opengl::ImageExtent;
 	GlSharedImage();
 	~GlSharedImage();
 
@@ -140,3 +144,4 @@ class GlSharedImage
 	               GLuint dst_texture_id, GLuint dst_texture_target, const ImageExtent &dst_dimensions,
 	               bool invert = false, GLuint prev_fbo = 0);
 };
+} // namespace opengl

@@ -1,7 +1,8 @@
-use cbindgen;
+use cbindgen::{self, Language};
 
 fn main() {
     cbindgen::Builder::new()
+        .with_language(Language::C)
         .with_crate(".")
         .include_item("ShmemInternalData")
         .with_pragma_once(true)

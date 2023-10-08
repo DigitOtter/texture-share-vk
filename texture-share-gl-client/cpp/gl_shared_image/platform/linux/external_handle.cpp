@@ -2,6 +2,7 @@
 
 #include <utility>
 
+using namespace opengl;
 
 ExternalHandle::ShareHandles::ShareHandles(ShareHandles &&other)
 	: memory(std::move(other.memory))

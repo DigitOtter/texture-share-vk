@@ -7,7 +7,7 @@ use texture_share_ipc::platform::ShmemDataInternal;
 pub struct GLuint(pub c_uint);
 
 unsafe impl ExternType for GLuint {
-    type Id = type_id!("GLuint");
+    type Id = type_id!("opengl::GLuint");
     type Kind = cxx::kind::Trivial;
 }
 
@@ -15,7 +15,7 @@ unsafe impl ExternType for GLuint {
 pub struct GLenum(pub c_uint);
 
 unsafe impl ExternType for GLenum {
-    type Id = type_id!("GLenum");
+    type Id = type_id!("opengl::GLenum");
     type Kind = cxx::kind::Trivial;
 }
 
@@ -23,7 +23,7 @@ unsafe impl ExternType for GLenum {
 pub struct GLsizei(pub c_int);
 
 unsafe impl ExternType for GLsizei {
-    type Id = type_id!("GLsizei");
+    type Id = type_id!("opengl::GLsizei");
     type Kind = cxx::kind::Trivial;
 }
 
@@ -31,11 +31,11 @@ unsafe impl ExternType for GLsizei {
 pub struct GLuint64(pub u64);
 
 unsafe impl ExternType for GLuint64 {
-    type Id = type_id!("GLuint64");
+    type Id = type_id!("opengl::GLuint64");
     type Kind = cxx::kind::Trivial;
 }
 
-#[cxx::bridge]
+#[cxx::bridge(namespace = "opengl")]
 pub mod ffi {
     #[repr(u32)]
     #[derive(Debug)]
@@ -64,13 +64,16 @@ pub mod ffi {
         type ShareHandlesWrapper;
 
         type SharedImageData;
+
+        //#[namespace = "opengl"]
         type GlFormat;
+
         type GLuint = super::GLuint;
         type GLenum = super::GLenum;
         type GLsizei = super::GLsizei;
         type GLuint64 = super::GLuint64;
 
-        type ImageExtent;
+        type ImageExtent = crate::bindings::ImageExtent;
 
         #[rust_name = "GlSharedImage"]
         type GlSharedImageWrapper;
@@ -166,7 +169,12 @@ mod tests {
 
     use crate::opengl::gl_shared_image::ffi::gl_share_handles_new;
 
-    use super::ffi::{gl_external_initialize, gl_shared_image_new, GlSharedImage};
+    use super::{
+        ffi::{
+            gl_external_initialize, gl_shared_image_new, GlFormat, GlSharedImage, SharedImageData,
+        },
+        GLsizei, GLuint64,
+    };
 
     fn _init_gl_image() -> UniquePtr<GlSharedImage> {
         assert!(gl_external_initialize());
@@ -206,46 +214,30 @@ mod tests {
         }
     }
 
-    //     #[test]
-    //     fn vk_shared_image_init() {
-    //         let mut vk_setup = vk_setup_new();
-    //         vk_setup.as_mut().unwrap().initialize_vulkan();
+    #[test]
+    fn gl_shared_image_init() {
+        let mut gl_shared_image = _init_gl_image();
+        let width = 1;
+        let height = 1;
+        let format = GlFormat::RGBA;
+        let id = 3;
+        let allocation_size = width * height * 4;
+        let res = gl_shared_image.as_mut().unwrap().initialize(
+            GLsizei(width),
+            GLsizei(height),
+            id,
+            GLuint64(allocation_size as u64),
+            format,
+            SharedImageData::GL_RGBA8,
+        );
 
-    //         let _instance = vk_setup.as_ref().unwrap().get_vk_instance();
-    //         let device = vk_setup.as_ref().unwrap().get_vk_device();
-    //         let physical_device = vk_setup.as_ref().unwrap().get_vk_physical_device();
-    //         // let queue = vk_setup.as_ref().unwrap().get_vk_queue();
+        assert_eq!(res.0, 0);
 
-    //         // initialize_vulkan_handles(
-    //         //     instance,
-    //         //     vk_setup.as_ref().unwrap().get_vk_physical_device(),
-    //         // );
-
-    //         let mut vk_shared_image = vk_shared_image_new();
-    //         vk_shared_image.as_mut().unwrap().initialize(
-    //             device,
-    //             physical_device,
-    //             vk_setup.get_vk_queue(),
-    //             vk_setup.get_vk_command_buffer(),
-    //             1,
-    //             2,
-    //             VkFormat::VK_FORMAT_R8G8B8A8_UNORM,
-    //             3,
-    //         );
-
-    //         assert_eq!(vk_shared_image.get_image_data().width, 1);
-    //         assert_eq!(vk_shared_image.get_image_data().height, 2);
-    //         assert_eq!(
-    //             vk_shared_image.get_image_data().format,
-    //             VkFormat::VK_FORMAT_R8G8B8A8_UNORM
-    //         );
-    //         assert_eq!(vk_shared_image.get_image_data().id, 3);
-
-    //         let _ = vk_shared_image
-    //             .as_mut()
-    //             .unwrap()
-    //             .export_handles(vk_setup.get_external_handle_info());
-    //     }
+        assert_eq!(gl_shared_image.get_image_data().width, width as u32);
+        assert_eq!(gl_shared_image.get_image_data().height, height as u32);
+        assert_eq!(gl_shared_image.get_image_data().format, format);
+        assert_eq!(gl_shared_image.get_image_data().id, id as u32);
+    }
 
     //     #[test]
     //     fn vk_shared_image_handle_exchange() {

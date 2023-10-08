@@ -8,6 +8,14 @@
 #include <cstdint>
 #include <memory>
 
+namespace opengl
+{
+
+using ::GLenum;
+using ::GLsizei;
+using ::GLuint;
+using ::GLuint64;
+
 enum GlFormat
 {
 	RGBA  = GL_RGBA,
@@ -119,3 +127,7 @@ std::unique_ptr<ShareHandlesWrapper> gl_share_handles_new();
 std::unique_ptr<ShareHandlesWrapper> gl_share_handles_from_fd(int memory_fd);
 
 bool gl_external_initialize();
+
+// using ImageExtent = GlSharedImage::ImageExtent;
+
+} // namespace opengl

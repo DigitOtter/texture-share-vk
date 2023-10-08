@@ -1,6 +1,9 @@
+use cbindgen::Language;
+
 fn main() {
     // Generate C bindings
     cbindgen::Builder::new()
+        .with_language(Language::C)
         .with_crate(".")
         .with_pragma_once(true)
         .with_tab_width(4)

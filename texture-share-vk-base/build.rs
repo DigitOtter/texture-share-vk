@@ -1,5 +1,6 @@
 use std::fs;
 
+use cbindgen::Language;
 use cc::{self, Build};
 use cmake;
 
@@ -69,6 +70,7 @@ fn main() {
         "VkFormat".to_string(),
     ];
     cbindgen::Builder::new()
+        .with_language(Language::C)
         .with_config(config)
         .with_crate(".")
         .include_item("ShmemInternalData")

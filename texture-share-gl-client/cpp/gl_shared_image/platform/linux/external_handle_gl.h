@@ -7,6 +7,9 @@
 #include <GL/gl.h>
 #include <GL/glext.h>
 
+namespace opengl
+{
+
 class ExternalHandleGl
 {
 	public:
@@ -57,5 +60,7 @@ class ExternalHandleGl
 	                                          GLsizei height, GLuint memory, GLuint64 offset);
 	static texture_storage_mem_2d_fcn_t *texture_storage_mem_2d_fcn;
 };
+
+} // namespace opengl
 
 #endif // EXTERNAL_HANDLE_GL_H

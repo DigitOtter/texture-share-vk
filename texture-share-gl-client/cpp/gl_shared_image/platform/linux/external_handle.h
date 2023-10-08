@@ -5,6 +5,9 @@
 #include <cstring>
 #include <unistd.h>
 
+namespace opengl
+{
+
 class ExternalHandle
 {
 	public:
@@ -31,5 +34,7 @@ class ExternalHandle
 
 	private:
 };
+
+} // namespace opengl
 
 #endif // EXTERNAL_HANDLE_H

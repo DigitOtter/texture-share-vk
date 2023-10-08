@@ -3,6 +3,8 @@
 #include <GL/gl.h>
 #include <utility>
 
+using namespace opengl;
+
 #define GL_CHECK(x, e, l)                     \
 	{                                         \
 		x;                                    \

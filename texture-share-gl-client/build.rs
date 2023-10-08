@@ -1,3 +1,4 @@
+use cbindgen::Language;
 use cc::{self, Build};
 use cmake;
 
@@ -49,36 +50,21 @@ fn main() {
     }
 
     // Generate base bindings
-    //let structs_header_name = "texture_share_vk_base_structs.h";
-    // let mut config = cbindgen::Config::default();
-    // config.export.exclude = vec![
-    //     "VkInstance".to_string(),
-    //     "VkPhysicalDevice".to_string(),
-    //     "VkDevice".to_string(),
-    //     "VkQueue".to_string(),
-    //     "VkCommandPool".to_string(),
-    //     "VkCommandBuffer".to_string(),
-    //     "VkFormat".to_string(),
-    // ];
-    // cbindgen::Builder::new()
-    //     .with_config(config)
-    //     .with_crate(".")
-    //     .include_item("ShmemInternalData")
-    //     .with_pragma_once(true)
-    //     .with_tab_width(4)
-    //     .with_sys_include("vulkan.h")
-    //     .with_include("texture_share_ipc/texture_share_ipc.h")
-    //     .with_include(structs_header_name)
-    //     .generate()
-    //     .expect("Failed to generate bindings")
-    //     .write_to_file("../target/gen_include/texture_share_vk/texture_share_vk_base.h");
-
-    // fs::copy(
-    //     "cpp/bindings/texture_share_vk_base_structs.h",
-    //     format!(
-    //         "../target/gen_include/texture_share_vk/{}",
-    //         structs_header_name
-    //     ),
-    // )
-    // .expect("Failed to copy files to gen_includes");
+    let mut cgen_config = cbindgen::Config::default();
+    cgen_config.export.exclude = vec![
+        "GLuint".to_string(),
+        "GLenum".to_string(),
+        "GLsizei".to_string(),
+    ];
+    cbindgen::Builder::new()
+        .with_config(cgen_config)
+        .with_language(Language::C)
+        .with_crate(".")
+        .with_pragma_once(true)
+        .with_tab_width(4)
+        .with_sys_include("GL/gl.h")
+        .with_include("texture_share_ipc/texture_share_ipc.h")
+        .generate()
+        .expect("Failed to generate bindings")
+        .write_to_file("../target/gen_include/texture_share_gl/texture_share_gl_client.h");
 }
