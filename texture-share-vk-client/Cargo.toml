@@ -3,8 +3,8 @@ name = "texture-share-vk-client"
 version = "0.1.0"
 edition = "2021"
 
-#[lib]
-#crate-type = ["staticlib"]
+[lib]
+crate-type = ["lib", "cdylib"]
 
 [dependencies]
 texture-share-vk-base = { path = "../texture-share-vk-base" }
