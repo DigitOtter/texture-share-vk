@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, path::Path};
 
 use cbindgen::Language;
 use cc::{self, Build};
@@ -58,37 +58,38 @@ fn main() {
     }
 
     // Generate base bindings
-    let structs_header_name = "texture_share_vk_base_structs.h";
-    let mut config = cbindgen::Config::default();
-    config.export.exclude = vec![
-        "VkInstance".to_string(),
-        "VkPhysicalDevice".to_string(),
-        "VkDevice".to_string(),
-        "VkQueue".to_string(),
-        "VkCommandPool".to_string(),
-        "VkCommandBuffer".to_string(),
-        "VkFormat".to_string(),
-    ];
-    cbindgen::Builder::new()
-        .with_language(Language::C)
-        .with_config(config)
-        .with_crate(".")
-        .include_item("ShmemInternalData")
-        .with_pragma_once(true)
-        .with_tab_width(4)
-        .with_sys_include("vulkan.h")
-        .with_include("texture_share_ipc/texture_share_ipc.h")
-        .with_include(structs_header_name)
-        .generate()
-        .expect("Failed to generate bindings")
-        .write_to_file("../target/gen_include/texture_share_vk/texture_share_vk_base.h");
+    if let Some(c_header_dir) = option_env!("TSV_RUST_GEN_INCLUDE_DIR") {
+        let c_header_dir = Path::new(c_header_dir);
+        let structs_header_name = "texture_share_vk/texture_share_vk_base_structs.h";
 
-    fs::copy(
-        "cpp/bindings/texture_share_vk_base_structs.h",
-        format!(
-            "../target/gen_include/texture_share_vk/{}",
-            structs_header_name
-        ),
-    )
-    .expect("Failed to copy files to gen_includes");
+        let mut config = cbindgen::Config::default();
+        config.export.exclude = vec![
+            "VkInstance".to_string(),
+            "VkPhysicalDevice".to_string(),
+            "VkDevice".to_string(),
+            "VkQueue".to_string(),
+            "VkCommandPool".to_string(),
+            "VkCommandBuffer".to_string(),
+            "VkFormat".to_string(),
+        ];
+        cbindgen::Builder::new()
+            .with_language(Language::C)
+            .with_config(config)
+            .with_crate(".")
+            .include_item("ShmemInternalData")
+            .with_pragma_once(true)
+            .with_tab_width(4)
+            .with_sys_include("vulkan.h")
+            .with_include("texture_share_ipc/texture_share_ipc.h")
+            .with_include(structs_header_name)
+            .generate()
+            .expect("Failed to generate bindings")
+            .write_to_file(&c_header_dir.join("texture_share_vk/texture_share_vk_base.h"));
+
+        fs::copy(
+            "cpp/bindings/texture_share_vk_base_structs.h",
+            c_header_dir.join(structs_header_name),
+        )
+        .expect("Failed to copy files to gen_includes");
+    }
 }

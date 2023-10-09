@@ -24,6 +24,14 @@ find_package(OpenGL REQUIRED)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+set(TSV_RUST_GEN_INCLUDE_DIR
+    "${CMAKE_CURRENT_BINARY_DIR}/gen_includes"
+    CACHE PATH "Path to directory for generated headers")
+
+set(TSV_INSTALL_BINDIR
+    "${CMAKE_INSTALL_SBINDIR}"
+    CACHE PATH "Directory to save server executable in")
+
 # ##############################################################################
 # Rust Compilation (Use corrosion for compilation and CMake integration)
 add_subdirectory("third_party/corrosion")
@@ -33,10 +41,17 @@ corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml")
 
 # Targets
 add_library(Rust::TextureShareIpc ALIAS texture-share-ipc)
+# add_library(Rust::TextureShareVkBase ALIAS texture-share-vk-base)
+# add_library(Rust::TextureShareVkServer ALIAS texture-share-vk-server)
+add_library(Rust::TextureShareVkClient ALIAS texture-share-vk-client)
+add_library(Rust::TextureShareGlClient ALIAS texture-share-gl-client)
 
-set(TSV_RUST_TARGET_DIR
-    "${CMAKE_CURRENT_SOURCE_DIR}/target"
-    CACHE PATH "Path to Rust compile directory")
+corrosion_set_env_vars(texture-share-ipc
+                       TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR})
+corrosion_set_env_vars(texture-share-vk-client
+                       TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR})
+corrosion_set_env_vars(texture-share-gl-client
+                       TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR})
 
 # ##############################################################################
 # Libraries
@@ -49,36 +64,87 @@ target_include_directories(
             "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
             "$<BUILD_INTERFACE:${TSV_RUST_TARGET_DIR}>")
 
-target_link_libraries(TextureShareIpc INTERFACE Rust::TextureShareIpc)
+target_link_libraries(
+  TextureShareIpc INTERFACE $<BUILD_INTERFACE:Rust::TextureShareIpc>
+                            $<INSTALL_INTERFACE:texture_share_ipc>)
 
-# #
+add_library(TextureShareVkClient INTERFACE)
+add_library(${PROJECT_NAME}::TextureShareVkClient ALIAS TextureShareVkClient)
+
+target_include_directories(
+  TextureShareIpc
+  INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+            "$<BUILD_INTERFACE:${TSV_RUST_TARGET_DIR}>")
+
+target_link_libraries(
+  TextureShareVkClient
+  INTERFACE $<BUILD_INTERFACE:Rust::TextureShareVkClient>
+            $<INSTALL_INTERFACE:texture_share_vk_client> Vulkan::Vulkan)
+
+add_library(TextureShareGlClient INTERFACE)
+add_library(${PROJECT_NAME}::TextureShareGlClient ALIAS TextureShareGlClient)
+
+target_include_directories(
+  TextureShareGlClient
+  INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+            "$<BUILD_INTERFACE:${TSV_RUST_TARGET_DIR}>")
+
+target_link_libraries(
+  TextureShareGlClient
+  INTERFACE $<BUILD_INTERFACE:Rust::TextureShareGlClient>
+            $<INSTALL_INTERFACE:texture_share_gl_client> OpenGL::GL)
+
 # ##############################################################################
-# # Install library files set(INSTALL_CONFIGDIR
-# "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}") install( TARGETS
-# ${LIBRARY_NAME} EXPORT ${LIB_EXPORT_NAME} LIBRARY DESTINATION
-# ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} RUNTIME
-# DESTINATION ${CMAKE_INSTALL_BINDIR} PUBLIC_HEADER DESTINATION
-# ${CMAKE_INSTALL_INCLUDEDIR}/${HEADER_DIRECTORY} )
+# # Install library files
+set(INSTALL_CONFIGDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+install(
+  TARGETS TextureShareIpc TextureShareVkClient TextureShareGlClient
+  EXPORT ${LIB_EXPORT_NAME}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${HEADER_DIRECTORY})
 
-# # Install headers install( DIRECTORY ${HEADER_DIRECTORY} DESTINATION
-# "${CMAKE_INSTALL_INCLUDEDIR}/${HEADER_DIRECTORY}" FILES_MATCHING PATTERN "*.h"
-# PATTERN "*.hpp" )
+# Manually install library files
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/libtexture_share_ipc.so"
+        "${CMAKE_CURRENT_BINARY_DIR}/libtexture_share_vk_client.so"
+        "${CMAKE_CURRENT_BINARY_DIR}/libtexture_share_gl_client.so" TYPE LIB)
 
-# # Export target install( EXPORT ${LIB_EXPORT_NAME} DESTINATION
-# ${INSTALL_CONFIGDIR} FILE "${LIB_EXPORT_NAME}.cmake" NAMESPACE
-# "${NAMESPACE_NAME}::" )
+# Manually install executables
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/texture-share-vk-server"
+        DESTINATION "${TSV_INSTALL_BINDIR}")
 
-# # create version and config files include(CMakePackageConfigHelpers)
-# write_basic_package_version_file(
-# "${CMAKE_CURRENT_BINARY_DIR}/${LIB_VERSION_NAME}.cmake" VERSION
-# ${PROJECT_VERSION} COMPATIBILITY AnyNewerVersion )
+# Install headers
+install(
+  DIRECTORY "${TSV_RUST_GEN_INCLUDE_DIR}/"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+  FILES_MATCHING
+  PATTERN "*.h"
+  PATTERN "*.hpp")
 
-# configure_package_config_file(
-# "${CMAKE_CURRENT_LIST_DIR}/cmake/ProjectConfig.cmake.in"
-# "${CMAKE_CURRENT_BINARY_DIR}/${LIB_CONFIG_NAME}.cmake" INSTALL_DESTINATION
-# ${INSTALL_CONFIGDIR} )
+# Export target
+install(
+  EXPORT ${LIB_EXPORT_NAME}
+  DESTINATION ${INSTALL_CONFIGDIR}
+  FILE "${LIB_EXPORT_NAME}.cmake"
+  NAMESPACE "${NAMESPACE_NAME}::")
 
-# # Install all the helper files install(FILES
-# "${CMAKE_CURRENT_BINARY_DIR}/${LIB_CONFIG_NAME}.cmake"
-# "${CMAKE_CURRENT_BINARY_DIR}/${LIB_VERSION_NAME}.cmake" DESTINATION
-# ${INSTALL_CONFIGDIR})
+# create version and config files
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/${LIB_VERSION_NAME}.cmake"
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY AnyNewerVersion)
+
+configure_package_config_file(
+  "${CMAKE_CURRENT_LIST_DIR}/cmake/ProjectConfig.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/${LIB_CONFIG_NAME}.cmake"
+  INSTALL_DESTINATION ${INSTALL_CONFIGDIR})
+
+# Install all the helper files
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${LIB_CONFIG_NAME}.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/${LIB_VERSION_NAME}.cmake"
+        DESTINATION ${INSTALL_CONFIGDIR})
