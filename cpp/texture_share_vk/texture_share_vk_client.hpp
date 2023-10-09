@@ -1,6 +1,7 @@
 #pragma once
 
 #include "texture_share_vk/config.hpp"
+#include "texture_share_vk/texture_share_vk_base_structs.h"
 #include "texture_share_vk/texture_share_vk_client.h"
 #include <string_view>
 
@@ -35,8 +36,9 @@ class TextureShareVkClient
 	TextureShareVkClient(TextureShareVkClient &&other);
 	TextureShareVkClient &operator=(TextureShareVkClient &&other);
 
-	bool init(const char *socket_path = DEFAULT_SOCKET_PATH.data(), uint64_t timeout_in_millis = 1000);
-	bool init_with_server_launch(const char *socket_path                      = DEFAULT_SOCKET_PATH.data(),
+	bool init(VkSetup *vk_setup, const char *socket_path = DEFAULT_SOCKET_PATH.data(),
+	          uint64_t timeout_in_millis = 1000);
+	bool init_with_server_launch(VkSetup *vk_setup, const char *socket_path = DEFAULT_SOCKET_PATH.data(),
 	                             uint64_t client_timeout_in_millis            = 1000,
 	                             const char *server_program                   = VK_SERVER_EXECUTABLE,
 	                             const char *server_lock_path                 = DEFAULT_LOCKFILE_PATH.data(),
@@ -52,13 +54,11 @@ class TextureShareVkClient
 	int find_image(const char *image_name, bool force_update);
 	ClientImageDataGuard find_image_data(const char *image_name, bool force_update);
 
-	int send_image(const char *image_name, GLuint src_texture_id, GLenum src_texture_target, bool invert,
-	               GLuint prev_fbo, struct ImageExtent *extents);
+	int send_image(const char *image_name, VkImage image, VkImageLayout layout, VkFence fence, VkOffset3D *extents);
 
-	int recv_image(const char *image_name, GLuint dst_texture_id, GLenum dst_texture_target, bool invert,
-	               GLuint prev_fbo, struct ImageExtent *extents);
+	int recv_image(const char *image_name, VkImage image, VkImageLayout layout, VkFence fence, VkOffset3D *extents);
 
 
 	private:
-	struct GlClient *_client = nullptr;
+	VkClient *_client = nullptr;
 };

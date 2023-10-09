@@ -132,7 +132,7 @@ target_link_libraries(TextureShareVkClientCpp PUBLIC TextureShareVkClient
 set(INSTALL_CONFIGDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 install(
   TARGETS TextureShareIpc TextureShareVkClient TextureShareGlClient
-          TextureShareGlClientCpp
+          TextureShareGlClientCpp TextureShareVkClientCpp
   EXPORT ${LIB_EXPORT_NAME}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}

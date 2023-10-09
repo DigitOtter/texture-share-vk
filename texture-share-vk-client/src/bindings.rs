@@ -63,6 +63,46 @@ extern "C" fn vk_client_new(
 }
 
 #[no_mangle]
+extern "C" fn vk_client_new_with_server_launch(
+    socket_path: *const c_char,
+    vk_setup: Option<NonNull<VkSetup>>,
+    client_timeout_in_millis: u64,
+    server_program: *const c_char,
+    server_lock_path: *const c_char,
+    server_socket_path: *const c_char,
+    shmem_prefix: *const c_char,
+    server_connection_timeout_in_millia: u64,
+    server_spawn_timeout_in_millis: u64,
+) -> *mut VkClient {
+    if vk_setup.is_none() {
+        return null_mut();
+    }
+
+    let vk_setup = vk_setup.unwrap().as_ptr();
+    let pvk_setup = unsafe { UniquePtr::from_raw(vk_setup) };
+
+    let vk_client = VkClient::new_with_server_launch(
+        &get_str(&socket_path),
+        pvk_setup,
+        Duration::from_millis(client_timeout_in_millis),
+        &get_str(&server_program),
+        &get_str(&server_lock_path),
+        &get_str(&server_socket_path),
+        &get_str(&shmem_prefix),
+        Duration::from_millis(server_connection_timeout_in_millia),
+        Duration::from_millis(server_spawn_timeout_in_millis),
+    );
+
+    match vk_client {
+        Err(e) => {
+            println!("Failed to create GlClient with error '{:}'", e);
+            return null_mut();
+        }
+        Ok(s) => Box::into_raw(Box::new(s)),
+    }
+}
+
+#[no_mangle]
 extern "C" fn vk_client_destroy(vk_client: Option<NonNull<VkClient>>) {
     if vk_client.is_none() {
         return;
@@ -119,7 +159,7 @@ extern "C" fn vk_client_find_image(
 
 #[no_mangle]
 extern "C" fn vk_client_find_image_data<'a>(
-    vk_client: &'a *mut VkClient,
+    vk_client: *mut VkClient,
     image_name: *const c_char,
     force_update: bool,
 ) -> *mut ClientImageDataGuard<'a> {
