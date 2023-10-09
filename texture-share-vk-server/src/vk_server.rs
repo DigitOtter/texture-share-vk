@@ -121,9 +121,26 @@ impl VkServer {
     ) -> Result<usize, Box<dyn std::error::Error>> {
         let mut proc_connections = 0;
 
-        let lock = connections.lock();
-        for conn in lock.unwrap().iter() {
-            let cmd = conn.borrow_mut().recv_command_if_available()?;
+        let mut connections_to_close = Vec::default();
+
+        let mut lock = connections.lock();
+        let mut conns = lock.as_mut();
+
+        for i in 0..conns.as_ref().unwrap().len() {
+            let conn = &conns.as_ref().unwrap()[i];
+
+            // Try to receive command. If connection was closed by peer, remove this connection from vector
+            let cmd = match conn.borrow_mut().recv_command_if_available() {
+                Err(e) => match e.kind() {
+                    ErrorKind::BrokenPipe => {
+                        connections_to_close.push(i);
+                        continue;
+                    }
+                    _ => Err(e),
+                },
+                o => o,
+            }?;
+
             if cmd.is_none() {
                 continue;
             }
@@ -157,6 +174,11 @@ impl VkServer {
             }?;
 
             proc_connections += 1;
+        }
+
+        // Remove connections that were closed by peer
+        for ci in connections_to_close.iter().rev() {
+            conns.as_mut().unwrap().remove(*ci);
         }
 
         Ok(proc_connections)

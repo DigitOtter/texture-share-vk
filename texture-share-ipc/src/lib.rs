@@ -5,6 +5,7 @@ mod bindings;
 
 // cbindgen:ignore
 pub mod platform {
+    pub mod daemon_launch;
     pub mod img_data;
     pub mod ipc_commands;
 

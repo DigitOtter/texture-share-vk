@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use texture_share_vk_base::cxx::UniquePtr;
+use texture_share_vk_base::ipc::platform::daemon_launch::server_connect_and_daemon_launch;
 use texture_share_vk_base::ipc::platform::{ReadLockGuard, Timeout};
 
 use std::io::{Error, ErrorKind};
@@ -66,6 +67,54 @@ impl VkClient {
             shared_images,
             //timeout,
         })
+    }
+
+    pub fn new_with_server_launch(
+        socket_path: &str,
+        vk_setup: UniquePtr<VkSetup>,
+        client_timeout: Duration,
+        server_program: &str,
+        server_lock_path: &str,
+        server_socket_path: &str,
+        shmem_prefix: &str,
+        server_connection_timeout: Duration,
+        server_spawn_timeout: Duration,
+    ) -> Result<VkClient, Error> {
+        let conn_fn = || {
+            let connection = IpcConnection::try_connect(socket_path, client_timeout)?;
+            if connection.is_none() {
+                return Ok(None);
+            }
+
+            let shared_images = HashMap::default();
+
+            Ok(Some(VkClient {
+                connection: connection.unwrap(),
+                vk_setup: UniquePtr::null(),
+                shared_images,
+                //timeout,
+            }))
+        };
+
+        let res = server_connect_and_daemon_launch(
+            server_program,
+            server_lock_path,
+            server_socket_path,
+            shmem_prefix,
+            server_connection_timeout.as_millis(),
+            server_spawn_timeout,
+            &conn_fn,
+        )?;
+
+        if let Some(mut client) = res {
+            *client.get_vk_setup_mut() = vk_setup;
+            return Ok(client);
+        } else {
+            return Err(Error::new(
+                ErrorKind::Interrupted,
+                format!("Connection to '{}' timed out", socket_path),
+            ));
+        }
     }
 
     pub fn get_vk_setup(&self) -> &UniquePtr<VkSetup> {
