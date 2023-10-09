@@ -79,7 +79,7 @@ fn main() {
             .include_item("ShmemInternalData")
             .with_pragma_once(true)
             .with_tab_width(4)
-            .with_sys_include("vulkan.h")
+            .with_sys_include("vulkan/vulkan.h")
             .with_include("texture_share_ipc/texture_share_ipc.h")
             .with_include(structs_header_name)
             .generate()

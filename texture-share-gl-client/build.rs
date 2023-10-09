@@ -54,7 +54,7 @@ fn main() {
     // Generate base bindings
     let c_header_filename =
         Path::new(option_env!("TSV_RUST_GEN_INCLUDE_DIR").unwrap_or("../target/gen_include"))
-            .join("texture_share_vk/texture_share_gl_client.h");
+            .join("texture_share_gl/texture_share_gl_client.h");
     let mut cgen_config = cbindgen::Config::default();
     cgen_config.export.exclude = vec![
         "GLuint".to_string(),
