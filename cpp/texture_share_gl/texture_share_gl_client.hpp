@@ -17,6 +17,7 @@ class TextureShareGlClient
 		ClientImageDataGuard(ClientImageDataGuard &&);
 		ClientImageDataGuard &operator=(ClientImageDataGuard &&);
 
+		bool is_valid() const;
 		const ShmemDataInternal *read() const;
 
 		private:

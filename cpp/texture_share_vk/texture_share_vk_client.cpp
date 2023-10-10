@@ -27,8 +27,16 @@ TextureShareVkClient::ClientImageDataGuard &TextureShareVkClient::ClientImageDat
 	return *this;
 }
 
+bool TextureShareVkClient::ClientImageDataGuard::is_valid() const
+{
+	return this->_data != nullptr;
+}
+
 const ShmemDataInternal *TextureShareVkClient::ClientImageDataGuard::read() const
 {
+	if(!this->_data)
+		return nullptr;
+
 	return vk_client_image_data_guard_read(this->_data);
 }
 

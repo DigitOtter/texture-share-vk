@@ -27,8 +27,16 @@ TextureShareGlClient::ClientImageDataGuard &TextureShareGlClient::ClientImageDat
 	return *this;
 }
 
+bool TextureShareGlClient::ClientImageDataGuard::is_valid() const
+{
+	return this->_data != nullptr;
+}
+
 const ShmemDataInternal *TextureShareGlClient::ClientImageDataGuard::read() const
 {
+	if(!this->_data)
+		return nullptr;
+
 	return gl_client_image_data_guard_read(this->_data);
 }
 

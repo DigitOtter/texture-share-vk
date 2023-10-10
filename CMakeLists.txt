@@ -87,7 +87,8 @@ target_include_directories(
 target_link_libraries(
   TextureShareVkClient
   INTERFACE $<BUILD_INTERFACE:Rust::TextureShareVkClient>
-            $<INSTALL_INTERFACE:texture_share_vk_client> Vulkan::Vulkan)
+            $<BUILD_INTERFACE:Vulkan::Vulkan>
+            $<INSTALL_INTERFACE:texture_share_vk_client>)
 
 add_library(TextureShareGlClient INTERFACE)
 add_library(${PROJECT_NAME}::TextureShareGlClient ALIAS TextureShareGlClient)
@@ -101,7 +102,8 @@ target_include_directories(
 target_link_libraries(
   TextureShareGlClient
   INTERFACE $<BUILD_INTERFACE:Rust::TextureShareGlClient>
-            $<INSTALL_INTERFACE:texture_share_gl_client> OpenGL::GL)
+            $<BUILD_INTERFACE:OpenGL::GL>
+            $<INSTALL_INTERFACE:texture_share_gl_client>)
 
 # ##############################################################################
 # Cpp Wrappers
@@ -124,8 +126,7 @@ add_library(TextureShareVkClientCpp SHARED
 add_library(${PROJECT_NAME}::TextureShareVkClientCpp ALIAS
             TextureShareVkClientCpp)
 
-target_link_libraries(TextureShareVkClientCpp PUBLIC TextureShareVkClient
-                                                     Vulkan::Vulkan)
+target_link_libraries(TextureShareVkClientCpp PUBLIC TextureShareVkClient)
 
 # ##############################################################################
 # Install library files
