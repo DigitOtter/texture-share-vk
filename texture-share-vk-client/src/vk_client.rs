@@ -234,7 +234,26 @@ impl VkClient {
             return Ok(None);
         }
 
+        // TODO: Figure out how to convert this to a function while observing the borrow check rules
+        // Check if image size or format was changed on the server
         let local_image = local_image.unwrap();
+        let local_image = if local_image.vk_shared_image.get_image_data().id
+            != local_image.ipc_info.get_id_unchecked()
+        {
+            // If it was, request new image handles and update local copy
+            if self.find_image(image_name, true)?.is_none() {
+                return Err(Box::new(Error::new(
+                    ErrorKind::ConnectionReset,
+                    format!("Server no longer manages '{}'", image_name),
+                )));
+            }
+
+            self.shared_images.get_mut(image_name).unwrap()
+        } else {
+            local_image
+        };
+
+        // Send image
         local_image
             .vk_shared_image
             .as_mut()
@@ -281,7 +300,26 @@ impl VkClient {
         if local_image.is_none() {
             return Ok(None);
         }
+
+        // TODO: Figure out how to convert this to a function while observing the borrow check rules
+        // Check if image size or format was changed on the server
         let local_image = local_image.unwrap();
+        let local_image = if local_image.vk_shared_image.get_image_data().id
+            != local_image.ipc_info.get_id_unchecked()
+        {
+            // If it was, request new image handles and update local copy
+            if self.find_image(image_name, true)?.is_none() {
+                return Err(Box::new(Error::new(
+                    ErrorKind::ConnectionReset,
+                    format!("Server no longer manages '{}'", image_name),
+                )));
+            }
+
+            self.shared_images.get_mut(image_name).unwrap()
+        } else {
+            local_image
+        };
+
         unsafe {
             local_image
                 .vk_shared_image
@@ -311,7 +349,25 @@ impl VkClient {
             return Ok(None);
         }
 
+        // TODO: Figure out how to convert this to a function while observing the borrow check rules
+        // Check if image size or format was changed on the server
         let local_image = local_image.unwrap();
+        let local_image = if local_image.vk_shared_image.get_image_data().id
+            != local_image.ipc_info.get_id_unchecked()
+        {
+            // If it was, request new image handles and update local copy
+            if self.find_image(image_name, true)?.is_none() {
+                return Err(Box::new(Error::new(
+                    ErrorKind::ConnectionReset,
+                    format!("Server no longer manages '{}'", image_name),
+                )));
+            }
+
+            self.shared_images.get_mut(image_name).unwrap()
+        } else {
+            local_image
+        };
+
         local_image
             .vk_shared_image
             .as_mut()
@@ -358,7 +414,26 @@ impl VkClient {
         if local_image.is_none() {
             return Ok(None);
         }
+
+        // TODO: Figure out how to convert this to a function while observing the borrow check rules
+        // Check if image size or format was changed on the server
         let local_image = local_image.unwrap();
+        let local_image = if local_image.vk_shared_image.get_image_data().id
+            != local_image.ipc_info.get_id_unchecked()
+        {
+            // If it was, request new image handles and update local copy
+            if self.find_image(image_name, true)?.is_none() {
+                return Err(Box::new(Error::new(
+                    ErrorKind::ConnectionReset,
+                    format!("Server no longer manages '{}'", image_name),
+                )));
+            }
+
+            self.shared_images.get_mut(image_name).unwrap()
+        } else {
+            local_image
+        };
+
         unsafe {
             local_image
                 .vk_shared_image

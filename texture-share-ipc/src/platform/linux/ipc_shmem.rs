@@ -158,6 +158,16 @@ impl<'a> IpcShmem {
         }
     }
 
+    // Get Id without acquiring lock. Should be sufficient for checking if surface image has changed
+    pub fn get_id_unchecked(&self) -> u32 {
+        unsafe {
+            (self.shmem.as_ptr().add(offset_of!(ShmemData, data)) as *const ShmemDataInternal)
+                .as_ref()
+                .unwrap()
+        }
+        .handle_id
+    }
+
     pub fn get_name(&self) -> &str {
         self.shmem.get_os_id()
     }

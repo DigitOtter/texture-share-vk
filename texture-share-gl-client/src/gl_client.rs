@@ -217,9 +217,27 @@ impl GlClient {
             return Ok(None);
         }
 
-        // recv_image_... is correct, as it's from the perspective of the remove image
+        // TODO: Figure out how to convert this to a function while observing the borrow check rules
+        // Check if image size or format was changed on the server
         let remote_image = remote_image.unwrap();
+        let remote_image = if remote_image.vk_shared_image.get_image_data().id
+            != remote_image.ipc_info.get_id_unchecked()
+        {
+            // If it was, request new image handles and update local copy
+            if self.find_image(image_name, true)?.is_none() {
+                return Err(Box::new(Error::new(
+                    ErrorKind::ConnectionReset,
+                    format!("Server no longer manages '{}'", image_name),
+                )));
+            }
+
+            self.shared_images.get_mut(image_name).unwrap()
+        } else {
+            remote_image
+        };
+
         unsafe {
+            // recv_image_... is correct, as it's from the perspective of the remove image
             remote_image
                 .vk_shared_image
                 .as_mut()
@@ -243,9 +261,28 @@ impl GlClient {
         if remote_image.is_none() {
             return Ok(None);
         }
+
+        // TODO: Figure out how to convert this to a function while observing the borrow check rules
+        // Check if image size or format was changed on the server
         let remote_image = remote_image.unwrap();
-        // recv_image_... is correct, as it's from the perspective of the remove image
+        let remote_image = if remote_image.vk_shared_image.get_image_data().id
+            != remote_image.ipc_info.get_id_unchecked()
+        {
+            // If it was, request new image handles and update local copy
+            if self.find_image(image_name, true)?.is_none() {
+                return Err(Box::new(Error::new(
+                    ErrorKind::ConnectionReset,
+                    format!("Server no longer manages '{}'", image_name),
+                )));
+            }
+
+            self.shared_images.get_mut(image_name).unwrap()
+        } else {
+            remote_image
+        };
+
         unsafe {
+            // recv_image_... is correct, as it's from the perspective of the remove image
             remote_image
                 .vk_shared_image
                 .as_mut()
@@ -274,9 +311,27 @@ impl GlClient {
             return Ok(None);
         }
 
-        // send_image_... is correct, as it's from the perspective of the remove image
+        // TODO: Figure out how to convert this to a function while observing the borrow check rules
+        // Check if image size or format was changed on the server
         let remote_image = remote_image.unwrap();
+        let remote_image = if remote_image.vk_shared_image.get_image_data().id
+            != remote_image.ipc_info.get_id_unchecked()
+        {
+            // If it was, request new image handles and update local copy
+            if self.find_image(image_name, true)?.is_none() {
+                return Err(Box::new(Error::new(
+                    ErrorKind::ConnectionReset,
+                    format!("Server no longer manages '{}'", image_name),
+                )));
+            }
+
+            self.shared_images.get_mut(image_name).unwrap()
+        } else {
+            remote_image
+        };
+
         unsafe {
+            // send_image_... is correct, as it's from the perspective of the remove image
             remote_image
                 .vk_shared_image
                 .as_mut()
@@ -300,9 +355,28 @@ impl GlClient {
         if remote_image.is_none() {
             return Ok(None);
         }
+
+        // TODO: Figure out how to convert this to a function while observing the borrow check rules
+        // Check if image size or format was changed on the server
         let remote_image = remote_image.unwrap();
-        // send_image_... is correct, as it's from the perspective of the remove image
+        let remote_image = if remote_image.vk_shared_image.get_image_data().id
+            != remote_image.ipc_info.get_id_unchecked()
+        {
+            // If it was, request new image handles and update local copy
+            if self.find_image(image_name, true)?.is_none() {
+                return Err(Box::new(Error::new(
+                    ErrorKind::ConnectionReset,
+                    format!("Server no longer manages '{}'", image_name),
+                )));
+            }
+
+            self.shared_images.get_mut(image_name).unwrap()
+        } else {
+            remote_image
+        };
+
         unsafe {
+            // send_image_... is correct, as it's from the perspective of the remove image
             remote_image
                 .vk_shared_image
                 .as_mut()

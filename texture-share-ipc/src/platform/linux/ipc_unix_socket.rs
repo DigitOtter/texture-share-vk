@@ -329,7 +329,7 @@ impl IpcSocket {
     pub fn try_accept(&self) -> Result<Option<()>, Error> {
         let res = IpcConnection::try_fcn_timeout(
             || {
-                print!("Trying to accept\n");
+                //print!("Trying to accept\n");
                 match self.listener_socket.accept() {
                     Err(e) => match e.kind() {
                         ErrorKind::WouldBlock => Ok(None),

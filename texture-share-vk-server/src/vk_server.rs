@@ -5,7 +5,7 @@ use std::mem::ManuallyDrop;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use texture_share_vk_base::cxx::UniquePtr;
 use texture_share_vk_base::ipc::platform::img_data::ImgData;
 use texture_share_vk_base::ipc::platform::ipc_commands::{
@@ -42,6 +42,7 @@ impl Drop for VkServer {
 
 impl VkServer {
     const IPC_TIMEOUT: Duration = Duration::from_millis(5000);
+    const NO_CONNECTION_TIMEOUT: Duration = Duration::from_millis(10 * 1000);
 
     pub fn new(
         socket_path: &str,
@@ -89,14 +90,27 @@ impl VkServer {
 
         let accept_thread = thread::spawn(accept_thread_fcn);
 
+        // Stop server if no connection was established after NO_CONNECTION_TIMEOUT
+        let mut conn_timeout = SystemTime::now() + VkServer::NO_CONNECTION_TIMEOUT;
+
         let connections_clone = self.socket.clone().lock().unwrap().connections.clone();
         while !accept_thread.is_finished() && !stop_bit.load(Ordering::Relaxed) {
-            VkServer::process_commands(
+            let active_connection = VkServer::process_commands(
                 connections_clone.clone(),
                 self.vk_setup.as_ref().unwrap(),
                 &self.shmem_prefix,
                 &mut self.images,
             )?;
+
+            // Stop if no connections active
+            if active_connection == 0 {
+                if SystemTime::now() > conn_timeout {
+                    println!("No connections active. Closing server...");
+                    break;
+                }
+            } else {
+                conn_timeout = SystemTime::now() + VkServer::NO_CONNECTION_TIMEOUT;
+            }
         }
 
         stop_bit.clone().store(true, Ordering::Relaxed);
@@ -119,8 +133,6 @@ impl VkServer {
         shmem_prefix: &str,
         images: &mut Vec<ImageData>,
     ) -> Result<usize, Box<dyn std::error::Error>> {
-        let mut proc_connections = 0;
-
         let mut connections_to_close = Vec::default();
 
         let mut lock = connections.lock();
@@ -172,8 +184,6 @@ impl VkServer {
                     "Unknown command received",
                 ))),
             }?;
-
-            proc_connections += 1;
         }
 
         // Remove connections that were closed by peer
@@ -181,7 +191,7 @@ impl VkServer {
             conns.as_mut().unwrap().remove(*ci);
         }
 
-        Ok(proc_connections)
+        Ok(conns.as_ref().unwrap().len())
     }
 
     fn process_cmd_init_image(

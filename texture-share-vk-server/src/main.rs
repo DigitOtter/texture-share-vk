@@ -12,10 +12,10 @@ use texture_share_vk_server::VkServer;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(short, long, default_value = "test.lock")]
     lock_file: String,
 
-    #[arg(short, long)]
+    #[arg(short, long, default_value = "test.sock")]
     socket_file: String,
 
     #[arg(long, default_value = "shared_image_")]
@@ -36,7 +36,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         const LOCK_FILE_TIMEOUT: Duration = Duration::from_millis(2000);
         let stop_time = SystemTime::now() + LOCK_FILE_TIMEOUT;
         loop {
-            let file = OpenOptions::new().append(true).open(lock_file_path)?;
+            let file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open(lock_file_path)?;
             let lock_res = file.try_lock_exclusive();
 
             if lock_res.is_ok() {
