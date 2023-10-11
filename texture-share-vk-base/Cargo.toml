@@ -3,7 +3,7 @@ name = "texture-share-vk-base"
 version = "0.1.0"
 edition = "2021"
 
-#[lib]
+[lib]
 #crate-type = ["staticlib"]
 
 [dependencies]

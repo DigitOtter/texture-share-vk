@@ -167,49 +167,55 @@ VkImageSubresourceLayers VkSharedImage::CreateColorSubresourceLayer()
 }
 
 void VkSharedImage::SendImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage dst_image,
-                                  VkImageLayout dst_image_layout, VkFence fence, const VkOffset3D dst_image_extent[2])
+                                  VkImageLayout orig_dst_image_layout, VkImageLayout target_dst_image_layout,
+                                  VkFence fence, const VkOffset3D dst_image_extent[2])
 {
 	const VkOffset3D src_image_extent[2] = {
 		{0,									   0,										0},
 		{static_cast<int32_t>(this->_data.Width), static_cast<int32_t>(this->_data.Height), 1}
     };
 
-	return this->ImageBlit(graphics_queue, command_buffer, this->_image, this->_layout, src_image_extent, dst_image,
-	                       dst_image_layout, dst_image_extent, fence);
+	return this->ImageBlit(graphics_queue, command_buffer, this->_image, this->_layout, this->_layout, src_image_extent,
+	                       dst_image, orig_dst_image_layout, target_dst_image_layout, dst_image_extent, fence);
 }
 
 void VkSharedImage::SendImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage dst_image,
-                                  VkImageLayout dst_image_layout, VkFence fence)
+                                  VkImageLayout orig_dst_image_layout, VkImageLayout target_dst_image_layout,
+                                  VkFence fence)
 {
 	const VkOffset3D dst_image_extent[2] = {
 		{0,									   0,										0},
 		{static_cast<int32_t>(this->_data.Width), static_cast<int32_t>(this->_data.Height), 1}
     };
 
-	return this->SendImageBlit(graphics_queue, command_buffer, dst_image, dst_image_layout, fence, dst_image_extent);
+	return this->SendImageBlit(graphics_queue, command_buffer, dst_image, orig_dst_image_layout,
+	                           target_dst_image_layout, fence, dst_image_extent);
 }
 
 void VkSharedImage::RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage src_image,
-                                  VkImageLayout src_image_layout, VkFence fence, const VkOffset3D src_image_extent[2])
+                                  VkImageLayout orig_src_image_layout, VkImageLayout target_src_image_layout,
+                                  VkFence fence, const VkOffset3D src_image_extent[2])
 {
 	const VkOffset3D dst_image_extent[2] = {
 		{0,									   0,										0},
 		{static_cast<int32_t>(this->_data.Width), static_cast<int32_t>(this->_data.Height), 1}
     };
 
-	return this->ImageBlit(graphics_queue, command_buffer, src_image, src_image_layout, src_image_extent, this->_image,
-	                       this->_layout, dst_image_extent, fence);
+	return this->ImageBlit(graphics_queue, command_buffer, src_image, orig_src_image_layout, target_src_image_layout,
+	                       src_image_extent, this->_image, this->_layout, this->_layout, dst_image_extent, fence);
 }
 
 void VkSharedImage::RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage src_image,
-                                  VkImageLayout src_image_layout, VkFence fence)
+                                  VkImageLayout orig_src_image_layout, VkImageLayout target_src_image_layout,
+                                  VkFence fence)
 {
 	const VkOffset3D src_image_extent[2] = {
 		{0,									   0,										0},
 		{static_cast<int32_t>(this->_data.Width), static_cast<int32_t>(this->_data.Height), 1}
     };
 
-	return this->RecvImageBlit(graphics_queue, command_buffer, src_image, src_image_layout, fence, src_image_extent);
+	return this->RecvImageBlit(graphics_queue, command_buffer, src_image, orig_src_image_layout,
+	                           target_src_image_layout, fence, src_image_extent);
 }
 
 ExternalHandle::ShareHandles VkSharedImage::ExportHandles(const ExternalHandleVk &external_handle_info)
@@ -291,8 +297,10 @@ void VkSharedImage::SetImageLayout(VkQueue graphics_queue, VkCommandBuffer comma
 }
 
 void VkSharedImage::ImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage src_image,
-                              VkImageLayout src_image_layout, const VkOffset3D src_image_extent[2], VkImage dst_image,
-                              VkImageLayout dst_image_layout, const VkOffset3D dst_image_extent[2], VkFence fence)
+                              VkImageLayout orig_src_image_layout, VkImageLayout target_src_image_layout,
+                              const VkOffset3D src_image_extent[2], VkImage dst_image,
+                              VkImageLayout orig_dst_image_layout, VkImageLayout target_dst_image_layout,
+                              const VkOffset3D dst_image_extent[2], VkFence fence)
 {
 	// naming it cmd for shorter writing
 	VkCommandBuffer cmd                     = command_buffer;
@@ -312,7 +320,7 @@ void VkSharedImage::ImageBlit(VkQueue graphics_queue, VkCommandBuffer command_bu
 		src_img_mem_barrier.image                 = src_image;
 		src_img_mem_barrier.srcAccessMask         = VK_ACCESS_NONE;
 		src_img_mem_barrier.dstAccessMask         = VK_ACCESS_TRANSFER_READ_BIT;
-		src_img_mem_barrier.oldLayout             = src_image_layout;
+		src_img_mem_barrier.oldLayout             = orig_src_image_layout;
 		src_img_mem_barrier.newLayout             = src_requested_layout;
 		src_img_mem_barrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
 		src_img_mem_barrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
@@ -326,7 +334,7 @@ void VkSharedImage::ImageBlit(VkQueue graphics_queue, VkCommandBuffer command_bu
 		dst_img_mem_barrier.image                 = dst_image;
 		dst_img_mem_barrier.srcAccessMask         = VK_ACCESS_NONE;
 		dst_img_mem_barrier.dstAccessMask         = VK_ACCESS_TRANSFER_WRITE_BIT;
-		dst_img_mem_barrier.oldLayout             = dst_image_layout;
+		dst_img_mem_barrier.oldLayout             = orig_dst_image_layout;
 		dst_img_mem_barrier.newLayout             = dst_requested_layout;
 		dst_img_mem_barrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
 		dst_img_mem_barrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
@@ -357,7 +365,7 @@ void VkSharedImage::ImageBlit(VkQueue graphics_queue, VkCommandBuffer command_bu
 		src_mem_barrier.srcAccessMask                      = VK_ACCESS_TRANSFER_READ_BIT;
 		src_mem_barrier.dstAccessMask                      = VK_ACCESS_NONE;
 		src_mem_barrier.oldLayout                          = src_requested_layout;
-		src_mem_barrier.newLayout                          = src_image_layout;
+		src_mem_barrier.newLayout                          = target_src_image_layout;
 		src_mem_barrier.srcQueueFamilyIndex                = VK_QUEUE_FAMILY_IGNORED;
 		src_mem_barrier.dstQueueFamilyIndex                = VK_QUEUE_FAMILY_IGNORED;
 		VkImageSubresourceRange &src_img_subresource_range = src_mem_barrier.subresourceRange;
@@ -370,7 +378,7 @@ void VkSharedImage::ImageBlit(VkQueue graphics_queue, VkCommandBuffer command_bu
 		dst_mem_barrier.srcAccessMask                      = VK_ACCESS_TRANSFER_WRITE_BIT;
 		dst_mem_barrier.dstAccessMask                      = VK_ACCESS_NONE;
 		dst_mem_barrier.oldLayout                          = dst_requested_layout;
-		dst_mem_barrier.newLayout                          = dst_image_layout;
+		dst_mem_barrier.newLayout                          = target_dst_image_layout;
 		dst_mem_barrier.srcQueueFamilyIndex                = VK_QUEUE_FAMILY_IGNORED;
 		dst_mem_barrier.dstQueueFamilyIndex                = VK_QUEUE_FAMILY_IGNORED;
 		VkImageSubresourceRange &dst_img_subresource_range = dst_mem_barrier.subresourceRange;

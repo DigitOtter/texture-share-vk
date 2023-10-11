@@ -4,6 +4,7 @@
 #include "texture_share_vk/texture_share_vk_base_structs.h"
 #include "texture_share_vk/texture_share_vk_client.h"
 #include <string_view>
+#include <vulkan/vulkan_core.h>
 
 class TextureShareVkClient
 {
@@ -50,15 +51,17 @@ class TextureShareVkClient
 
 	void destroy_client();
 
-	int init_image(const char *image_name, uint32_t width, uint32_t height, ImgFormat format, bool overwrite_existing);
+	ImageLookupResult init_image(const char *image_name, uint32_t width, uint32_t height, ImgFormat format,
+	                             bool overwrite_existing);
 
-	int find_image(const char *image_name, bool force_update);
+	ImageLookupResult find_image(const char *image_name, bool force_update);
 	ClientImageDataGuard find_image_data(const char *image_name, bool force_update);
 
-	int send_image(const char *image_name, VkImage image, VkImageLayout layout, VkFence fence, VkOffset3D *extents);
+	int send_image(const char *image_name, VkImage image, VkImageLayout orig_layout, VkImageLayout target_layout,
+	               VkFence fence, VkOffset3D *extents = nullptr);
 
-	int recv_image(const char *image_name, VkImage image, VkImageLayout layout, VkFence fence, VkOffset3D *extents);
-
+	int recv_image(const char *image_name, VkImage image, VkImageLayout orig_layout, VkImageLayout target_layout,
+	               VkFence fence, VkOffset3D *extents = nullptr);
 
 	private:
 	VkClient *_client = nullptr;

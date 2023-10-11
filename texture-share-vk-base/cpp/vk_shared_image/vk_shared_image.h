@@ -32,16 +32,18 @@ class VkSharedImage
 
 	static VkImageSubresourceLayers CreateColorSubresourceLayer();
 	void SendImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage dst_image,
-	                   VkImageLayout dst_image_layout, VkFence fence, const VkOffset3D dst_image_extent[2]);
+	                   VkImageLayout orig_dst_image_layout, VkImageLayout target_dst_image_layout, VkFence fence,
+	                   const VkOffset3D dst_image_extent[2]);
 
 	void SendImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage dst_image,
-	                   VkImageLayout dst_image_layout, VkFence fence);
+	                   VkImageLayout orig_dst_image_layout, VkImageLayout target_dst_image_layout, VkFence fence);
 
 	void RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage src_image,
-	                   VkImageLayout src_image_layout, VkFence fence, const VkOffset3D src_image_extent[2]);
+	                   VkImageLayout orig_src_image_layout, VkImageLayout target_src_image_layout, VkFence fence,
+	                   const VkOffset3D src_image_extent[2]);
 
 	void RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage src_image,
-	                   VkImageLayout src_image_layout, VkFence fence);
+	                   VkImageLayout orig_src_image_layout, VkImageLayout target_src_image_layout, VkFence fence);
 
 
 	ExternalHandle::ShareHandles ExportHandles(const ExternalHandleVk &external_handle_info);
@@ -80,6 +82,7 @@ class VkSharedImage
 	                    VkFence fence = VK_NULL_HANDLE);
 
 	void ImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage src_image,
-	               VkImageLayout src_image_layout, const VkOffset3D src_image_extent[2], VkImage dst_image,
-	               VkImageLayout dst_image_layout, const VkOffset3D dst_image_extent[2], VkFence fence);
+	               VkImageLayout orig_src_image_layout, VkImageLayout target_src_image_layout,
+	               const VkOffset3D src_image_extent[2], VkImage dst_image, VkImageLayout orig_dst_image_layout,
+	               VkImageLayout target_dst_image_layout, const VkOffset3D dst_image_extent[2], VkFence fence);
 };

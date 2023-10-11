@@ -48,9 +48,10 @@ class TextureShareGlClient
 
 	void destroy_client();
 
-	int init_image(const char *image_name, uint32_t width, uint32_t height, ImgFormat format, bool overwrite_existing);
+	ImageLookupResult init_image(const char *image_name, uint32_t width, uint32_t height, ImgFormat format,
+	                             bool overwrite_existing);
 
-	int find_image(const char *image_name, bool force_update);
+	ImageLookupResult find_image(const char *image_name, bool force_update);
 	ClientImageDataGuard find_image_data(const char *image_name, bool force_update);
 
 	int send_image(const char *image_name, GLuint src_texture_id, GLenum src_texture_target, bool invert,
@@ -58,7 +59,6 @@ class TextureShareGlClient
 
 	int recv_image(const char *image_name, GLuint dst_texture_id, GLenum dst_texture_target, bool invert,
 	               GLuint prev_fbo, struct ImageExtent *extents);
-
 
 	private:
 	struct GlClient *_client = nullptr;

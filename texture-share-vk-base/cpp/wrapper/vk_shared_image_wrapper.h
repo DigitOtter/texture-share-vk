@@ -55,31 +55,33 @@ class VkSharedImageWrapper : public VkSharedImage
 	}
 
 	void send_image_blit_with_extents(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage dst_image,
-	                                  VkImageLayout dst_image_layout, VkFence fence,
-	                                  const VkOffset3D dst_image_extent[2])
+	                                  VkImageLayout orig_dst_image_layout, VkImageLayout target_dst_image_layout,
+	                                  VkFence fence, const VkOffset3D dst_image_extent[2])
 	{
-		return this->SendImageBlit(graphics_queue, command_buffer, dst_image, dst_image_layout, fence,
-		                           dst_image_extent);
+		return this->SendImageBlit(graphics_queue, command_buffer, dst_image, orig_dst_image_layout,
+		                           target_dst_image_layout, fence, dst_image_extent);
 	}
 
 	void send_image_blit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage dst_image,
-	                     VkImageLayout dst_image_layout, VkFence fence)
+	                     VkImageLayout orig_dst_image_layout, VkImageLayout target_dst_image_layout, VkFence fence)
 	{
-		return this->SendImageBlit(graphics_queue, command_buffer, dst_image, dst_image_layout, fence);
+		return this->SendImageBlit(graphics_queue, command_buffer, dst_image, orig_dst_image_layout,
+		                           target_dst_image_layout, fence);
 	}
 
 	void recv_image_blit_with_extents(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage src_image,
-	                                  VkImageLayout src_image_layout, VkFence fence,
-	                                  const VkOffset3D src_image_extent[2])
+	                                  VkImageLayout orig_src_image_layout, VkImageLayout target_src_image_layout,
+	                                  VkFence fence, const VkOffset3D src_image_extent[2])
 	{
-		return this->RecvImageBlit(graphics_queue, command_buffer, src_image, src_image_layout, fence,
-		                           src_image_extent);
+		return this->RecvImageBlit(graphics_queue, command_buffer, src_image, orig_src_image_layout,
+		                           target_src_image_layout, fence, src_image_extent);
 	}
 
 	void recv_image_blit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage src_image,
-	                     VkImageLayout src_image_layout, VkFence fence)
+	                     VkImageLayout orig_src_image_layout, VkImageLayout target_src_image_layout, VkFence fence)
 	{
-		return this->RecvImageBlit(graphics_queue, command_buffer, src_image, src_image_layout, fence);
+		return this->RecvImageBlit(graphics_queue, command_buffer, src_image, orig_src_image_layout,
+		                           target_src_image_layout, fence);
 	}
 
 	std::unique_ptr<ShareHandlesWrapper> export_handles(const ExternalHandleVk &external_handle_info)

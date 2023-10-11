@@ -89,10 +89,10 @@ void TextureShareGlClient::destroy_client()
 	this->_client = nullptr;
 }
 
-int TextureShareGlClient::find_image(const char *image_name, bool force_update)
+ImageLookupResult TextureShareGlClient::find_image(const char *image_name, bool force_update)
 {
 	if(!this->_client)
-		return -1;
+		return ImageLookupResult::Error;
 
 	return gl_client_find_image(this->_client, image_name, force_update);
 }

@@ -90,10 +90,19 @@ void TextureShareVkClient::destroy_client()
 	this->_client = nullptr;
 }
 
-int TextureShareVkClient::find_image(const char *image_name, bool force_update)
+ImageLookupResult TextureShareVkClient::init_image(const char *image_name, uint32_t width, uint32_t height,
+                                                   ImgFormat format, bool overwrite_existing)
 {
 	if(!this->_client)
-		return -1;
+		return ImageLookupResult::Error;
+
+	return vk_client_init_image(this->_client, image_name, width, height, format, overwrite_existing);
+}
+
+ImageLookupResult TextureShareVkClient::find_image(const char *image_name, bool force_update)
+{
+	if(!this->_client)
+		return ImageLookupResult::Error;
 
 	return vk_client_find_image(this->_client, image_name, force_update);
 }
@@ -107,20 +116,20 @@ TextureShareVkClient::ClientImageDataGuard TextureShareVkClient::find_image_data
 	return ClientImageDataGuard(vk_client_find_image_data(this->_client, image_name, force_update));
 }
 
-int TextureShareVkClient::send_image(const char *image_name, VkImage image, VkImageLayout layout, VkFence fence,
-                                     VkOffset3D *extents)
+int TextureShareVkClient::send_image(const char *image_name, VkImage image, VkImageLayout orig_layout,
+                                     VkImageLayout target_layout, VkFence fence, VkOffset3D *extents)
 {
 	if(!this->_client)
 		return -1;
 
-	return vk_client_send_image(this->_client, image_name, image, layout, fence, extents);
+	return vk_client_send_image(this->_client, image_name, image, orig_layout, target_layout, fence, extents);
 }
 
-int TextureShareVkClient::recv_image(const char *image_name, VkImage image, VkImageLayout layout, VkFence fence,
-                                     VkOffset3D *extents)
+int TextureShareVkClient::recv_image(const char *image_name, VkImage image, VkImageLayout orig_layout,
+                                     VkImageLayout target_layout, VkFence fence, VkOffset3D *extents)
 {
 	if(!this->_client)
 		return -1;
 
-	return vk_client_recv_image(this->_client, image_name, image, layout, fence, extents);
+	return vk_client_recv_image(this->_client, image_name, image, orig_layout, target_layout, fence, extents);
 }
