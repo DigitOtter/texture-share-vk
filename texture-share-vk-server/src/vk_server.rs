@@ -1,13 +1,13 @@
 use polling::{Event, Events, PollMode, Poller};
-use std::cell::RefCell;
+
 use std::fs;
-use std::io::{self, Error, ErrorKind};
+use std::io::{Error, ErrorKind};
 use std::mem::ManuallyDrop;
 use std::os::fd::{AsFd, AsRawFd};
-use std::ptr::null;
+
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::thread;
+use std::sync::{Arc};
+
 use std::time::{Duration, SystemTime};
 use texture_share_vk_base::cxx::UniquePtr;
 use texture_share_vk_base::ipc::platform::img_data::ImgData;
