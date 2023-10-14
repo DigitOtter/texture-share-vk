@@ -6,7 +6,7 @@ use std::mem::ManuallyDrop;
 use std::os::fd::{AsFd, AsRawFd};
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc};
+use std::sync::Arc;
 
 use std::time::{Duration, SystemTime};
 use texture_share_vk_base::cxx::UniquePtr;
@@ -96,7 +96,6 @@ impl VkServer {
 			)?;
 		};
 
-		let mut loop_id = 0;
 		loop {
 			if new_connection_waiting || !connections_to_close.is_empty() {
 				{
@@ -193,8 +192,6 @@ impl VkServer {
 			if stop_bit.load(Ordering::Relaxed) {
 				break;
 			}
-
-			loop_id += 1;
 		}
 
 		poller.delete(self.socket.get_socket().as_fd())?;
