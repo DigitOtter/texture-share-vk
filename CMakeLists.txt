@@ -33,10 +33,10 @@ set(TSV_INSTALL_BINDIR
     CACHE PATH "Directory to save server executable in")
 
 set(TSV_VK_SERVER_DEFAULT_LOCKFILE_PATH
-    "${CMAKE_INSTALL_RUNSTATEDIR}/vk_server/vk_server.lock"
+    "/tmp/vk_server/vk_server.lock"
     CACHE PATH "Default VkServr lockfile path")
 set(TSV_VK_SERVER_DEFAULT_SOCKET_PATH
-    "${CMAKE_INSTALL_RUNSTATEDIR}/vk_server/vk_server.sock"
+    "/tmp/vk_server/vk_server.sock"
     CACHE PATH "Default VkServr socket path")
 
 # ##############################################################################
@@ -142,12 +142,13 @@ add_library(TextureShareGlClientCpp SHARED
 add_library(${PROJECT_NAME}::TextureShareGlClientCpp ALIAS
             TextureShareGlClientCpp)
 
-target_link_libraries(TextureShareGlClientCpp PUBLIC TextureShareGlClient)
+target_link_libraries(TextureShareGlClientCpp
+                      PUBLIC ${PROJECT_NAME}::TextureShareGlClient)
 
 # Lazy Test Linker. Remove later
-add_executable(test_vk_client "cpp/test_main.cpp")
-target_link_libraries(test_vk_client ${PROJECT_NAME}::TextureShareVkClientCpp
-                      Vulkan::Vulkan)
+add_executable(test_gl_client "cpp/test_main.cpp")
+target_link_libraries(test_gl_client ${PROJECT_NAME}::TextureShareGlClientCpp
+                      OpenGL::OpenGL)
 
 # ##############################################################################
 # Install library files

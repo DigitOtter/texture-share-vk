@@ -1,7 +1,6 @@
 #include "gl_shared_image.h"
 
 #include <GL/gl.h>
-#include <utility>
 
 using namespace opengl;
 
@@ -173,7 +172,7 @@ void GlSharedImage::SendBlitImage(GLuint dst_texture_id, GLuint dst_texture_targ
 	                       dst_texture_id, dst_texture_target, dst_dimensions, invert, prev_fbo);
 }
 
-void GlSharedImage::ClearImage(const u_char *clear_color)
+void GlSharedImage::ClearImage(const unsigned char *clear_color)
 {
 	return this->ClearImage(clear_color, this->_image_data.Format, GL_UNSIGNED_BYTE);
 }

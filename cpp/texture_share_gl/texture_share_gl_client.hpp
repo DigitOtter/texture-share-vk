@@ -36,6 +36,8 @@ class TextureShareGlClient
 	TextureShareGlClient(TextureShareGlClient &&other);
 	TextureShareGlClient &operator=(TextureShareGlClient &&other);
 
+	static bool initialize_gl_external();
+
 	bool init(const char *socket_path = DEFAULT_SOCKET_PATH.data(), uint64_t timeout_in_millis = 1000);
 	bool init_with_server_launch(const char *socket_path                      = DEFAULT_SOCKET_PATH.data(),
 	                             uint64_t client_timeout_in_millis            = 1000,
@@ -55,10 +57,10 @@ class TextureShareGlClient
 	ClientImageDataGuard find_image_data(const char *image_name, bool force_update);
 
 	int send_image(const char *image_name, GLuint src_texture_id, GLenum src_texture_target, bool invert,
-	               GLuint prev_fbo, struct ImageExtent *extents);
+	               GLuint prev_fbo, const struct ImageExtent *extents);
 
 	int recv_image(const char *image_name, GLuint dst_texture_id, GLenum dst_texture_target, bool invert,
-	               GLuint prev_fbo, struct ImageExtent *extents);
+	               GLuint prev_fbo, const struct ImageExtent *extents);
 
 	private:
 	struct GlClient *_client = nullptr;

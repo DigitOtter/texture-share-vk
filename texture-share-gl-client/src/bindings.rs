@@ -50,6 +50,11 @@ impl<'a> ClientImageDataGuard<'a> {
 }
 
 #[no_mangle]
+extern "C" fn gl_client_initialize_external_gl() -> bool {
+	GlClient::initialize_gl_external()
+}
+
+#[no_mangle]
 extern "C" fn gl_client_new(socket_path: *const c_char, timeout_in_millis: u64) -> *mut GlClient {
 	let gl_client = GlClient::new(
 		&get_str(&socket_path),
@@ -205,27 +210,27 @@ extern "C" fn gl_client_send_image(
 	src_texture_target: GLenum,
 	invert: bool,
 	prev_fbo: GLuint,
-	extents: Option<NonNull<ImageExtent>>,
+	extents: *const ImageExtent,
 ) -> c_int {
 	let image_name = &get_str(&image_name);
 	let gl_client = unsafe { gl_client.as_mut().unwrap() };
 
-	let res = match extents {
-		None => gl_client.send_image(
+	let res = match extents.is_null() {
+		true => gl_client.send_image(
 			image_name,
 			src_texture_id,
 			src_texture_target,
 			invert,
 			prev_fbo,
 		),
-		Some(s) => unsafe {
+		false => unsafe {
 			gl_client.send_image_with_extents(
 				image_name,
 				src_texture_id,
 				src_texture_target,
 				invert,
 				prev_fbo,
-				s.as_ptr().as_ref().unwrap(),
+				extents.as_ref().unwrap(),
 			)
 		},
 	};
@@ -248,27 +253,27 @@ extern "C" fn gl_client_recv_image(
 	dst_texture_target: GLenum,
 	invert: bool,
 	prev_fbo: GLuint,
-	extents: Option<NonNull<ImageExtent>>,
+	extents: *const ImageExtent,
 ) -> c_int {
 	let gl_client = unsafe { gl_client.as_mut() }.unwrap();
 	let image_name = &get_str(&image_name);
 
-	let res = match extents {
-		None => gl_client.recv_image(
+	let res = match extents.is_null() {
+		true => gl_client.recv_image(
 			image_name,
 			dst_texture_id,
 			dst_texture_target,
 			invert,
 			prev_fbo,
 		),
-		Some(s) => unsafe {
-			gl_client.send_image_with_extents(
+		false => unsafe {
+			gl_client.recv_image_with_extents(
 				image_name,
 				dst_texture_id,
 				dst_texture_target,
 				invert,
 				prev_fbo,
-				s.as_ptr().as_ref().unwrap(),
+				extents.as_ref().unwrap(),
 			)
 		},
 	};

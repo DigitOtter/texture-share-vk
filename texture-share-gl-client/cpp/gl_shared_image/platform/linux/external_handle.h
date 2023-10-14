@@ -1,10 +1,6 @@
 #ifndef EXTERNAL_HANDLE_H
 #define EXTERNAL_HANDLE_H
 
-#include <cstdint>
-#include <cstring>
-#include <unistd.h>
-
 namespace opengl
 {
 

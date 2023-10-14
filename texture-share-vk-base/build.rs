@@ -22,17 +22,6 @@ fn main() {
 
 	dst.push("build");
 
-	println!("cargo:warning={}", dst.display());
-	println!("cargo:rustc-link-search=native={}", dst.display());
-	println!("cargo:rustc-link-lib=static={}", lib_name);
-
-	// Link to third-party library
-	dst.push("third_party/vk-bootstrap");
-	println!("cargo:rustc-link-search=native={}", dst.display());
-	println!("cargo:rustc-link-lib=static={}", "vk-bootstrap");
-
-	println!("cargo:rustc-link-lib={}", "vulkan");
-
 	// Generate vulkan library bindings
 	let cxx_rs_files = vec!["src/vulkan/vk_shared_image.rs", "src/vulkan/vk_setup.rs"];
 
@@ -52,6 +41,18 @@ fn main() {
 	);
 
 	cxx_conf.compile("rust_vk_shared_image");
+
+	// Add link command after building cxx to ensure references are not discarded
+	println!("cargo:warning={}", dst.display());
+	println!("cargo:rustc-link-search=native={}", dst.display());
+	println!("cargo:rustc-link-lib=static={}", lib_name);
+
+	// Link to third-party library
+	dst.push("third_party/vk-bootstrap");
+	println!("cargo:rustc-link-search=native={}", dst.display());
+	println!("cargo:rustc-link-lib=static={}", "vk-bootstrap");
+
+	println!("cargo:rustc-link-lib={}", "vulkan");
 
 	for file in cxx_rs_files.iter() {
 		println!("cargo:rerun-if-changed={}", file);

@@ -58,6 +58,11 @@ class GlSharedImageWrapper : public GlSharedImage
 	GlSharedImageWrapper()  = default;
 	~GlSharedImageWrapper() = default;
 
+	static bool initialize_gl_external()
+	{
+		return GlSharedImage::InitializeGLExternal();
+	}
+
 	GLenum initialize(GLsizei width, GLsizei height, uint64_t handle_id, GLuint64 allocation_size, GlFormat format,
 	                  GLenum internal_format)
 	{

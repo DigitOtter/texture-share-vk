@@ -4,8 +4,6 @@
 
 #include <GL/gl.h>
 #include <GL/glext.h>
-#include <cstdint>
-#include <sys/types.h>
 
 namespace opengl
 {
@@ -65,7 +63,7 @@ class GlSharedImage
 	 * \param clear_color Clear color.
 	 * Should be in the format described by ImageFormat(), usually RGBA
 	 */
-	void ClearImage(const u_char *clear_color);
+	void ClearImage(const unsigned char *clear_color);
 
 	/*!
 	 * \brief Clears the image with the given color

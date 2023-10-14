@@ -103,7 +103,7 @@ extern "C" fn vk_client_new_with_server_launch(
 
 	match vk_client {
 		Err(e) => {
-			println!("Failed to create GlClient with error '{:}'", e);
+			println!("Failed to create VkClient with error '{:}'", e);
 			return null_mut();
 		}
 		Ok(s) => Box::into_raw(Box::new(s)),
@@ -262,9 +262,9 @@ extern "C" fn vk_client_recv_image(
 	let image_name = &get_str(&image_name);
 
 	let res = match extents {
-		None => vk_client.send_image(image_name, image, orig_layout, target_layout, fence),
+		None => vk_client.recv_image(image_name, image, orig_layout, target_layout, fence),
 		Some(s) => unsafe {
-			vk_client.send_image_with_extents_unchecked(
+			vk_client.recv_image_with_extents_unchecked(
 				image_name,
 				image,
 				orig_layout,

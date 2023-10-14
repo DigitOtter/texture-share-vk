@@ -404,7 +404,7 @@ pub mod ffi {
 		pub width: u32,
 		pub height: u32,
 		pub format: VkFormat,
-		pub allocation_size: u32,
+		pub allocation_size: u64,
 	}
 
 	// struct ShareHandles {
@@ -472,6 +472,8 @@ pub mod ffi {
 			self: Pin<&mut VkSharedImage>,
 			device: VkDevice,
 			physical_device: VkPhysicalDevice,
+			queue: VkQueue,
+			command_buffer: VkCommandBuffer,
 			share_handles: UniquePtr<ShareHandles>,
 			image_data: &SharedImageData,
 		);
@@ -664,6 +666,8 @@ mod tests {
 		import_img.as_mut().unwrap().import_from_handle(
 			vk_setup.get_vk_device(),
 			vk_setup.get_vk_physical_device(),
+			vk_setup.get_vk_queue(),
+			vk_setup.get_vk_command_buffer(),
 			share_handles,
 			image_data,
 		);

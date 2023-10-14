@@ -48,10 +48,12 @@ class VkSharedImageWrapper : public VkSharedImage
 		return this->Cleanup();
 	}
 
-	void import_from_handle(VkDevice device, VkPhysicalDevice physical_device,
-	                        std::unique_ptr<ShareHandlesWrapper> share_handles, const SharedImageData &image_data)
+	void import_from_handle(VkDevice device, VkPhysicalDevice physical_device, VkQueue queue,
+	                        VkCommandBuffer command_buffer, std::unique_ptr<ShareHandlesWrapper> share_handles,
+	                        const SharedImageData &image_data)
 	{
-		return this->ImportFromHandle(device, physical_device, std::move(*share_handles), image_data);
+		return this->ImportFromHandle(device, physical_device, queue, command_buffer, std::move(*share_handles),
+		                              image_data);
 	}
 
 	void send_image_blit_with_extents(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage dst_image,

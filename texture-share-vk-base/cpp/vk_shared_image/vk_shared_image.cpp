@@ -82,7 +82,7 @@ void VkSharedImage::Initialize(VkDevice device, VkPhysicalDevice physical_device
 	VkFenceCreateInfo fence_create = {VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr, 0};
 	vkCreateFence(device, &fence_create, nullptr, &fence);
 
-	this->SetImageLayout(queue, command_buffer, VK_IMAGE_LAYOUT_GENERAL, fence);
+	this->SetImageLayout(queue, command_buffer, VkSharedImage::DEFAULT_LAYOUT, fence);
 
 	vkDestroyFence(device, fence, nullptr);
 }
@@ -104,8 +104,9 @@ void VkSharedImage::Cleanup()
 	}
 }
 
-void VkSharedImage::ImportFromHandle(VkDevice device, VkPhysicalDevice physical_device,
-                                     ExternalHandle::ShareHandles &&share_handles, const SharedImageData &image_data)
+void VkSharedImage::ImportFromHandle(VkDevice device, VkPhysicalDevice physical_device, VkQueue queue,
+                                     VkCommandBuffer command_buffer, ExternalHandle::ShareHandles &&share_handles,
+                                     const SharedImageData &image_data)
 {
 	this->Cleanup();
 
@@ -153,6 +154,13 @@ void VkSharedImage::ImportFromHandle(VkDevice device, VkPhysicalDevice physical_
 	share_handles.memory = ExternalHandle::INVALID_VALUE;
 	// external_handles.handles.ext_read  = ExternalHandle::INVALID_VALUE;
 	// external_handles.handles.ext_write = ExternalHandle::INVALID_VALUE;
+
+	// this->_layout = VkSharedImage::DEFAULT_LAYOUT;
+	VkFence fence;
+	VkFenceCreateInfo fence_create_info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, nullptr, 0};
+	vkCreateFence(device, &fence_create_info, nullptr, &fence);
+	this->SetImageLayout(queue, command_buffer, VkSharedImage::DEFAULT_LAYOUT, fence);
+	vkDestroyFence(device, fence, nullptr);
 }
 
 VkImageSubresourceLayers VkSharedImage::CreateColorSubresourceLayer()
@@ -244,7 +252,7 @@ void VkSharedImage::SetImageLayout(VkQueue graphics_queue, VkCommandBuffer comma
 	// Image memory barrier before entering VK_PIPELINE_STAGE_TRANSFER_BIT
 	mem_barrier.image               = this->_image;
 	mem_barrier.srcAccessMask       = VK_ACCESS_NONE;
-	mem_barrier.dstAccessMask       = VK_ACCESS_TRANSFER_READ_BIT;
+	mem_barrier.dstAccessMask       = VK_ACCESS_2_MEMORY_WRITE_BIT;
 	mem_barrier.oldLayout           = this->_layout;
 	mem_barrier.newLayout           = target_layout;
 	mem_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;

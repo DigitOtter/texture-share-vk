@@ -61,6 +61,11 @@ TextureShareGlClient::~TextureShareGlClient()
 	this->destroy_client();
 }
 
+bool TextureShareGlClient::initialize_gl_external()
+{
+	return gl_client_initialize_external_gl();
+}
+
 bool TextureShareGlClient::init(const char *socket_path, uint64_t timeout_in_millis)
 {
 	this->destroy_client();
@@ -89,6 +94,15 @@ void TextureShareGlClient::destroy_client()
 	this->_client = nullptr;
 }
 
+ImageLookupResult TextureShareGlClient::init_image(const char *image_name, uint32_t width, uint32_t height,
+                                                   ImgFormat format, bool overwrite_existing)
+{
+	if(!this->_client)
+		return ImageLookupResult::Error;
+
+	return gl_client_init_image(this->_client, image_name, width, height, format, overwrite_existing);
+}
+
 ImageLookupResult TextureShareGlClient::find_image(const char *image_name, bool force_update)
 {
 	if(!this->_client)
@@ -107,7 +121,7 @@ TextureShareGlClient::ClientImageDataGuard TextureShareGlClient::find_image_data
 }
 
 int TextureShareGlClient::send_image(const char *image_name, GLuint src_texture_id, GLenum src_texture_target,
-                                     bool invert, GLuint prev_fbo, struct ImageExtent *extents)
+                                     bool invert, GLuint prev_fbo, const struct ImageExtent *extents)
 {
 	if(!this->_client)
 		return -1;
@@ -117,7 +131,7 @@ int TextureShareGlClient::send_image(const char *image_name, GLuint src_texture_
 }
 
 int TextureShareGlClient::recv_image(const char *image_name, GLuint dst_texture_id, GLenum dst_texture_target,
-                                     bool invert, GLuint prev_fbo, struct ImageExtent *extents)
+                                     bool invert, GLuint prev_fbo, const struct ImageExtent *extents)
 {
 	if(!this->_client)
 		return -1;

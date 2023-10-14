@@ -20,17 +20,7 @@ fn main() {
 		//.init_cxx_cfg(cxx_conf)
 		.build();
 
-	println!("cargo:rustc-link-search=native={}", dst.display());
 	dst.push("build");
-	println!("cargo:rustc-link-search=native={}", dst.display());
-	println!("cargo:rustc-link-lib=static={}", lib_name);
-
-	// Link to OpenGl
-	//#[cfg(test)]
-	//println!("cargo:rustc-link-lib=X11");
-	println!("cargo:rustc-link-lib=GL");
-	//println!("cargo:rustc-link-lib=GLU");
-	//println!("cargo:rustc-link-lib=glut");
 
 	// Generate gl library bindings
 	let cxx_rs_files = vec!["src/opengl/gl_shared_image.rs"];
@@ -46,6 +36,17 @@ fn main() {
 	);
 
 	cxx_conf.compile("rust_gl_shared_image");
+
+	// Add link command after building cxx to ensure references are not discarded
+	println!("cargo:rustc-link-search=native={}", dst.display());
+	println!("cargo:rustc-link-lib=static={}", lib_name);
+
+	// Link to OpenGl
+	//#[cfg(test)]
+	//println!("cargo:rustc-link-lib=X11");
+	println!("cargo:rustc-link-lib=GL");
+	//println!("cargo:rustc-link-lib=GLU");
+	//println!("cargo:rustc-link-lib=glut");
 
 	for file in cxx_rs_files.iter() {
 		println!("cargo:rerun-if-changed={}", file);

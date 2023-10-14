@@ -81,7 +81,13 @@ impl VkClient {
 		server_spawn_timeout: Duration,
 	) -> Result<VkClient, Error> {
 		let conn_fn = || {
-			let connection = IpcConnection::try_connect(socket_path, client_timeout)?;
+			let connection = match IpcConnection::try_connect(socket_path, client_timeout) {
+				Err(e) => match e.kind() {
+					ErrorKind::ConnectionRefused => Ok(None),
+					_ => Err(e),
+				},
+				s => s,
+			}?;
 			if connection.is_none() {
 				return Ok(None);
 			}
@@ -125,8 +131,8 @@ impl VkClient {
 		&mut self.vk_setup
 	}
 
-	fn check_for_update(image_data: &ImageData) -> bool {
-		image_data.ipc_info.get_id_unchecked() == image_data.vk_shared_image.get_image_data().id
+	fn is_update_available(image_data: &ImageData) -> bool {
+		image_data.ipc_info.get_id_unchecked() != image_data.vk_shared_image.get_image_data().id
 	}
 
 	pub fn init_image(
@@ -188,7 +194,7 @@ impl VkClient {
 		let res = self.add_new_image(&res_data, &mut share_handles)?;
 
 		let res = match res {
-			Some(r) => Some(VkClient::check_for_update(r)),
+			Some(r) => Some(VkClient::is_update_available(r)),
 			None => None,
 		};
 		Ok(res)
@@ -201,7 +207,7 @@ impl VkClient {
 	) -> Result<Option<bool>, Box<dyn std::error::Error>> {
 		let res = self.find_image_internal(image_name, force_update)?;
 		let res = match res {
-			Some(r) => Some(VkClient::check_for_update(r)),
+			Some(r) => Some(VkClient::is_update_available(r)),
 			None => None,
 		};
 		Ok(res)
@@ -234,14 +240,14 @@ impl VkClient {
 		target_layout: VkImageLayout,
 		fence: VkFence,
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
-		let local_image = self.shared_images.get_mut(image_name);
-		if local_image.is_none() {
+		let remote_image = self.shared_images.get_mut(image_name);
+		if remote_image.is_none() {
 			return Ok(None);
 		}
 
 		// Send image
-		let local_image = local_image.unwrap();
-		local_image
+		let remote_image = remote_image.unwrap();
+		remote_image
 			.vk_shared_image
 			.as_mut()
 			.unwrap()
@@ -287,14 +293,14 @@ impl VkClient {
 		fence: VkFence,
 		extents: *const VkOffset3D,
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
-		let local_image = self.shared_images.get_mut(image_name);
-		if local_image.is_none() {
+		let remote_image = self.shared_images.get_mut(image_name);
+		if remote_image.is_none() {
 			return Ok(None);
 		}
 
-		let local_image = local_image.unwrap();
+		let remote_image = remote_image.unwrap();
 		unsafe {
-			local_image
+			remote_image
 				.vk_shared_image
 				.as_mut()
 				.unwrap()
@@ -319,13 +325,13 @@ impl VkClient {
 		target_layout: VkImageLayout,
 		fence: VkFence,
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
-		let local_image = self.shared_images.get_mut(image_name);
-		if local_image.is_none() {
+		let remote_image = self.shared_images.get_mut(image_name);
+		if remote_image.is_none() {
 			return Ok(None);
 		}
 
-		let local_image = local_image.unwrap();
-		local_image
+		let remote_image = remote_image.unwrap();
+		remote_image
 			.vk_shared_image
 			.as_mut()
 			.unwrap()
@@ -371,14 +377,14 @@ impl VkClient {
 		fence: VkFence,
 		extents: *const VkOffset3D,
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
-		let local_image = self.shared_images.get_mut(image_name);
-		if local_image.is_none() {
+		let remote_image = self.shared_images.get_mut(image_name);
+		if remote_image.is_none() {
 			return Ok(None);
 		}
 
-		let local_image = local_image.unwrap();
+		let remote_image = remote_image.unwrap();
 		unsafe {
-			local_image
+			remote_image
 				.vk_shared_image
 				.as_mut()
 				.unwrap()
@@ -432,6 +438,8 @@ impl VkClient {
 			vk_shared_image.as_mut().unwrap().import_from_handle(
 				self.vk_setup.get_vk_device(),
 				self.vk_setup.get_vk_physical_device(),
+				self.vk_setup.get_vk_queue(),
+				self.vk_setup.get_vk_command_buffer(),
 				share_handles,
 				&SharedImageData::from_shmem_img_data(rdata),
 			);

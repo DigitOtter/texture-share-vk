@@ -19,6 +19,8 @@ struct SharedImageData
 
 class VkSharedImage
 {
+	constexpr static VkImageLayout DEFAULT_LAYOUT = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+
 	public:
 	VkSharedImage() = default;
 	~VkSharedImage();
@@ -27,8 +29,9 @@ class VkSharedImage
 	                uint32_t width, uint32_t height, VkFormat format, uint32_t id = 0);
 	void Cleanup();
 
-	void ImportFromHandle(VkDevice device, VkPhysicalDevice physical_device,
-	                      ExternalHandle::ShareHandles &&share_handles, const SharedImageData &image_data);
+	void ImportFromHandle(VkDevice device, VkPhysicalDevice physical_device, VkQueue queue,
+	                      VkCommandBuffer command_buffer, ExternalHandle::ShareHandles &&share_handles,
+	                      const SharedImageData &image_data);
 
 	static VkImageSubresourceLayers CreateColorSubresourceLayer();
 	void SendImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage dst_image,
@@ -44,7 +47,6 @@ class VkSharedImage
 
 	void RecvImageBlit(VkQueue graphics_queue, VkCommandBuffer command_buffer, VkImage src_image,
 	                   VkImageLayout orig_src_image_layout, VkImageLayout target_src_image_layout, VkFence fence);
-
 
 	ExternalHandle::ShareHandles ExportHandles(const ExternalHandleVk &external_handle_info);
 
