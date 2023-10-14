@@ -53,7 +53,9 @@ impl IpcConnection {
 					Err(e) => match e.kind() {
 						ErrorKind::AddrNotAvailable
 						| ErrorKind::NotFound
-						| ErrorKind::Interrupted => Ok(None),
+						| ErrorKind::Interrupted
+						| ErrorKind::ConnectionRefused
+						| ErrorKind::ConnectionAborted => Ok(None),
 						_ => Err(e),
 					},
 				}
