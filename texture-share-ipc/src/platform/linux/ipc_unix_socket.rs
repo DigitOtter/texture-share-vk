@@ -27,14 +27,18 @@ impl IpcConnection {
 		conn.set_nonblocking(true).unwrap();
 
 		// TODO: Use socket timeout instead of own implementation
-		conn.set_read_timeout(Some(timeout)).unwrap();
-		conn.set_write_timeout(Some(timeout)).unwrap();
+		// conn.set_read_timeout(Some(timeout)).unwrap();
+		// conn.set_write_timeout(Some(timeout)).unwrap();
 
 		IpcConnection {
 			conn: RefCell::new(conn),
 			//proc_id,
 			timeout,
 		}
+	}
+
+	pub fn get_socket(&self) -> std::cell::Ref<'_, UnixStream> {
+		return self.conn.borrow();
 	}
 
 	pub fn try_connect(
@@ -324,6 +328,10 @@ impl IpcSocket {
 			connections: Arc::new(Mutex::new(Vec::new())),
 			timeout,
 		})
+	}
+
+	pub fn get_socket(&self) -> &UnixListener {
+		return &self.listener_socket;
 	}
 
 	pub fn try_accept(&self) -> Result<Option<()>, Error> {

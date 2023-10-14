@@ -1,7 +1,10 @@
+use polling::{Event, Events, PollMode, Poller};
 use std::cell::RefCell;
 use std::fs;
 use std::io::{self, Error, ErrorKind};
 use std::mem::ManuallyDrop;
+use std::os::fd::{AsFd, AsRawFd};
+use std::ptr::null;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -41,8 +44,9 @@ impl Drop for VkServer {
 }
 
 impl VkServer {
+	const LISTENER_EVENT_KEY: usize = usize::MAX - 1;
 	const IPC_TIMEOUT: Duration = Duration::from_millis(5000);
-	const NO_CONNECTION_TIMEOUT: Duration = Duration::from_millis(1000 * 1000);
+	const NO_CONNECTION_TIMEOUT: Duration = Duration::from_millis(10 * 1000);
 
 	pub fn new(
 		socket_path: &str,
@@ -76,36 +80,113 @@ impl VkServer {
 		mut self,
 		stop_bit: Arc<AtomicBool>,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		//stop_bit.store(false, Ordering::Relaxed);
-
-		let listener_clone = self.socket.clone();
-		let stop_clone = stop_bit.clone();
-		let accept_thread_fcn = move || {
-			while !stop_clone.load(Ordering::Relaxed) {
-				VkServer::try_accept(&listener_clone)?;
-			}
-
-			Ok::<(), io::Error>(())
-		};
-
-		let accept_thread = thread::spawn(accept_thread_fcn);
-
 		// Stop server if no connection was established after NO_CONNECTION_TIMEOUT
 		let mut conn_timeout = SystemTime::now() + VkServer::NO_CONNECTION_TIMEOUT;
+		let timeout = self.socket.lock().as_ref().unwrap().timeout;
 
-		let connections_clone = self.socket.clone().lock().unwrap().connections.clone();
-		while !accept_thread.is_finished() && !stop_bit.load(Ordering::Relaxed) {
-			let num_active_connections = VkServer::process_commands(
-				connections_clone.clone(),
-				self.vk_setup.as_ref().unwrap(),
-				&self.shmem_prefix,
-				&mut self.images,
+		// Setup polling
+		let mut new_connection_waiting = false;
+		let poller = Poller::new()?;
+		let mut events = Events::new();
+		let mut connections_to_close = Vec::default();
+
+		// Add listener event request to poller
+		unsafe {
+			let lock = self.socket.lock();
+			poller.add_with_mode(
+				lock.as_ref().unwrap().get_socket(),
+				Event::readable(VkServer::LISTENER_EVENT_KEY),
+				PollMode::Level,
 			)?;
+		};
 
-			println!("Active connections: {}", num_active_connections);
+		let mut loop_id = 0;
+		loop {
+			let lock = self.socket.lock();
+
+			if new_connection_waiting || !connections_to_close.is_empty() {
+				{
+					let mut conn_lock = lock.as_ref().unwrap().connections.lock();
+					// Remove all connections from poller
+					for conn_id in 0..conn_lock.as_ref().unwrap().len() {
+						poller.delete(
+							conn_lock.as_ref().unwrap()[conn_id]
+								.borrow()
+								.get_socket()
+								.as_fd(),
+						)?;
+					}
+
+					// Remove unused connections from both poller and connections vector
+					if !connections_to_close.is_empty() {
+						// Remove connections that were closed by peer
+						for ci in connections_to_close.iter().rev() {
+							conn_lock.as_mut().unwrap().remove(*ci);
+						}
+
+						connections_to_close.clear();
+					}
+				}
+
+				if new_connection_waiting {
+					// Accept event received
+					lock.as_ref().unwrap().try_accept()?;
+					new_connection_waiting = false;
+				}
+
+				// Add poll request for each connection
+				let conn_lock = lock.as_ref().unwrap().connections.lock();
+				for conn_id in 0..conn_lock.as_ref().unwrap().len() {
+					unsafe {
+						poller.add(
+							conn_lock.as_ref().unwrap()[conn_id]
+								.borrow()
+								.get_socket()
+								.as_raw_fd(),
+							Event::readable(conn_id).with_interrupt(),
+						)?;
+					}
+				}
+			};
+
+			events.clear();
+			poller.wait(&mut events, Some(timeout))?;
+
+			for ev in events.iter() {
+				if ev.key < VkServer::LISTENER_EVENT_KEY {
+					let conn_lock = lock.as_ref().unwrap().connections.lock();
+					let connections = conn_lock.as_ref().unwrap();
+					// Close connection if socket was closed
+					if ev.is_interrupt() {
+						connections_to_close.push(ev.key);
+						continue;
+					} else {
+						let conn = &connections[ev.key];
+						if !VkServer::process_single_connection(
+							&conn.borrow(),
+							&self.vk_setup,
+							&self.shmem_prefix,
+							&mut self.images,
+						)? {
+							connections_to_close.push(ev.key);
+						}
+
+						poller.modify(
+							conn.borrow().get_socket().as_fd(),
+							Event::readable(ev.key).with_interrupt(),
+						)?;
+					}
+				} else if ev.key == VkServer::LISTENER_EVENT_KEY {
+					poller.modify(
+						lock.as_ref().unwrap().get_socket(),
+						Event::readable(VkServer::LISTENER_EVENT_KEY),
+					)?;
+					new_connection_waiting = true;
+				}
+			}
 
 			// Stop if no connections active
-			if num_active_connections == 0 {
+			if events.is_empty() {
 				if SystemTime::now() > conn_timeout {
 					println!("No connections active. Closing server...");
 					break;
@@ -113,116 +194,88 @@ impl VkServer {
 			} else {
 				conn_timeout = SystemTime::now() + VkServer::NO_CONNECTION_TIMEOUT;
 			}
+
+			// Break if externally requested
+			if stop_bit.load(Ordering::Relaxed) {
+				break;
+			}
+
+			loop_id += 1;
 		}
 
-		stop_bit.clone().store(true, Ordering::Relaxed);
-		accept_thread.join().unwrap()?;
+		let lock = self.socket.lock();
+		poller.delete(lock.as_ref().unwrap().get_socket().as_fd())?;
 
 		Ok(())
 	}
 
-	fn try_accept(socket: &Arc<Mutex<IpcSocket>>) -> Result<Option<()>, Error> {
-		let lock = socket.lock().unwrap();
-		lock.try_accept().map(|c| match c {
-			Some(_) => Some(()),
-			None => None,
-		})
-	}
-
-	fn poll_sockets(
-		connections: Arc<Mutex<Vec<RefCell<IpcConnection>>>>,
+	fn process_single_connection(
+		conn: &IpcConnection,
 		vk_setup: &VkSetup,
 		shmem_prefix: &str,
 		images: &mut Vec<ImageData>,
-	) -> Result<usize, Box<dyn std::error::Error>> {
-		Ok(0)
-	}
+	) -> Result<bool, Box<dyn std::error::Error>> {
+		// Try to receive command. If connection was closed by peer, remove this connection from vector
+		let cmd = match conn.recv_command_if_available() {
+			Err(e) => match e.kind() {
+				ErrorKind::BrokenPipe => {
+					return Ok(false);
+				}
+				_ => Err(e),
+			},
+			o => o,
+		}?;
 
-	fn process_commands(
-		connections: Arc<Mutex<Vec<RefCell<IpcConnection>>>>,
-		vk_setup: &VkSetup,
-		shmem_prefix: &str,
-		images: &mut Vec<ImageData>,
-	) -> Result<usize, Box<dyn std::error::Error>> {
-		let mut connections_to_close = Vec::default();
+		if cmd.is_none() {
+			return Ok(true);
+		}
 
-		let mut lock = connections.lock();
-		let mut conns = lock.as_mut();
+		let cmd = cmd.unwrap();
+		let res = match cmd.tag {
+			CommandTag::InitImage => {
+				println!("Processing init message");
+				VkServer::process_cmd_init_image(
+					conn,
+					unsafe { &cmd.data.init_img },
+					vk_setup,
+					shmem_prefix,
+					images,
+				)
+			}
+			CommandTag::FindImage => {
+				println!("Processing find message");
+				VkServer::process_cmd_find_image(
+					conn,
+					unsafe { &cmd.data.find_img },
+					vk_setup,
+					images,
+				)
+			}
+			// CommandTag::RenameImage => Server::process_cmd_rename_image(
+			//     &conn.borrow(),
+			//     unsafe { &cmd.data.rename_img },
+			//     vk_setup,
+			//     images,
+			// ),
+			#[allow(unreachable_patterns)]
+			_ => Err::<(), Box<dyn std::error::Error>>(Box::new(Error::new(
+				ErrorKind::InvalidData,
+				"Unknown command received",
+			))),
+		};
 
-		for i in 0..conns.as_ref().unwrap().len() {
-			let conn = &conns.as_ref().unwrap()[i];
-
-			// Try to receive command. If connection was closed by peer, remove this connection from vector
-			let cmd = match conn.borrow_mut().recv_command_if_available() {
-				Err(e) => match e.kind() {
-					ErrorKind::BrokenPipe => {
-						connections_to_close.push(i);
-						continue;
-					}
+		match res {
+			Err(e) => match e.downcast_ref::<Error>() {
+				None => Err(e),
+				Some(ioe) => match ioe.kind() {
+					ErrorKind::BrokenPipe => return Ok(false),
 					_ => Err(e),
 				},
-				o => o,
-			}?;
+			},
+			s => s,
+		}?;
 
-			if cmd.is_none() {
-				continue;
-			}
-
-			let cmd = cmd.unwrap();
-			let res = match cmd.tag {
-				CommandTag::InitImage => {
-					println!("Processing init message");
-					VkServer::process_cmd_init_image(
-						&conn.borrow(),
-						unsafe { &cmd.data.init_img },
-						vk_setup,
-						shmem_prefix,
-						images,
-					)
-				}
-				CommandTag::FindImage => {
-					println!("Processing find message");
-					VkServer::process_cmd_find_image(
-						&conn.borrow(),
-						unsafe { &cmd.data.find_img },
-						vk_setup,
-						images,
-					)
-				}
-				// CommandTag::RenameImage => Server::process_cmd_rename_image(
-				//     &conn.borrow(),
-				//     unsafe { &cmd.data.rename_img },
-				//     vk_setup,
-				//     images,
-				// ),
-				#[allow(unreachable_patterns)]
-				_ => Err::<(), Box<dyn std::error::Error>>(Box::new(Error::new(
-					ErrorKind::InvalidData,
-					"Unknown command received",
-				))),
-			};
-
-			match res {
-				Err(e) => match e.downcast_ref::<Error>() {
-					None => Err(e),
-					Some(ioe) => match ioe.kind() {
-						ErrorKind::BrokenPipe => {
-							connections_to_close.push(i);
-							continue;
-						}
-						_ => Err(e),
-					},
-				},
-				s => s,
-			}?
-		}
-
-		// Remove connections that were closed by peer
-		for ci in connections_to_close.iter().rev() {
-			conns.as_mut().unwrap().remove(*ci);
-		}
-
-		Ok(conns.as_ref().unwrap().len())
+		Ok(true)
 	}
 
 	fn process_cmd_init_image(

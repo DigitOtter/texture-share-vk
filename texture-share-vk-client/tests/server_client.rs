@@ -50,7 +50,7 @@ fn server_client_connect() {
 	let server_thread = thread::spawn(server_fcn);
 	let client_thread = thread::spawn(client_fcn);
 
-	thread::sleep(Duration::from_secs(1));
+	thread::sleep(Duration::from_secs(2));
 	loop {
 		stop_bit.clone().store(true, Ordering::Relaxed);
 
@@ -92,7 +92,7 @@ fn server_client_init_image() {
 	let server_thread = thread::spawn(server_fcn);
 	let client_thread = thread::spawn(client_fcn);
 
-	thread::sleep(Duration::from_secs(1));
+	thread::sleep(Duration::from_secs(2));
 	loop {
 		stop_bit.clone().store(true, Ordering::Relaxed);
 
@@ -148,7 +148,7 @@ fn server_client_overwrite_image() {
 	let server_thread = thread::spawn(server_fcn);
 	let client_thread = thread::spawn(client_fcn);
 
-	thread::sleep(Duration::from_secs(1));
+	thread::sleep(Duration::from_secs(2));
 	loop {
 		stop_bit.clone().store(true, Ordering::Relaxed);
 
@@ -210,7 +210,7 @@ fn server_client_find_image() {
 	let server_thread = thread::spawn(server_fcn);
 	let client_thread = thread::spawn(client_fcn);
 
-	thread::sleep(Duration::from_secs(1));
+	thread::sleep(Duration::from_secs(2));
 	loop {
 		stop_bit.clone().store(true, Ordering::Relaxed);
 
@@ -293,7 +293,7 @@ fn server_client_find_image_data() {
 	let server_thread = thread::spawn(server_fcn);
 	let client_thread = thread::spawn(client_fcn);
 
-	thread::sleep(Duration::from_secs(1));
+	thread::sleep(Duration::from_secs(2));
 	loop {
 		stop_bit.clone().store(true, Ordering::Relaxed);
 
@@ -383,7 +383,7 @@ fn server_client_send_image() {
 	let server_thread = thread::spawn(server_fcn);
 	let client_thread = thread::spawn(client_fcn);
 
-	thread::sleep(Duration::from_secs(1));
+	thread::sleep(Duration::from_secs(2));
 	loop {
 		stop_bit.clone().store(true, Ordering::Relaxed);
 
