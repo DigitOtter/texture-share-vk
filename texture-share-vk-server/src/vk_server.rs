@@ -27,7 +27,7 @@ pub(super) struct ImageData {
 }
 
 pub struct VkServer {
-	socket: Arc<Mutex<IpcSocket>>,
+	socket: IpcSocket,
 	socket_path: String,
 	shmem_prefix: String,
 	vk_setup: UniquePtr<VkSetup>,
@@ -55,9 +55,7 @@ impl VkServer {
 	) -> Result<VkServer, Box<dyn std::error::Error>> {
 		let _ = fs::remove_file(socket_path.to_owned());
 
-		let socket = Arc::new(Mutex::new(
-			IpcSocket::new(socket_path, connection_timeout).map_err(|e| Box::new(e))?,
-		));
+		let socket = IpcSocket::new(socket_path, connection_timeout).map_err(|e| Box::new(e))?;
 
 		let mut vk_setup = vk_setup_new();
 		vk_setup.as_mut().unwrap().initialize_vulkan();
@@ -73,7 +71,7 @@ impl VkServer {
 	}
 
 	pub fn set_timeout(&mut self, connection_timeout: Duration) {
-		self.socket.lock().unwrap().timeout = connection_timeout;
+		self.socket.timeout = connection_timeout;
 	}
 
 	pub fn loop_server(
@@ -82,7 +80,6 @@ impl VkServer {
 	) -> Result<(), Box<dyn std::error::Error>> {
 		// Stop server if no connection was established after NO_CONNECTION_TIMEOUT
 		let mut conn_timeout = SystemTime::now() + VkServer::NO_CONNECTION_TIMEOUT;
-		let timeout = self.socket.lock().as_ref().unwrap().timeout;
 
 		// Setup polling
 		let mut new_connection_waiting = false;
@@ -92,9 +89,8 @@ impl VkServer {
 
 		// Add listener event request to poller
 		unsafe {
-			let lock = self.socket.lock();
 			poller.add_with_mode(
-				lock.as_ref().unwrap().get_socket(),
+				self.socket.get_socket(),
 				Event::readable(VkServer::LISTENER_EVENT_KEY),
 				PollMode::Level,
 			)?;
@@ -102,11 +98,9 @@ impl VkServer {
 
 		let mut loop_id = 0;
 		loop {
-			let lock = self.socket.lock();
-
 			if new_connection_waiting || !connections_to_close.is_empty() {
 				{
-					let mut conn_lock = lock.as_ref().unwrap().connections.lock();
+					let mut conn_lock = self.socket.connections.lock();
 					// Remove all connections from poller
 					for conn_id in 0..conn_lock.as_ref().unwrap().len() {
 						poller.delete(
@@ -130,12 +124,12 @@ impl VkServer {
 
 				if new_connection_waiting {
 					// Accept event received
-					lock.as_ref().unwrap().try_accept()?;
+					self.socket.try_accept()?;
 					new_connection_waiting = false;
 				}
 
 				// Add poll request for each connection
-				let conn_lock = lock.as_ref().unwrap().connections.lock();
+				let conn_lock = self.socket.connections.lock();
 				for conn_id in 0..conn_lock.as_ref().unwrap().len() {
 					unsafe {
 						poller.add(
@@ -150,11 +144,11 @@ impl VkServer {
 			};
 
 			events.clear();
-			poller.wait(&mut events, Some(timeout))?;
+			poller.wait(&mut events, Some(self.socket.timeout))?;
 
 			for ev in events.iter() {
 				if ev.key < VkServer::LISTENER_EVENT_KEY {
-					let conn_lock = lock.as_ref().unwrap().connections.lock();
+					let conn_lock = self.socket.connections.lock();
 					let connections = conn_lock.as_ref().unwrap();
 					// Close connection if socket was closed
 					if ev.is_interrupt() {
@@ -178,7 +172,7 @@ impl VkServer {
 					}
 				} else if ev.key == VkServer::LISTENER_EVENT_KEY {
 					poller.modify(
-						lock.as_ref().unwrap().get_socket(),
+						self.socket.get_socket(),
 						Event::readable(VkServer::LISTENER_EVENT_KEY),
 					)?;
 					new_connection_waiting = true;
@@ -186,7 +180,7 @@ impl VkServer {
 			}
 
 			// Stop if no connections active
-			if events.is_empty() {
+			if self.socket.connections.lock().as_ref().unwrap().is_empty() {
 				if SystemTime::now() > conn_timeout {
 					println!("No connections active. Closing server...");
 					break;
@@ -203,8 +197,7 @@ impl VkServer {
 			loop_id += 1;
 		}
 
-		let lock = self.socket.lock();
-		poller.delete(lock.as_ref().unwrap().get_socket().as_fd())?;
+		poller.delete(self.socket.get_socket().as_fd())?;
 
 		Ok(())
 	}
