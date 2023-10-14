@@ -7,3 +7,7 @@ members = [
         "texture-share-vk-client",
         "texture-share-gl-client",
 ]
+
+[profile.release]
+strip = true
+lto = true

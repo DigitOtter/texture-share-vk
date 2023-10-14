@@ -17,6 +17,7 @@ fn main() {
 	let mut dst = cmake::Config::new("cpp")
 		.always_configure(true)
 		.configure_arg("-DBUILD_SHARED_LIBS=False")
+		//.configure_arg("-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON")
 		//.init_cxx_cfg(cxx_conf)
 		.build();
 
