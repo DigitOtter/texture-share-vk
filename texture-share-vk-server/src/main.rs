@@ -21,16 +21,16 @@ struct Args {
 	#[arg(long, default_value = "shared_image_")]
 	shmem_prefix: String,
 
-	#[arg(short, long, default_value_t = 2000)]
+	#[arg(long, default_value_t = 2000)]
 	socket_timeout_millis: u64,
 
-	#[arg(short, long, default_value_t = 2000)]
+	#[arg(long, default_value_t = 2000)]
 	connection_wait_timeout_millis: u64,
 
-	#[arg(short, long, default_value_t = 2000)]
+	#[arg(long, default_value_t = 2000)]
 	ipc_timeout_millis: u64,
 
-	#[arg(short, long, default_value_t = 2000)]
+	#[arg(long, default_value_t = 2000)]
 	lockfile_timeout_millis: u64,
 }
 
