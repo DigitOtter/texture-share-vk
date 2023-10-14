@@ -78,7 +78,10 @@ extern "C" fn gl_client_new_with_server_launch(
 	server_lock_path: *const c_char,
 	server_socket_path: *const c_char,
 	shmem_prefix: *const c_char,
-	server_connection_timeout_in_millia: u64,
+	server_socket_timeout_in_millis: u64,
+	server_connection_wait_timeout_in_millis: u64,
+	server_ipc_timeout_in_millis: u64,
+	server_lockfile_timeout_in_millis: u64,
 	server_spawn_timeout_in_millis: u64,
 ) -> *mut GlClient {
 	let gl_client = GlClient::new_with_server_launch(
@@ -88,7 +91,10 @@ extern "C" fn gl_client_new_with_server_launch(
 		&get_str(&server_lock_path),
 		&get_str(&server_socket_path),
 		&get_str(&shmem_prefix),
-		Duration::from_millis(server_connection_timeout_in_millia),
+		Duration::from_millis(server_socket_timeout_in_millis),
+		Duration::from_millis(server_connection_wait_timeout_in_millis),
+		Duration::from_millis(server_ipc_timeout_in_millis),
+		Duration::from_millis(server_lockfile_timeout_in_millis),
 		Duration::from_millis(server_spawn_timeout_in_millis),
 	);
 

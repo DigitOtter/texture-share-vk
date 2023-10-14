@@ -10,7 +10,10 @@ pub fn server_connect_and_daemon_launch<T>(
 	lock_file_path: &str,
 	socket_path: &str,
 	shmem_prefix: &str,
-	daemon_timeout_in_millis: u128,
+	socket_timeout: Duration,
+	connection_wait_timeout: Duration,
+	ipc_timeout: Duration,
+	lockfile_timeout: Duration,
 	spawn_timeout: Duration,
 	f: &dyn Fn() -> Result<Option<T>, Error>,
 ) -> Result<Option<T>, Error> {
@@ -24,7 +27,10 @@ pub fn server_connect_and_daemon_launch<T>(
 			lock_file_path,
 			socket_path,
 			shmem_prefix,
-			daemon_timeout_in_millis,
+			socket_timeout,
+			connection_wait_timeout,
+			ipc_timeout,
+			lockfile_timeout,
 			f,
 		)?;
 
@@ -57,7 +63,10 @@ fn try_connect<T>(
 	lock_file_path: &str,
 	socket_path: &str,
 	shmem_prefix: &str,
-	daemon_timeout_in_millis: u128,
+	socket_timeout: Duration,
+	connection_wait_timeout: Duration,
+	ipc_timeout: Duration,
+	lockfile_timeout: Duration,
 	f: &dyn Fn() -> Result<Option<T>, Error>,
 ) -> Result<Option<T>, Error> {
 	// Execute function to launch and connect client
@@ -83,7 +92,10 @@ fn try_connect<T>(
 			lock_file_path,
 			socket_path,
 			shmem_prefix,
-			daemon_timeout_in_millis,
+			socket_timeout.as_millis(),
+			connection_wait_timeout.as_millis(),
+			ipc_timeout.as_millis(),
+			lockfile_timeout.as_millis(),
 		)?);
 	}
 
@@ -95,14 +107,23 @@ fn spawn(
 	lock_file_path: &str,
 	socket_path: &str,
 	shmem_prefix: &str,
-	daemon_timeout_in_millis: u128,
+	socket_timeout_in_millis: u128,
+	connection_wait_timeout_in_millis: u128,
+	ipc_timeout_in_millis: u128,
+	lockfile_timeout_in_millis: u128,
 ) -> Result<process::Child, Error> {
 	process::Command::new(program_path)
 		.args([
 			format!("--lock-file={}", lock_file_path),
 			format!("--socket-file={}", socket_path),
 			format!("--shmem-prefix={}", shmem_prefix),
-			format!("--timeout-millis={}", daemon_timeout_in_millis),
+			format!("--socket-timeout-millis={}", socket_timeout_in_millis),
+			format!(
+				"--connection-wait-timeout-millis={}",
+				connection_wait_timeout_in_millis
+			),
+			format!("--ipc-timeout-millis={}", ipc_timeout_in_millis),
+			format!("--lockfile-timeout-millis={}", lockfile_timeout_in_millis),
 		])
 		.spawn()
 }

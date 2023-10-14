@@ -16,18 +16,28 @@ use texture_share_vk_base::{
 use texture_share_vk_client::VkClient;
 use texture_share_vk_server::VkServer;
 
-const TIMEOUT: Duration = Duration::from_secs(2);
+const SOCKET_TIMEOUT: Duration = Duration::from_millis(2000);
+const NO_CONNECTION_TIMEOUT: Duration = Duration::from_millis(2000);
+const IPC_TIMEOUT: Duration = Duration::from_millis(2000);
 const SOCKET_PATH: &str = "test_socket.sock";
 const SHMEM_PREFIX: &str = "shared_images_";
 
 fn _server_create() -> VkServer {
-	VkServer::new(SOCKET_PATH, SHMEM_PREFIX, TIMEOUT).unwrap()
+	VkServer::new(
+		SOCKET_PATH,
+		SHMEM_PREFIX,
+		SOCKET_TIMEOUT,
+		NO_CONNECTION_TIMEOUT,
+		IPC_TIMEOUT,
+	)
+	.unwrap()
 }
 
 fn _client_create() -> VkClient {
 	let mut vk_setup = vk_setup_new();
 	vk_setup.as_mut().unwrap().initialize_vulkan();
-	VkClient::new(SOCKET_PATH, vk_setup, TIMEOUT).expect("Client failed to connect to server")
+	VkClient::new(SOCKET_PATH, vk_setup, SOCKET_TIMEOUT)
+		.expect("Client failed to connect to server")
 }
 
 #[test]

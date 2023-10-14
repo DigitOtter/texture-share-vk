@@ -74,7 +74,10 @@ impl GlClient {
 		server_lock_path: &str,
 		server_socket_path: &str,
 		shmem_prefix: &str,
-		server_connection_timeout: Duration,
+		server_socket_timeout: Duration,
+		server_connection_wait_timeout: Duration,
+		server_ipc_timeout: Duration,
+		server_lockfile_timeout: Duration,
 		server_spawn_timeout: Duration,
 	) -> Result<GlClient, Error> {
 		let conn_fn = || {
@@ -103,7 +106,10 @@ impl GlClient {
 			server_lock_path,
 			server_socket_path,
 			shmem_prefix,
-			server_connection_timeout.as_millis(),
+			server_socket_timeout,
+			server_connection_wait_timeout,
+			server_ipc_timeout,
+			server_lockfile_timeout,
 			server_spawn_timeout,
 			&conn_fn,
 		)?;

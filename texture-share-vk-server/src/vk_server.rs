@@ -32,6 +32,8 @@ pub struct VkServer {
 	shmem_prefix: String,
 	vk_setup: UniquePtr<VkSetup>,
 	images: Vec<ImageData>,
+	connection_wait_timeout: Duration,
+	ipc_timeout: Duration,
 }
 
 impl Drop for VkServer {
@@ -45,17 +47,17 @@ impl Drop for VkServer {
 
 impl VkServer {
 	const LISTENER_EVENT_KEY: usize = usize::MAX - 1;
-	const IPC_TIMEOUT: Duration = Duration::from_millis(5000);
-	const NO_CONNECTION_TIMEOUT: Duration = Duration::from_millis(10 * 1000);
 
 	pub fn new(
 		socket_path: &str,
 		shmem_prefix: &str,
-		connection_timeout: Duration,
+		socket_timeout: Duration,
+		connection_wait_timeout: Duration,
+		ipc_timeout: Duration,
 	) -> Result<VkServer, Box<dyn std::error::Error>> {
 		let _ = fs::remove_file(socket_path.to_owned());
 
-		let socket = IpcSocket::new(socket_path, connection_timeout).map_err(|e| Box::new(e))?;
+		let socket = IpcSocket::new(socket_path, socket_timeout).map_err(|e| Box::new(e))?;
 
 		let mut vk_setup = vk_setup_new();
 		vk_setup.as_mut().unwrap().initialize_vulkan();
@@ -67,6 +69,8 @@ impl VkServer {
 			shmem_prefix: shmem_prefix.to_string(),
 			vk_setup,
 			images,
+			connection_wait_timeout,
+			ipc_timeout,
 		})
 	}
 
@@ -79,7 +83,7 @@ impl VkServer {
 		stop_bit: Arc<AtomicBool>,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		// Stop server if no connection was established after NO_CONNECTION_TIMEOUT
-		let mut conn_timeout = SystemTime::now() + VkServer::NO_CONNECTION_TIMEOUT;
+		let mut conn_timeout = SystemTime::now() + self.connection_wait_timeout;
 
 		// Setup polling
 		let mut new_connection_waiting = false;
@@ -160,6 +164,7 @@ impl VkServer {
 							&self.vk_setup,
 							&self.shmem_prefix,
 							&mut self.images,
+							self.ipc_timeout,
 						)? {
 							connections_to_close.push(ev.key);
 						}
@@ -185,7 +190,7 @@ impl VkServer {
 					break;
 				}
 			} else {
-				conn_timeout = SystemTime::now() + VkServer::NO_CONNECTION_TIMEOUT;
+				conn_timeout = SystemTime::now() + self.connection_wait_timeout;
 			}
 
 			// Break if externally requested
@@ -204,6 +209,7 @@ impl VkServer {
 		vk_setup: &VkSetup,
 		shmem_prefix: &str,
 		images: &mut Vec<ImageData>,
+		ipc_timeout: Duration,
 	) -> Result<bool, Box<dyn std::error::Error>> {
 		// Try to receive command. If connection was closed by peer, remove this connection from vector
 		let cmd = match conn.recv_command_if_available() {
@@ -230,6 +236,7 @@ impl VkServer {
 					vk_setup,
 					shmem_prefix,
 					images,
+					ipc_timeout,
 				)
 			}
 			CommandTag::FindImage => {
@@ -239,6 +246,7 @@ impl VkServer {
 					unsafe { &cmd.data.find_img },
 					vk_setup,
 					images,
+					ipc_timeout,
 				)
 			}
 			// CommandTag::RenameImage => Server::process_cmd_rename_image(
@@ -274,13 +282,14 @@ impl VkServer {
 		vk_setup: &VkSetup,
 		shmem_prefix: &str,
 		images: &mut Vec<ImageData>,
+		ipc_timeout: Duration,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		let img_name_str = ImgData::convert_shmem_array_to_str(&cmd.image_name);
 
 		let image_index = images.iter_mut().position(|it| {
 			let rlock = it
 				.ipc_info
-				.acquire_rlock(Timeout::Val(VkServer::IPC_TIMEOUT))
+				.acquire_rlock(Timeout::Val(ipc_timeout))
 				.unwrap();
 			let rdata = IpcShmem::acquire_rdata(&rlock);
 			ImgData::convert_shmem_array_to_str(&rdata.name)
@@ -297,6 +306,7 @@ impl VkServer {
 			&img_name_str,
 			&shmem_name,
 			image_index,
+			ipc_timeout,
 		)?;
 
 		// Send result to client
@@ -330,6 +340,7 @@ impl VkServer {
 		cmd: &CommFindImage,
 		vk_setup: &VkSetup,
 		images: &mut Vec<ImageData>,
+		ipc_timeout: Duration,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		let img_name_str = ImgData::convert_shmem_array_to_str(&cmd.image_name);
 
@@ -337,7 +348,7 @@ impl VkServer {
 			images.iter_mut().find_map(|it| {
 				let rlock = it
 					.ipc_info
-					.acquire_rlock(Timeout::Val(VkServer::IPC_TIMEOUT))
+					.acquire_rlock(Timeout::Val(ipc_timeout))
 					.unwrap();
 				let rdata = IpcShmem::acquire_rdata(&rlock);
 
@@ -416,6 +427,7 @@ impl VkServer {
 		image_name: &str,
 		shmem_name: &str,
 		image_index: Option<usize>,
+		ipc_timeout: Duration,
 	) -> Result<
 		(
 			ResultInitImage,
@@ -455,7 +467,7 @@ impl VkServer {
 		// Lock access
 		let lock = image
 			.ipc_info
-			.acquire_lock(Timeout::Val(VkServer::IPC_TIMEOUT))
+			.acquire_lock(Timeout::Val(ipc_timeout))
 			.unwrap();
 		let mut data = IpcShmem::acquire_data(&lock);
 
@@ -522,17 +534,33 @@ mod tests {
 
 	use super::VkServer;
 
-	const TIMEOUT: Duration = Duration::from_millis(2000);
+	const SOCKET_TIMEOUT: Duration = Duration::from_millis(2000);
+	const NO_CONNECTION_TIMEOUT: Duration = Duration::from_millis(2000);
+	const IPC_TIMEOUT: Duration = Duration::from_millis(2000);
 	const SOCKET_PATH: &str = "test_socket.sock";
 	const SHMEM_PREFIX: &str = "shared_images_";
 
 	fn _server_create() -> VkServer {
-		VkServer::new(SOCKET_PATH, SHMEM_PREFIX, TIMEOUT).unwrap()
+		VkServer::new(
+			SOCKET_PATH,
+			SHMEM_PREFIX,
+			SOCKET_TIMEOUT,
+			NO_CONNECTION_TIMEOUT,
+			IPC_TIMEOUT,
+		)
+		.unwrap()
 	}
 
 	#[test]
 	fn server_create() {
-		let _ = VkServer::new(SOCKET_PATH, SHMEM_PREFIX, TIMEOUT).unwrap();
+		let _ = VkServer::new(
+			SOCKET_PATH,
+			SHMEM_PREFIX,
+			SOCKET_TIMEOUT,
+			NO_CONNECTION_TIMEOUT,
+			IPC_TIMEOUT,
+		)
+		.unwrap();
 	}
 
 	#[test]
@@ -565,7 +593,7 @@ mod tests {
 			server.loop_server(stop_clone).expect("Server loop failed")
 		});
 
-		let conn = IpcConnection::try_connect(SOCKET_PATH, TIMEOUT).unwrap();
+		let conn = IpcConnection::try_connect(SOCKET_PATH, SOCKET_TIMEOUT).unwrap();
 		assert!(conn.is_some());
 
 		stop_bit.store(true, Ordering::Relaxed);

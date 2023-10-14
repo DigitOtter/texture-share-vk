@@ -72,14 +72,17 @@ bool TextureShareVkClient::init(VkSetup *vk_setup, const char *socket_path, uint
 bool TextureShareVkClient::init_with_server_launch(VkSetup *vk_setup, const char *socket_path,
                                                    uint64_t client_timeout_in_millis, const char *server_program,
                                                    const char *server_lock_path, const char *server_socket_path,
-                                                   const char *shmem_prefix,
-                                                   uint64_t server_connection_timeout_in_millia,
+                                                   const char *shmem_prefix, uint64_t server_socket_timeout_in_millis,
+                                                   uint64_t server_connection_wait_timeout_in_millis,
+                                                   uint64_t server_ipc_timeout_in_millis,
+                                                   uint64_t server_lockfile_timeout_in_millis,
                                                    uint64_t server_spawn_timeout_in_millis)
 {
 	this->destroy_client();
 	this->_client = vk_client_new_with_server_launch(
 		socket_path, vk_setup, client_timeout_in_millis, server_program, server_lock_path, server_socket_path,
-		shmem_prefix, server_connection_timeout_in_millia, server_spawn_timeout_in_millis);
+		shmem_prefix, server_socket_timeout_in_millis, server_connection_wait_timeout_in_millis,
+		server_ipc_timeout_in_millis, server_lockfile_timeout_in_millis, server_spawn_timeout_in_millis);
 
 	return this->_client != nullptr;
 }

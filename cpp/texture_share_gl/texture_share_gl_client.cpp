@@ -77,13 +77,17 @@ bool TextureShareGlClient::init(const char *socket_path, uint64_t timeout_in_mil
 bool TextureShareGlClient::init_with_server_launch(const char *socket_path, uint64_t client_timeout_in_millis,
                                                    const char *server_program, const char *server_lock_path,
                                                    const char *server_socket_path, const char *shmem_prefix,
-                                                   uint64_t server_connection_timeout_in_millia,
+                                                   uint64_t server_socket_timeout_in_millis,
+                                                   uint64_t server_connection_wait_timeout_in_millis,
+                                                   uint64_t server_ipc_timeout_in_millis,
+                                                   uint64_t server_lockfile_timeout_in_millis,
                                                    uint64_t server_spawn_timeout_in_millis)
 {
 	this->destroy_client();
 	this->_client = gl_client_new_with_server_launch(
 		socket_path, client_timeout_in_millis, server_program, server_lock_path, server_socket_path, shmem_prefix,
-		server_connection_timeout_in_millia, server_spawn_timeout_in_millis);
+		server_socket_timeout_in_millis, server_connection_wait_timeout_in_millis, server_ipc_timeout_in_millis,
+		server_lockfile_timeout_in_millis, server_spawn_timeout_in_millis);
 
 	return this->_client != nullptr;
 }
