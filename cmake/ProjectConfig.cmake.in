@@ -1,8 +1,7 @@
 @PACKAGE_INIT@
 
-find_package(Vulkan REQUIRED)
-find_package(Boost REQUIRED COMPONENTS date_time)
-find_package(OpenGL REQUIRED)
+find_package(Vulkan)
+find_package(OpenGL)
 
 include(${CMAKE_CURRENT_LIST_DIR}/@LIB_EXPORT_NAME@.cmake)
 
