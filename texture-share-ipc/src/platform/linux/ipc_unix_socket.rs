@@ -24,11 +24,11 @@ pub struct IpcSocket {
 
 impl IpcConnection {
 	pub fn new(conn: UnixStream, timeout: Duration) -> IpcConnection {
-		conn.set_nonblocking(true).unwrap();
+		conn.set_nonblocking(false).unwrap();
 
 		// TODO: Use socket timeout instead of own implementation
-		// conn.set_read_timeout(Some(timeout)).unwrap();
-		// conn.set_write_timeout(Some(timeout)).unwrap();
+		conn.set_read_timeout(Some(timeout)).unwrap();
+		conn.set_write_timeout(Some(timeout)).unwrap();
 
 		IpcConnection {
 			conn: RefCell::new(conn),
@@ -297,7 +297,7 @@ impl IpcConnection {
 				break Ok(None);
 			}
 
-			thread::sleep(*sleep_time);
+			//thread::sleep(*sleep_time);
 		}
 	}
 
@@ -323,7 +323,11 @@ impl IpcSocket {
 			&IpcConnection::sleep_interval(timeout),
 		)?
 		.expect("Failed to create socket");
-		listener_socket.set_nonblocking(true)?;
+		listener_socket.set_nonblocking(false)?;
+
+		// TODO: Use socket timeout instead of own implementation
+		// listener_socket.set_read_timeout(Some(timeout)).unwrap();
+		// listener_socket.set_write_timeout(Some(timeout)).unwrap();
 
 		Ok(IpcSocket {
 			listener_socket,
@@ -401,8 +405,8 @@ mod tests {
 
 		let listen_handle = thread::spawn(listen_thread);
 		let connect_handle = thread::spawn(connect_thread);
-		let listener = listen_handle.join().unwrap().unwrap();
 		let conn = connect_handle.join().unwrap().unwrap();
+		let listener = listen_handle.join().unwrap().unwrap();
 
 		(listener, conn)
 	}
