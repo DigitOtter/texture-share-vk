@@ -1,11 +1,9 @@
 use std::cell::RefCell;
-use std::cmp::min;
 use std::io::{Error, ErrorKind, IoSlice, IoSliceMut, Read, Write};
 use std::mem::size_of;
 use std::os::fd::{FromRawFd, OwnedFd, RawFd};
 use std::os::unix::net::{AncillaryData, SocketAncillary, UnixListener, UnixStream};
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::{Duration, SystemTime};
 
 use crate::platform::ipc_commands::{CommandMsg, ResultMsg};
@@ -61,7 +59,6 @@ impl IpcConnection {
 				}
 			},
 			&timeout,
-			&IpcConnection::sleep_interval(timeout),
 		)
 	}
 
@@ -130,7 +127,6 @@ impl IpcConnection {
 				}
 			},
 			&self.timeout,
-			&IpcConnection::sleep_interval(self.timeout),
 		)?;
 
 		Ok(fds)
@@ -187,7 +183,6 @@ impl IpcConnection {
 				}
 			},
 			&self.timeout,
-			&IpcConnection::sleep_interval(self.timeout),
 		)?;
 
 		Ok(recv_res.and_then(|_| Some(msg)))
@@ -219,7 +214,6 @@ impl IpcConnection {
 				}
 			},
 			&self.timeout,
-			&IpcConnection::sleep_interval(self.timeout),
 		)?;
 
 		Ok(recv_res.and_then(|_| Some(msg)))
@@ -250,7 +244,6 @@ impl IpcConnection {
 				}
 			},
 			&self.timeout,
-			&IpcConnection::sleep_interval(self.timeout),
 		)?;
 
 		Ok(recv_res.and_then(|_| Some(msg)))
@@ -270,14 +263,12 @@ impl IpcConnection {
 					.map(|_| Some(()))
 			},
 			&self.timeout,
-			&IpcConnection::sleep_interval(self.timeout),
 		)
 	}
 
 	fn try_fcn_timeout<R, F: FnMut() -> Result<Option<R>, Error>>(
 		mut f: F,
 		timeout: &Duration,
-		sleep_time: &Duration,
 	) -> Result<Option<R>, Error> {
 		let start_time = SystemTime::now();
 		loop {
@@ -296,14 +287,7 @@ impl IpcConnection {
 			if SystemTime::now().duration_since(start_time).unwrap() > *timeout {
 				break Ok(None);
 			}
-
-			//thread::sleep(*sleep_time);
 		}
-	}
-
-	fn sleep_interval(timeout: Duration) -> Duration {
-		const MIN_SLEEP_DUR: Duration = Duration::from_millis(100);
-		min(MIN_SLEEP_DUR, timeout / 10)
 	}
 }
 
@@ -320,7 +304,6 @@ impl IpcSocket {
 				Ok(r) => Ok(Some(r)),
 			},
 			&timeout,
-			&IpcConnection::sleep_interval(timeout),
 		)?
 		.expect("Failed to create socket");
 		listener_socket.set_nonblocking(false)?;
@@ -360,7 +343,6 @@ impl IpcSocket {
 				}
 			},
 			&self.timeout,
-			&IpcConnection::sleep_interval(self.timeout),
 		)?;
 
 		if res.is_some() {
@@ -373,6 +355,7 @@ impl IpcSocket {
 
 #[cfg(test)]
 mod tests {
+	use std::thread;
 	use std::{fs, os::fd::AsRawFd};
 
 	use super::*;
