@@ -32,7 +32,7 @@ set(TSV_RUST_GEN_INCLUDE_DIR
     CACHE PATH "Path to directory for generated headers")
 
 set(TSV_INSTALL_BINDIR
-    "${CMAKE_INSTALL_SBINDIR}"
+    "${CMAKE_INSTALL_BINDIR}"
     CACHE PATH "Directory to save server executable in")
 
 set(TSV_VK_SERVER_DEFAULT_LOCKFILE_PATH
