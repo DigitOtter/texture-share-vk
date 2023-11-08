@@ -8,6 +8,7 @@ pub mod platform {
 	pub mod daemon_launch;
 	pub mod img_data;
 	pub mod ipc_commands;
+	pub mod ipc_shmem;
 
 	#[cfg(target_os = "linux")]
 	mod linux;
