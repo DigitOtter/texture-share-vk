@@ -1,7 +1,5 @@
-#ifndef EXTERNAL_HANDLE_VK_H
-#define EXTERNAL_HANDLE_VK_H
+#pragma once
 
-// #include "texture_share_vk/platform/platform.h"
 #include "external_handle.h"
 
 // #define VK_USE_PLATFORM_XLIB_KHR
@@ -59,5 +57,3 @@ class ExternalHandleVk
 
 	private:
 };
-
-#endif // EXTERNAL_HANDLE_VK_H

@@ -1,8 +1,8 @@
-#ifndef EXTERNAL_HANDLE_H
-#define EXTERNAL_HANDLE_H
+#pragma once
 
-namespace opengl
-{
+#include <cstdint>
+#include <cstring>
+#include <unistd.h>
 
 class ExternalHandle
 {
@@ -30,7 +30,3 @@ class ExternalHandle
 
 	private:
 };
-
-} // namespace opengl
-
-#endif // EXTERNAL_HANDLE_H

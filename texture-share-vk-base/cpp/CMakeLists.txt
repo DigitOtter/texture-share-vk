@@ -40,14 +40,15 @@ set(BUILD_SHARED_LIBS ${TMP_BSL})
 
 add_subdirectory("third_party/volk")
 
+# Turn string passed with environment variable back to cmake list
+string(REPLACE "," ";" TSV_PLATFORM_VK_SRC      ${TSV_PLATFORM_VK_SRC})
+
 # cmake-format: off
 set(LIB_SRC_FILES
 	"vk_shared_image/vk_helpers.cpp"
 	"vk_shared_image/vk_setup.cpp"
 	"vk_shared_image/vk_shared_image.cpp"
-	"vk_shared_image/platform/linux/external_handle_vk.cpp"
-	"vk_shared_image/platform/linux/external_handle.cpp"
-	#"wrapper/vk_shared_image_wrapper.cpp"
+	${TSV_PLATFORM_VK_SRC}
 )
 # cmake-format: on
 
@@ -59,14 +60,19 @@ target_compile_options(${LIBRARY_NAME} PUBLIC $<$<OR:$<CXX_COMPILER_ID:Clang>,$<
 
 target_include_directories(
 	${LIBRARY_NAME}
-	PUBLIC "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>""$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+	PUBLIC 
+		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+		"$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
+		"$<BUILD_INTERFACE:${TSV_PLATFORM_INCLUDE_DIR}>"
 	PRIVATE
 )
 
 target_link_libraries(
 	${LIBRARY_NAME}
-	PUBLIC Vulkan::Vulkan
-	PRIVATE vk-bootstrap::vk-bootstrap
+	PUBLIC 
+		Vulkan::Vulkan
+	PRIVATE 
+		vk-bootstrap::vk-bootstrap
 )
 
 # #

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "vk_helpers.h"
-#include "vk_shared_image/platform/linux/external_handle_vk.h"
+#include "platform/linux/external_handle_vk.h"
 
 #include <unistd.h>
 

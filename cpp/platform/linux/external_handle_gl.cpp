@@ -3,8 +3,6 @@
 #include <GL/glx.h>
 #include <assert.h>
 
-using namespace opengl;
-
 ExternalHandleGl::gen_semaphores_fcn_t *ExternalHandleGl::gen_semaphores_fcn                 = nullptr;
 ExternalHandleGl::import_semaphore_fcn_fd_t *ExternalHandleGl::import_semaphore_fd_fcn       = nullptr;
 ExternalHandleGl::delete_semaphores_fcn_t *ExternalHandleGl::delete_semaphores_fcn           = nullptr;

@@ -11,8 +11,6 @@ cxx = "1.0.107"
 texture-share-vk-base = { path = "../texture-share-vk-base" }
 
 [dev-dependencies]
-texture-share-vk-server = { path = "../texture-share-vk-server" }
-#tempfile = "3.8.0"
 
 [build-dependencies]
 cbindgen = "0.26.0"

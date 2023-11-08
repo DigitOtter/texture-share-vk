@@ -1,7 +1,5 @@
 #include "vk_shared_image.h"
 
-#include "platform/external_handle_vk.h"
-#include "vk_shared_image/platform/linux/external_handle_vk.h"
 #include "vk_shared_image/vk_helpers.h"
 #include <memory>
 #include <vulkan/vulkan_core.h>

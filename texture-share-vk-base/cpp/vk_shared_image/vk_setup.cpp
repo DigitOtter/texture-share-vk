@@ -1,6 +1,5 @@
 #include "vk_setup.h"
 
-#include "platform/external_handle_vk.h"
 
 VkSetup::~VkSetup()
 {

@@ -1,7 +1,18 @@
 #include "external_handle_vk.h"
 
-// #include "texture_share_vk/logging.h"
-#include "vk_shared_image/vk_helpers.h"
+#include <iostream>
+
+#define VK_CHECK(x)                                                     \
+	do                                                                  \
+	{                                                                   \
+		VkResult err = x;                                               \
+		if(err)                                                         \
+		{                                                               \
+			std::cerr << "Detected Vulkan error: " << err << std::endl; \
+			abort();                                                    \
+		}                                                               \
+	}                                                                   \
+	while(0);
 
 // PFN_vkGetPhysicalDeviceExternalSemaphorePropertiesKHR
 // 	ExternalHandleVk::pvkGetPhysicalDeviceExternalSemaphorePropertiesKHR = nullptr;

@@ -5,9 +5,6 @@
 #include <GL/gl.h>
 #include <GL/glext.h>
 
-namespace opengl
-{
-
 struct SharedImageData
 {
 	uint32_t Id             = 0;
@@ -32,7 +29,7 @@ class GlSharedImage
 	static constexpr GLuint SHARED_IMAGE_TEX_TARGET = GL_TEXTURE_2D;
 
 	public:
-	using ImageExtent = opengl::ImageExtent;
+	using ImageExtent = ::ImageExtent;
 	GlSharedImage();
 	~GlSharedImage();
 
@@ -142,4 +139,3 @@ class GlSharedImage
 	               GLuint dst_texture_id, GLuint dst_texture_target, const ImageExtent &dst_dimensions,
 	               bool invert = false, GLuint prev_fbo = 0);
 };
-} // namespace opengl

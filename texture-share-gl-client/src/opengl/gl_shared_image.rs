@@ -7,7 +7,7 @@ use texture_share_ipc::platform::ShmemDataInternal;
 pub struct GLuint(pub c_uint);
 
 unsafe impl ExternType for GLuint {
-	type Id = type_id!("opengl::GLuint");
+	type Id = type_id!("GLuint");
 	type Kind = cxx::kind::Trivial;
 }
 
@@ -15,7 +15,7 @@ unsafe impl ExternType for GLuint {
 pub struct GLenum(pub c_uint);
 
 unsafe impl ExternType for GLenum {
-	type Id = type_id!("opengl::GLenum");
+	type Id = type_id!("GLenum");
 	type Kind = cxx::kind::Trivial;
 }
 
@@ -23,7 +23,7 @@ unsafe impl ExternType for GLenum {
 pub struct GLsizei(pub c_int);
 
 unsafe impl ExternType for GLsizei {
-	type Id = type_id!("opengl::GLsizei");
+	type Id = type_id!("GLsizei");
 	type Kind = cxx::kind::Trivial;
 }
 
@@ -31,11 +31,22 @@ unsafe impl ExternType for GLsizei {
 pub struct GLuint64(pub u64);
 
 unsafe impl ExternType for GLuint64 {
-	type Id = type_id!("opengl::GLuint64");
+	type Id = type_id!("GLuint64");
 	type Kind = cxx::kind::Trivial;
 }
 
-#[cxx::bridge(namespace = "opengl")]
+#[repr(C)]
+pub struct ImageExtent {
+	top_left: [GLsizei; 2],
+	bottom_right: [GLsizei; 2],
+}
+
+unsafe impl ExternType for ImageExtent {
+	type Id = type_id!("ImageExtent");
+	type Kind = cxx::kind::Trivial;
+}
+
+#[cxx::bridge]
 pub mod ffi {
 	#[repr(u32)]
 	#[derive(Debug)]
@@ -73,7 +84,7 @@ pub mod ffi {
 		type GLsizei = super::GLsizei;
 		type GLuint64 = super::GLuint64;
 
-		type ImageExtent = crate::bindings::ImageExtent;
+		type ImageExtent = super::ImageExtent;
 
 		#[rust_name = "GlSharedImage"]
 		type GlSharedImageWrapper;

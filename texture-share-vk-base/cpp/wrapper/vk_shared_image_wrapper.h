@@ -1,7 +1,7 @@
 #pragma once
 
-#include "vk_shared_image/platform/linux/external_handle.h"
-#include "vk_shared_image/platform/linux/external_handle_vk.h"
+#include "platform/linux/external_handle.h"
+#include "platform/linux/external_handle_vk.h"
 #include "vk_shared_image/vk_shared_image.h"
 #include <cstdint>
 #include <memory>

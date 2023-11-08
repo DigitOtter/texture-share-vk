@@ -1,15 +1,12 @@
 #pragma once
 
 #include "gl_shared_image/gl_shared_image.h"
-#include "gl_shared_image/platform/linux/external_handle.h"
+#include "platform/linux/external_handle.h"
 // #include "gl_shared_image/platform/linux/external_handle_gl.h"
 #include <GL/gl.h>
 #include <GL/glext.h>
 #include <cstdint>
 #include <memory>
-
-namespace opengl
-{
 
 using ::GLenum;
 using ::GLsizei;
@@ -134,5 +131,3 @@ std::unique_ptr<ShareHandlesWrapper> gl_share_handles_from_fd(int memory_fd);
 bool gl_external_initialize();
 
 // using ImageExtent = GlSharedImage::ImageExtent;
-
-} // namespace opengl

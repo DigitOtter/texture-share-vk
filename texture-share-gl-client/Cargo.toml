@@ -12,8 +12,6 @@ libc = "0.2.148"
 texture-share-ipc = { path = "../texture-share-ipc" }
 
 [dev-dependencies]
-#texture-share-vk-base = { path = "../texture-share-vk-base" }
-texture-share-vk-server = { path = "../texture-share-vk-server" }
 
 [build-dependencies]
 cc = "1.0.83"

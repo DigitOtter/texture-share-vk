@@ -10,7 +10,7 @@ use libc::{c_char, c_int};
 use texture_share_ipc::platform::{img_data::ImgFormat, ReadLockGuard, ShmemDataInternal};
 
 use crate::{
-	gl_shared_image::{GLenum, GLsizei, GLuint},
+	gl_shared_image::{GLenum, GLsizei, GLuint, ImageExtent},
 	GlClient,
 };
 
@@ -20,17 +20,6 @@ enum ImageLookupResult {
 	NotFound = 0,
 	Found = 1,
 	RequiresUpdate = 2,
-}
-
-#[repr(C)]
-pub struct ImageExtent {
-	top_left: [GLsizei; 2],
-	bottom_right: [GLsizei; 2],
-}
-
-unsafe impl ExternType for ImageExtent {
-	type Id = type_id!("opengl::ImageExtent");
-	type Kind = cxx::kind::Trivial;
 }
 
 fn get_str<'a>(buf: &'a *const c_char) -> Cow<'a, str> {
