@@ -24,38 +24,38 @@ find_package(OpenGL REQUIRED)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION
-	ON
-	CACHE BOOL "Activate LTO")
+    ON
+    CACHE BOOL "Activate LTO")
 
 set(TSV_RUST_GEN_INCLUDE_DIR
-	"${CMAKE_CURRENT_BINARY_DIR}/gen_includes"
-	CACHE PATH "Path to directory for generated headers")
+    "${CMAKE_CURRENT_BINARY_DIR}/gen_includes"
+    CACHE PATH "Path to directory for generated headers")
 
 set(TSV_INSTALL_BINDIR
-	"${CMAKE_INSTALL_BINDIR}"
-	CACHE PATH "Directory to save server executable in")
+    "${CMAKE_INSTALL_BINDIR}"
+    CACHE PATH "Directory to save server executable in")
 
 set(TSV_VK_SERVER_DEFAULT_LOCKFILE_PATH
-	"/tmp/vk_server/vk_server.lock"
-	CACHE PATH "Default VkServr lockfile path")
+    "/tmp/vk_server/vk_server.lock"
+    CACHE PATH "Default VkServr lockfile path")
 set(TSV_VK_SERVER_DEFAULT_SOCKET_PATH
-	"/tmp/vk_server/vk_server.sock"
-	CACHE PATH "Default VkServr socket path")
+    "/tmp/vk_server/vk_server.sock"
+    CACHE PATH "Default VkServr socket path")
 
 # ##############################################################################
 # Platform specific lib compilation
 set(TSV_PLATFORM_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cpp")
 if(UNIX)
-	set(TSV_PLATFORM_SRC
-		"${CMAKE_CURRENT_SOURCE_DIR}/cpp/platform/linux/external_handle.cpp")
+    set(TSV_PLATFORM_SRC
+        "${CMAKE_CURRENT_SOURCE_DIR}/cpp/platform/linux/external_handle.cpp")
 
-	set(TSV_PLATFORM_VK_SRC
-		${TSV_PLATFORM_SRC}
-		"${CMAKE_CURRENT_SOURCE_DIR}/cpp/platform/linux/external_handle_vk.cpp")
+    set(TSV_PLATFORM_VK_SRC
+        ${TSV_PLATFORM_SRC}
+        "${CMAKE_CURRENT_SOURCE_DIR}/cpp/platform/linux/external_handle_vk.cpp")
 
-	set(TSV_PLATFORM_GL_SRC
-		${TSV_PLATFORM_SRC}
-		"${CMAKE_CURRENT_SOURCE_DIR}/cpp/platform/linux/external_handle_gl.cpp")
+    set(TSV_PLATFORM_GL_SRC
+        ${TSV_PLATFORM_SRC}
+        "${CMAKE_CURRENT_SOURCE_DIR}/cpp/platform/linux/external_handle_gl.cpp")
 endif()
 
 # Allow lists to be passed via environment variables
@@ -71,9 +71,9 @@ add_subdirectory("third_party/corrosion")
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml")
 
 add_dependencies(cargo-prebuild_texture-share-vk-server
-				 cargo-build_texture-share-vk-base)
+                 cargo-build_texture-share-vk-base)
 add_dependencies(cargo-prebuild_texture-share-vk-client
-				 cargo-build_texture-share-vk-base)
+                 cargo-build_texture-share-vk-base)
 
 # Rust build targets
 add_library(Rust::TextureShareIpc ALIAS texture-share-ipc)
@@ -83,25 +83,25 @@ add_library(Rust::TextureShareVkClient ALIAS texture-share-vk-client)
 add_library(Rust::TextureShareGlClient ALIAS texture-share-gl-client)
 
 corrosion_set_env_vars(texture-share-ipc
-					   TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR})
+                       TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR})
 corrosion_set_env_vars(
-	texture-share-vk-base TSV_PLATFORM_INCLUDE_DIR=${TSV_PLATFORM_INCLUDE_DIR}
-	TSV_PLATFORM_VK_SRC=${TSV_PLATFORM_VK_SRC})
+    texture-share-vk-base TSV_PLATFORM_INCLUDE_DIR=${TSV_PLATFORM_INCLUDE_DIR}
+    TSV_PLATFORM_VK_SRC=${TSV_PLATFORM_VK_SRC})
 corrosion_set_env_vars(
-	texture-share-vk-server
-	TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR}
-	TSV_PLATFORM_INCLUDE_DIR=${TSV_PLATFORM_INCLUDE_DIR}
-	TSV_PLATFORM_VK_SRC=${TSV_PLATFORM_VK_SRC})
+    texture-share-vk-server
+    TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR}
+    TSV_PLATFORM_INCLUDE_DIR=${TSV_PLATFORM_INCLUDE_DIR}
+    TSV_PLATFORM_VK_SRC=${TSV_PLATFORM_VK_SRC})
 corrosion_set_env_vars(
-	texture-share-vk-client
-	TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR}
-	TSV_PLATFORM_INCLUDE_DIR=${TSV_PLATFORM_INCLUDE_DIR}
-	TSV_PLATFORM_VK_SRC=${TSV_PLATFORM_VK_SRC})
+    texture-share-vk-client
+    TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR}
+    TSV_PLATFORM_INCLUDE_DIR=${TSV_PLATFORM_INCLUDE_DIR}
+    TSV_PLATFORM_VK_SRC=${TSV_PLATFORM_VK_SRC})
 corrosion_set_env_vars(
-	texture-share-gl-client
-	TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR}
-	TSV_PLATFORM_INCLUDE_DIR=${TSV_PLATFORM_INCLUDE_DIR}
-	TSV_PLATFORM_GL_SRC=${TSV_PLATFORM_GL_SRC})
+    texture-share-gl-client
+    TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR}
+    TSV_PLATFORM_INCLUDE_DIR=${TSV_PLATFORM_INCLUDE_DIR}
+    TSV_PLATFORM_GL_SRC=${TSV_PLATFORM_GL_SRC})
 
 # ##############################################################################
 # Libraries
@@ -111,88 +111,88 @@ add_library(TextureShareIpc INTERFACE)
 add_library(${PROJECT_NAME}::TextureShareIpc ALIAS TextureShareIpc)
 
 target_include_directories(
-	TextureShareIpc INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-							  "$<BUILD_INTERFACE:${TSV_RUST_GEN_INCLUDE_DIR}>")
+    TextureShareIpc INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+                              "$<BUILD_INTERFACE:${TSV_RUST_GEN_INCLUDE_DIR}>")
 
 target_link_libraries(
-	TextureShareIpc INTERFACE $<BUILD_INTERFACE:Rust::TextureShareIpc>
-							  $<INSTALL_INTERFACE:texture_share_ipc>)
+    TextureShareIpc INTERFACE $<BUILD_INTERFACE:Rust::TextureShareIpc>
+                              $<INSTALL_INTERFACE:texture_share_ipc>)
 
 # VkClient
 add_library(TextureShareVkClient INTERFACE)
 add_library(${PROJECT_NAME}::TextureShareVkClient ALIAS TextureShareVkClient)
 
 target_include_directories(
-	TextureShareVkClient
-	INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-			  "$<BUILD_INTERFACE:${TSV_RUST_GEN_INCLUDE_DIR}>")
+    TextureShareVkClient
+    INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+              "$<BUILD_INTERFACE:${TSV_RUST_GEN_INCLUDE_DIR}>")
 
 target_link_libraries(
-	TextureShareVkClient
-	INTERFACE $<BUILD_INTERFACE:Rust::TextureShareVkClient>
-			  # $<BUILD_INTERFACE:Vulkan::Vulkan>
-			  $<INSTALL_INTERFACE:texture_share_vk_client>)
+    TextureShareVkClient
+    INTERFACE $<BUILD_INTERFACE:Rust::TextureShareVkClient>
+              # $<BUILD_INTERFACE:Vulkan::Vulkan>
+              $<INSTALL_INTERFACE:texture_share_vk_client>)
 
 # GlClient
 add_library(TextureShareGlClient INTERFACE)
 add_library(${PROJECT_NAME}::TextureShareGlClient ALIAS TextureShareGlClient)
 
 target_include_directories(
-	TextureShareGlClient
-	INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-			  "$<BUILD_INTERFACE:${TSV_RUST_GEN_INCLUDE_DIR}>")
+    TextureShareGlClient
+    INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+              "$<BUILD_INTERFACE:${TSV_RUST_GEN_INCLUDE_DIR}>")
 
 target_link_libraries(
-	TextureShareGlClient
-	INTERFACE $<BUILD_INTERFACE:Rust::TextureShareGlClient>
-			  # $<BUILD_INTERFACE:OpenGL::OpenGL>
-			  $<INSTALL_INTERFACE:texture_share_gl_client>)
+    TextureShareGlClient
+    INTERFACE $<BUILD_INTERFACE:Rust::TextureShareGlClient>
+              # $<BUILD_INTERFACE:OpenGL::OpenGL>
+              $<INSTALL_INTERFACE:texture_share_gl_client>)
 
 # #
 # ##############################################################################
 # Cpp Wrappers
 set(VK_SERVER_EXECUTABLE
-	"${CMAKE_INSTALL_PREFIX}/${TSV_INSTALL_BINDIR}/texture-share-vk-server")
+    "${CMAKE_INSTALL_PREFIX}/${TSV_INSTALL_BINDIR}/texture-share-vk-server")
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cpp/texture_share_vk/config.hpp.in"
-			   "${TSV_RUST_GEN_INCLUDE_DIR}/texture_share_vk/config.hpp" @ONLY)
+               "${TSV_RUST_GEN_INCLUDE_DIR}/texture_share_vk/config.hpp" @ONLY)
 
 # VkSetup wrapper
 add_library(TextureShareVkSetupCpp SHARED
-			"cpp/texture_share_vk/texture_share_vk_setup.cpp")
+            "cpp/texture_share_vk/texture_share_vk_setup.cpp")
 add_library(${PROJECT_NAME}::TextureShareVkSetupCpp ALIAS
-			TextureShareVkSetupCpp)
+            TextureShareVkSetupCpp)
 
 add_dependencies(TextureShareVkSetupCpp cargo-build_texture-share-vk-client)
 
 target_include_directories(
-	TextureShareVkSetupCpp
-	PUBLIC "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-		   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cpp>"
-		   "$<BUILD_INTERFACE:${TSV_RUST_GEN_INCLUDE_DIR}>")
+    TextureShareVkSetupCpp
+    PUBLIC "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+           "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cpp>"
+           "$<BUILD_INTERFACE:${TSV_RUST_GEN_INCLUDE_DIR}>")
 
 # VkClient wrapper
 add_library(TextureShareVkClientCpp SHARED
-			"cpp/texture_share_vk/texture_share_vk_client.cpp")
+            "cpp/texture_share_vk/texture_share_vk_client.cpp")
 add_library(${PROJECT_NAME}::TextureShareVkClientCpp ALIAS
-			TextureShareVkClientCpp)
+            TextureShareVkClientCpp)
 
 target_link_libraries(
-	TextureShareVkClientCpp PUBLIC ${PROJECT_NAME}::TextureShareVkClient
-								   ${PROJECT_NAME}::TextureShareVkSetupCpp)
+    TextureShareVkClientCpp PUBLIC ${PROJECT_NAME}::TextureShareVkClient
+                                   ${PROJECT_NAME}::TextureShareVkSetupCpp)
 
 # GlClient wrapper
 add_library(TextureShareGlClientCpp SHARED
-			"cpp/texture_share_gl/texture_share_gl_client.cpp")
+            "cpp/texture_share_gl/texture_share_gl_client.cpp")
 add_library(${PROJECT_NAME}::TextureShareGlClientCpp ALIAS
-			TextureShareGlClientCpp)
+            TextureShareGlClientCpp)
 
 target_link_libraries(TextureShareGlClientCpp
-					  PUBLIC ${PROJECT_NAME}::TextureShareGlClient)
+                      PUBLIC ${PROJECT_NAME}::TextureShareGlClient)
 
 # Lazy Test Linker. Remove later
 add_executable(test_gl_client "cpp/test_main.cpp")
 target_link_libraries(test_gl_client ${PROJECT_NAME}::TextureShareGlClientCpp
-					  OpenGL::GL)
+                      OpenGL::GL)
 
 # #
 # ##############################################################################
