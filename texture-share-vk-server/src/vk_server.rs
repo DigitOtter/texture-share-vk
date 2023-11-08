@@ -21,7 +21,7 @@ use texture_share_vk_base::ipc::{IpcConnection, IpcShmem, IpcSocket};
 use texture_share_vk_base::vk_setup::ffi::{vk_setup_new, VkSetup};
 use texture_share_vk_base::vk_shared_image::ffi::{vk_shared_image_new, VkFormat, VkSharedImage};
 
-pub(super) struct ImageData {
+pub(super) struct ServerImageData {
 	pub ipc_info: IpcShmem,
 	pub vk_shared_image: UniquePtr<VkSharedImage>,
 }
@@ -31,7 +31,7 @@ pub struct VkServer {
 	socket_path: String,
 	shmem_prefix: String,
 	vk_setup: UniquePtr<VkSetup>,
-	images: Vec<ImageData>,
+	images: Vec<ServerImageData>,
 	connection_wait_timeout: Duration,
 	ipc_timeout: Duration,
 }
@@ -208,7 +208,7 @@ impl VkServer {
 		conn: &IpcConnection,
 		vk_setup: &VkSetup,
 		shmem_prefix: &str,
-		images: &mut Vec<ImageData>,
+		images: &mut Vec<ServerImageData>,
 		ipc_timeout: Duration,
 	) -> Result<bool, Box<dyn std::error::Error>> {
 		// Try to receive command. If connection was closed by peer, remove this connection from vector
@@ -281,7 +281,7 @@ impl VkServer {
 		cmd: &CommInitImage,
 		vk_setup: &VkSetup,
 		shmem_prefix: &str,
-		images: &mut Vec<ImageData>,
+		images: &mut Vec<ServerImageData>,
 		ipc_timeout: Duration,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		let img_name_str = ImgData::convert_shmem_array_to_str(&cmd.image_name);
@@ -339,7 +339,7 @@ impl VkServer {
 		connection: &IpcConnection,
 		cmd: &CommFindImage,
 		vk_setup: &VkSetup,
-		images: &mut Vec<ImageData>,
+		images: &mut Vec<ServerImageData>,
 		ipc_timeout: Duration,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		let img_name_str = ImgData::convert_shmem_array_to_str(&cmd.image_name);
@@ -419,7 +419,7 @@ impl VkServer {
 	fn update_shared_image<'a>(
 		cmd: &CommInitImage,
 		vk_setup: &VkSetup,
-		image_vec: &'a mut Vec<ImageData>,
+		image_vec: &'a mut Vec<ServerImageData>,
 		image_name: &str,
 		shmem_name: &str,
 		image_index: Option<usize>,
@@ -433,7 +433,7 @@ impl VkServer {
 		Box<dyn std::error::Error>,
 	> {
 		// Check if an image with the given name is available
-		let image: &mut ImageData = {
+		let image: &mut ServerImageData = {
 			if image_index.is_some() {
 				// Only overwrite image if explicitly requested
 				if !cmd.overwrite_existing {
@@ -451,7 +451,7 @@ impl VkServer {
 			} else {
 				let ipc_info = IpcShmem::new(shmem_name, image_name, true)?;
 				let vk_shared_image = vk_shared_image_new();
-				image_vec.push(ImageData {
+				image_vec.push(ServerImageData {
 					ipc_info,
 					vk_shared_image,
 				});
