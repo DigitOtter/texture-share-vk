@@ -1,5 +1,7 @@
 use std::mem::size_of;
 
+use super::ShmemDataInternal;
+
 pub(crate) type ImgName = [u8; 1024];
 pub(crate) type ShmemName = [u8; 1024];
 
@@ -15,15 +17,43 @@ pub enum ImgFormat {
 
 #[repr(C)]
 pub struct ImgData {
-	pub name: ImgName,
 	pub shmem_name: ShmemName,
-	pub width: u32,
-	pub height: u32,
-	pub format: ImgFormat,
-	pub allocation_size: u64,
+	pub data: ShmemDataInternal,
 }
 
 impl ImgData {
+	pub fn new(
+		shmem_name: ShmemName,
+		image_name: ImgName,
+		handle_id: u32,
+		width: u32,
+		height: u32,
+		format: ImgFormat,
+		allocation_size: u64,
+	) -> ImgData {
+		ImgData {
+			shmem_name,
+			data: ShmemDataInternal::new(
+				image_name,
+				handle_id,
+				width,
+				height,
+				format,
+				allocation_size,
+			),
+		}
+	}
+
+	pub fn from_shmem_data_internal(
+		shmem_name: ShmemName,
+		shmem_data_internal: ShmemDataInternal,
+	) -> ImgData {
+		ImgData {
+			shmem_name,
+			data: shmem_data_internal,
+		}
+	}
+
 	pub fn convert_shmem_str_to_array(shmem_name: &str) -> ShmemName {
 		// Generate ResultMsg data
 		let shmem_name_array = shmem_name.as_bytes().to_owned();
@@ -59,12 +89,8 @@ impl Default for ImgFormat {
 impl Default for ImgData {
 	fn default() -> Self {
 		Self {
-			name: [0 as u8; size_of::<ImgName>()],
 			shmem_name: [0 as u8; size_of::<ShmemName>()],
-			width: 0,
-			height: 0,
-			format: ImgFormat::default(),
-			allocation_size: 0,
+			data: ShmemDataInternal::default(),
 		}
 	}
 }

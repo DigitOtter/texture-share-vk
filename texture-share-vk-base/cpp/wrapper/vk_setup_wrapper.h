@@ -1,6 +1,6 @@
 #pragma once
 
-#include "platform/linux/external_handle_vk.h"
+#include "texture_share_vk/platform/linux/external_handle_vk.h"
 #include "vk_shared_image/vk_setup.h"
 #include <memory>
 #include <vulkan/vulkan_core.h>

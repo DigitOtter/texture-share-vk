@@ -1,7 +1,7 @@
 #pragma once
 
+#include "texture_share_vk/platform/external_handle_vk.h"
 #include "vk_helpers.h"
-#include "platform/linux/external_handle_vk.h"
 
 #include <unistd.h>
 

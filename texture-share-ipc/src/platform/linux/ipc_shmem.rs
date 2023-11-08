@@ -19,6 +19,7 @@ use crate::platform::img_data::ImgFormat;
 use crate::platform::img_data::ImgName;
 
 #[repr(C)]
+#[derive(Clone)]
 pub struct ShmemDataInternal {
 	pub name: ImgName,
 	pub handle_id: u32,
@@ -85,8 +86,9 @@ impl<'a> IpcShmem {
 			let _rw_lock = lock.lock()?;
 			unsafe {
 				let raw_data_ptr = shmem.as_ptr().add(offset_of!(ShmemData, data));
-				*(raw_data_ptr.cast::<UnsafeCell<ShmemDataInternal>>()) =
-					UnsafeCell::new(ShmemDataInternal::new(img_name).map_err(|e| Box::new(e))?);
+				*(raw_data_ptr.cast::<UnsafeCell<ShmemDataInternal>>()) = UnsafeCell::new(
+					ShmemDataInternal::new_empty(img_name).map_err(|e| Box::new(e))?,
+				);
 			}
 		}
 
@@ -187,7 +189,25 @@ impl<'a> IpcShmem {
 }
 
 impl ShmemDataInternal {
-	fn new(img_name: &str) -> Result<ShmemDataInternal, Error> {
+	pub(crate) fn new(
+		name: ImgName,
+		handle_id: u32,
+		width: u32,
+		height: u32,
+		format: ImgFormat,
+		allocation_size: u64,
+	) -> ShmemDataInternal {
+		ShmemDataInternal {
+			name,
+			handle_id,
+			width,
+			height,
+			format,
+			allocation_size,
+		}
+	}
+
+	fn new_empty(img_name: &str) -> Result<ShmemDataInternal, Error> {
 		if img_name.as_bytes().len() > size_of::<ImgName>() {
 			Err(Error::new(
 				ErrorKind::OutOfMemory,

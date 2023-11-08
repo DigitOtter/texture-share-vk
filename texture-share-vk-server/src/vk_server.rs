@@ -357,14 +357,10 @@ impl VkServer {
 					.is_eq()
 				{
 					Some((
-						ImgData {
-							name: rdata.name,
-							shmem_name: ImgData::convert_shmem_str_to_array(it.ipc_info.get_name()),
-							width: rdata.width,
-							height: rdata.height,
-							format: rdata.format,
-							allocation_size: rdata.allocation_size,
-						},
+						ImgData::from_shmem_data_internal(
+							ImgData::convert_shmem_str_to_array(it.ipc_info.get_name()),
+							rdata.clone(),
+						),
 						&mut it.vk_shared_image,
 						rlock,
 					))
@@ -487,14 +483,10 @@ impl VkServer {
 		VkServer::update_shmem_data(&mut data, &image.vk_shared_image);
 
 		// Generate ResultMsg data
-		let img_data = ImgData {
-			name: data.name,
-			shmem_name: ImgData::convert_shmem_str_to_array(image.ipc_info.get_name()),
-			width: data.width,
-			height: data.height,
-			format: data.format,
-			allocation_size: data.allocation_size,
-		};
+		let img_data = ImgData::from_shmem_data_internal(
+			ImgData::convert_shmem_str_to_array(image.ipc_info.get_name()),
+			data.clone(),
+		);
 
 		// Return result, vk_shared_img, and lock
 		return Ok((

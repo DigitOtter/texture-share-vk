@@ -1,8 +1,8 @@
 #pragma once
 
 // #include "vk_helpers.h"
-#include "platform/linux/external_handle.h"
-#include "platform/linux/external_handle_vk.h"
+#include "texture_share_vk/platform/linux/external_handle.h"
+#include "texture_share_vk/platform/linux/external_handle_vk.h"
 
 #include <cstdint>
 #include <memory>

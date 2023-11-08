@@ -47,15 +47,18 @@ set(TSV_VK_SERVER_DEFAULT_SOCKET_PATH
 set(TSV_PLATFORM_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cpp")
 if(UNIX)
     set(TSV_PLATFORM_SRC
-        "${CMAKE_CURRENT_SOURCE_DIR}/cpp/platform/linux/external_handle.cpp")
+        "${CMAKE_CURRENT_SOURCE_DIR}/cpp/texture_share_vk/platform/linux/external_handle.cpp"
+    )
 
     set(TSV_PLATFORM_VK_SRC
         ${TSV_PLATFORM_SRC}
-        "${CMAKE_CURRENT_SOURCE_DIR}/cpp/platform/linux/external_handle_vk.cpp")
+        "${CMAKE_CURRENT_SOURCE_DIR}/cpp/texture_share_vk/platform/linux/external_handle_vk.cpp"
+    )
 
     set(TSV_PLATFORM_GL_SRC
         ${TSV_PLATFORM_SRC}
-        "${CMAKE_CURRENT_SOURCE_DIR}/cpp/platform/linux/external_handle_gl.cpp")
+        "${CMAKE_CURRENT_SOURCE_DIR}/cpp/texture_share_vk/platform/linux/external_handle_gl.cpp"
+    )
 endif()
 
 # Allow lists to be passed via environment variables
@@ -194,45 +197,59 @@ add_executable(test_gl_client "cpp/test_main.cpp")
 target_link_libraries(test_gl_client ${PROJECT_NAME}::TextureShareGlClientCpp
                       OpenGL::GL)
 
-# #
+#
 # ##############################################################################
-# # Install library files set(INSTALL_CONFIGDIR
-# "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}") install( TARGETS
-# TextureShareIpc TextureShareVkClient TextureShareGlClient
-# TextureShareGlClientCpp TextureShareVkClientCpp TextureShareVkSetupCpp EXPORT
-# ${LIB_EXPORT_NAME} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE
-# DESTINATION ${CMAKE_INSTALL_LIBDIR} RUNTIME DESTINATION
-# ${CMAKE_INSTALL_BINDIR} PUBLIC_HEADER DESTINATION
-# ${CMAKE_INSTALL_INCLUDEDIR}/${HEADER_DIRECTORY})
+# Install library files
+set(INSTALL_CONFIGDIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+install(
+    TARGETS TextureShareIpc TextureShareVkClient TextureShareGlClient
+            TextureShareGlClientCpp TextureShareVkClientCpp
+            TextureShareVkSetupCpp
+    EXPORT ${LIB_EXPORT_NAME}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${HEADER_DIRECTORY})
 
-# # Manually install library files install( PROGRAMS
-# "${CMAKE_CURRENT_BINARY_DIR}/libtexture_share_ipc.so"
-# "${CMAKE_CURRENT_BINARY_DIR}/libtexture_share_vk_client.so"
-# "${CMAKE_CURRENT_BINARY_DIR}/libtexture_share_gl_client.so" TYPE LIB)
+# Manually install library files
+install(
+    PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/libtexture_share_ipc.so"
+             "${CMAKE_CURRENT_BINARY_DIR}/libtexture_share_vk_client.so"
+             "${CMAKE_CURRENT_BINARY_DIR}/libtexture_share_gl_client.so"
+    TYPE LIB)
 
-# # Manually install executables install(PROGRAMS
-# "${CMAKE_CURRENT_BINARY_DIR}/texture-share-vk-server" DESTINATION
-# "${TSV_INSTALL_BINDIR}")
+# Manually install executables
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/texture-share-vk-server"
+        DESTINATION "${TSV_INSTALL_BINDIR}")
 
-# # Install headers install( DIRECTORY "${TSV_RUST_GEN_INCLUDE_DIR}/"
-# "${CMAKE_CURRENT_SOURCE_DIR}/cpp/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-# FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
+# Install headers
+install(
+    DIRECTORY "${TSV_RUST_GEN_INCLUDE_DIR}/" "${CMAKE_CURRENT_SOURCE_DIR}/cpp/"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    FILES_MATCHING
+    PATTERN "*.h"
+    PATTERN "*.hpp")
 
-# # Export target install( EXPORT ${LIB_EXPORT_NAME} DESTINATION
-# ${INSTALL_CONFIGDIR} FILE "${LIB_EXPORT_NAME}.cmake" NAMESPACE
-# "${NAMESPACE_NAME}::")
+# Export target
+install(
+    EXPORT ${LIB_EXPORT_NAME}
+    DESTINATION ${INSTALL_CONFIGDIR}
+    FILE "${LIB_EXPORT_NAME}.cmake"
+    NAMESPACE "${NAMESPACE_NAME}::")
 
-# # create version and config files include(CMakePackageConfigHelpers)
-# write_basic_package_version_file(
-# "${CMAKE_CURRENT_BINARY_DIR}/${LIB_VERSION_NAME}.cmake" VERSION
-# ${PROJECT_VERSION} COMPATIBILITY AnyNewerVersion)
+# create version and config files
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/${LIB_VERSION_NAME}.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion)
 
-# configure_package_config_file(
-# "${CMAKE_CURRENT_LIST_DIR}/cmake/ProjectConfig.cmake.in"
-# "${CMAKE_CURRENT_BINARY_DIR}/${LIB_CONFIG_NAME}.cmake" INSTALL_DESTINATION
-# ${INSTALL_CONFIGDIR})
+configure_package_config_file(
+    "${CMAKE_CURRENT_LIST_DIR}/cmake/ProjectConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${LIB_CONFIG_NAME}.cmake"
+    INSTALL_DESTINATION ${INSTALL_CONFIGDIR})
 
-# # Install all the helper files install(FILES
-# "${CMAKE_CURRENT_BINARY_DIR}/${LIB_CONFIG_NAME}.cmake"
-# "${CMAKE_CURRENT_BINARY_DIR}/${LIB_VERSION_NAME}.cmake" DESTINATION
-# ${INSTALL_CONFIGDIR})
+# Install all the helper files
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${LIB_CONFIG_NAME}.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/${LIB_VERSION_NAME}.cmake"
+        DESTINATION ${INSTALL_CONFIGDIR})

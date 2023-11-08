@@ -417,7 +417,7 @@ impl VkClient {
 		let fd = share_handles.pop().unwrap().into_raw_fd();
 		let share_handles = vk_share_handles_from_fd(fd);
 
-		let image_name = ImgData::convert_shmem_array_to_str(&img_data.name);
+		let image_name = ImgData::convert_shmem_array_to_str(&img_data.data.name);
 		let image_data = self.create_local_image(img_data, share_handles)?;
 		self.shared_images
 			.insert(image_name.to_string(), image_data);
@@ -432,7 +432,7 @@ impl VkClient {
 	) -> Result<ImageData, Box<dyn std::error::Error>> {
 		let shmem = IpcShmem::new(
 			&ImgData::convert_shmem_array_to_str(&img_data.shmem_name),
-			&ImgData::convert_shmem_array_to_str(&img_data.name),
+			&ImgData::convert_shmem_array_to_str(&img_data.data.name),
 			false,
 		)?;
 

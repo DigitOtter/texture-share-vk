@@ -1,7 +1,7 @@
 #pragma once
 
 #include "gl_shared_image/gl_shared_image.h"
-#include "platform/linux/external_handle.h"
+#include "texture_share_vk/platform/external_handle.h"
 // #include "gl_shared_image/platform/linux/external_handle_gl.h"
 #include <GL/gl.h>
 #include <GL/glext.h>
