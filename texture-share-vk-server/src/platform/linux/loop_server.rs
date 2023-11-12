@@ -2,7 +2,7 @@ use polling::{Event, Events, PollMode, Poller};
 use std::os::fd::{AsFd, AsRawFd};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use crate::VkServer;
 

@@ -4,20 +4,7 @@
 mod bindings;
 
 // cbindgen:ignore
-pub mod platform {
-	pub mod daemon_launch;
-	pub mod img_data;
-	pub mod ipc_commands;
-	pub mod ipc_shmem;
-
-	#[cfg(target_os = "linux")]
-	mod linux;
-	#[cfg(target_os = "linux")]
-	pub(crate) use linux::*;
-
-	pub use ipc_shmem::ShmemDataInternal;
-	pub use ipc_shmem::{LockGuard, ReadLockGuard, Timeout};
-}
+pub mod platform;
 
 pub use platform::ipc_shmem::IpcShmem;
 pub use platform::ipc_unix_socket::{IpcConnection, IpcSocket};

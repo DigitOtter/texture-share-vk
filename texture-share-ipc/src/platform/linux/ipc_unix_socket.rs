@@ -475,7 +475,7 @@ mod tests {
 
 		let send_thread = move || {
 			let mut msg = ResultMsg::default();
-			unsafe { (*msg.data.find_img).img_data.height = 1024 };
+			unsafe { (*msg.data.find_img).img_data.data.height = 1024 };
 			listener
 				.connections
 				.lock()
@@ -498,13 +498,14 @@ mod tests {
 		assert!(r_res.is_some());
 
 		let mut cmp_msg = ResultMsg::default();
-		unsafe { (*cmp_msg.data.find_img).img_data.height = 1024 };
+		unsafe { (*cmp_msg.data.find_img).img_data.data.height = 1024 };
 		let rec_msg = r_res.unwrap();
 
 		assert_eq!(cmp_msg.tag, rec_msg.tag);
-		assert_eq!(unsafe { cmp_msg.data.find_img.img_data.height }, unsafe {
-			rec_msg.data.find_img.img_data.height
-		});
+		assert_eq!(
+			unsafe { cmp_msg.data.find_img.img_data.data.height },
+			unsafe { rec_msg.data.find_img.img_data.data.height }
+		);
 	}
 
 	#[test]

@@ -17,8 +17,6 @@ fn main() {
 	let mut dst = cmake::Config::new("cpp")
 		.always_configure(true)
 		.configure_arg("-DBUILD_SHARED_LIBS=False")
-		.configure_arg(format!("-DTSV_PLATFORM_INCLUDE_DIR={}", option_env!("TSV_PLATFORM_INCLUDE_DIR").unwrap()))
-		.configure_arg(format!("-DTSV_PLATFORM_GL_SRC={}", option_env!("TSV_PLATFORM_GL_SRC").unwrap()))
 		//.configure_arg("-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON")
 		//.init_cxx_cfg(cxx_conf)
 		.build();
@@ -29,7 +27,7 @@ fn main() {
 	let cxx_rs_files = vec!["src/opengl/gl_shared_image.rs"];
 
 	let cxx_conf = cxx_build::bridges(cxx_rs_files.clone())
-		.includes(["cpp", option_env!("TSV_PLATFORM_INCLUDE_DIR").unwrap()])
+		.includes(["cpp", "../cpp"])
 		.to_owned();
 
 	let cxx_conf = add_cxx_file(

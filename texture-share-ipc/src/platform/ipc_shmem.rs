@@ -1,10 +1,5 @@
-use libc::pthread_rwlock_t;
 use memoffset::offset_of;
-pub use raw_sync::locks::LockGuard;
 use raw_sync::locks::LockImpl;
-use raw_sync::locks::LockInit;
-pub use raw_sync::locks::ReadLockGuard;
-use raw_sync::locks::RwLock;
 pub use raw_sync::Timeout;
 use shared_memory::Shmem;
 use shared_memory::ShmemConf;
@@ -17,6 +12,7 @@ use std::mem::size_of;
 use crate::platform::img_data::ImgData;
 use crate::platform::img_data::ImgFormat;
 use crate::platform::img_data::ImgName;
+use crate::platform::RwLockInternalData;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -30,13 +26,13 @@ pub struct ShmemDataInternal {
 }
 
 #[repr(C)]
-struct ShmemData {
-	rwlock_data: pthread_rwlock_t,
-	data: UnsafeCell<ShmemDataInternal>,
+pub(super) struct ShmemData {
+	pub(super) rwlock_data: RwLockInternalData,
+	pub(super) data: UnsafeCell<ShmemDataInternal>,
 }
 
 pub struct IpcShmem {
-	lock: Box<dyn LockImpl>,
+	pub(super) lock: Box<dyn LockImpl>,
 	shmem: Shmem,
 }
 
@@ -93,71 +89,6 @@ impl<'a> IpcShmem {
 		}
 
 		Ok(IpcShmem { lock, shmem })
-	}
-
-	fn init_rw_lock(
-		shmem: &Shmem,
-		from_existing: bool,
-	) -> Result<Box<dyn LockImpl>, Box<dyn std::error::Error>> {
-		let raw_rwlock_ptr = unsafe { shmem.as_ptr().add(offset_of!(ShmemData, rwlock_data)) };
-		let raw_data_ptr = unsafe { shmem.as_ptr().add(offset_of!(ShmemData, data)) };
-
-		let res = unsafe {
-			if !from_existing {
-				RwLock::new(raw_rwlock_ptr, raw_data_ptr)
-			} else {
-				RwLock::from_existing(raw_rwlock_ptr, raw_data_ptr)
-			}
-		}?;
-		assert!(res.1 <= offset_of!(ShmemData, data) - offset_of!(ShmemData, rwlock_data));
-
-		Ok(res.0)
-	}
-
-	pub fn acquire_rlock(
-		&'a self,
-		timeout: Timeout,
-	) -> Result<ReadLockGuard<'a>, Box<dyn std::error::Error>> {
-		self.lock.try_rlock(timeout)
-	}
-
-	pub fn acquire_rdata(lock: &ReadLockGuard<'a>) -> &'a ShmemDataInternal {
-		unsafe {
-			lock.cast::<UnsafeCell<ShmemDataInternal>>()
-				.as_ref()
-				.unwrap()
-				.get()
-				.as_ref()
-				.unwrap()
-		}
-	}
-
-	// fn read_lock(
-	// 	&self,
-	// 	timeout: Timeout,
-	// ) -> Result<(&ShmemDataInternal, ReadLockGuard), Box<dyn std::error::Error>> {
-	// 	let raw_ptr = self.shmem.as_ptr().cast::<ShmemData>();
-
-	// 	let lock = unsafe { raw_ptr.as_ref().unwrap().lock.try_rlock(timeout)? };
-	// 	let data = unsafe { raw_ptr.as_ref().unwrap().data.get().as_ref().unwrap() };
-
-	// 	Ok((data, lock))
-	// }
-
-	pub fn acquire_lock(
-		&'a self,
-		timeout: Timeout,
-	) -> Result<LockGuard<'a>, Box<dyn std::error::Error>> {
-		self.lock.try_lock(timeout)
-	}
-
-	pub fn acquire_data(lock: &'a LockGuard<'a>) -> &'a mut ShmemDataInternal {
-		unsafe {
-			lock.cast::<UnsafeCell<ShmemDataInternal>>()
-				.as_mut()
-				.unwrap()
-				.get_mut()
-		}
 	}
 
 	// Get Id without acquiring lock. Should be sufficient for checking if surface image has changed

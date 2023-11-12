@@ -5,12 +5,11 @@ use std::{
 	time::Duration,
 };
 
-use cxx::{type_id, ExternType};
 use libc::{c_char, c_int};
 use texture_share_ipc::platform::{img_data::ImgFormat, ReadLockGuard, ShmemDataInternal};
 
 use crate::{
-	gl_shared_image::{GLenum, GLsizei, GLuint, ImageExtent},
+	gl_shared_image::{GLenum, GLuint, ImageExtent},
 	GlClient,
 };
 

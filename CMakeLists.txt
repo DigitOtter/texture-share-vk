@@ -43,28 +43,9 @@ set(TSV_VK_SERVER_DEFAULT_SOCKET_PATH
     CACHE PATH "Default VkServr socket path")
 
 # ##############################################################################
-# Platform specific lib compilation
-set(TSV_PLATFORM_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/cpp")
-if(UNIX)
-    set(TSV_PLATFORM_SRC
-        "${CMAKE_CURRENT_SOURCE_DIR}/cpp/texture_share_vk/platform/linux/external_handle.cpp"
-    )
-
-    set(TSV_PLATFORM_VK_SRC
-        ${TSV_PLATFORM_SRC}
-        "${CMAKE_CURRENT_SOURCE_DIR}/cpp/texture_share_vk/platform/linux/external_handle_vk.cpp"
-    )
-
-    set(TSV_PLATFORM_GL_SRC
-        ${TSV_PLATFORM_SRC}
-        "${CMAKE_CURRENT_SOURCE_DIR}/cpp/texture_share_vk/platform/linux/external_handle_gl.cpp"
-    )
-endif()
-
-# Allow lists to be passed via environment variables
-string(REPLACE ";" "," TSV_PLATFORM_SRC "${TSV_PLATFORM_SRC}")
-string(REPLACE ";" "," TSV_PLATFORM_VK_SRC "${TSV_PLATFORM_VK_SRC}")
-string(REPLACE ";" "," TSV_PLATFORM_GL_SRC "${TSV_PLATFORM_GL_SRC}")
+# Include Rust internal cmake targets (Only to create compile_commands.json)
+add_subdirectory("texture-share-vk-base/cpp" EXCLUDE_FROM_ALL)
+add_subdirectory("texture-share-gl-client/cpp" EXCLUDE_FROM_ALL)
 
 # ##############################################################################
 # Rust Compilation (Use corrosion for compilation and CMake integration)
@@ -87,24 +68,12 @@ add_library(Rust::TextureShareGlClient ALIAS texture-share-gl-client)
 
 corrosion_set_env_vars(texture-share-ipc
                        TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR})
-corrosion_set_env_vars(
-    texture-share-vk-base TSV_PLATFORM_INCLUDE_DIR=${TSV_PLATFORM_INCLUDE_DIR}
-    TSV_PLATFORM_VK_SRC=${TSV_PLATFORM_VK_SRC})
-corrosion_set_env_vars(
-    texture-share-vk-server
-    TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR}
-    TSV_PLATFORM_INCLUDE_DIR=${TSV_PLATFORM_INCLUDE_DIR}
-    TSV_PLATFORM_VK_SRC=${TSV_PLATFORM_VK_SRC})
-corrosion_set_env_vars(
-    texture-share-vk-client
-    TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR}
-    TSV_PLATFORM_INCLUDE_DIR=${TSV_PLATFORM_INCLUDE_DIR}
-    TSV_PLATFORM_VK_SRC=${TSV_PLATFORM_VK_SRC})
-corrosion_set_env_vars(
-    texture-share-gl-client
-    TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR}
-    TSV_PLATFORM_INCLUDE_DIR=${TSV_PLATFORM_INCLUDE_DIR}
-    TSV_PLATFORM_GL_SRC=${TSV_PLATFORM_GL_SRC})
+corrosion_set_env_vars(texture-share-vk-server
+                       TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR})
+corrosion_set_env_vars(texture-share-vk-client
+                       TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR})
+corrosion_set_env_vars(texture-share-gl-client
+                       TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR})
 
 # ##############################################################################
 # Libraries
@@ -224,8 +193,9 @@ install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/texture-share-vk-server"
 
 # Install headers
 install(
-    DIRECTORY "${TSV_RUST_GEN_INCLUDE_DIR}/" "${CMAKE_CURRENT_SOURCE_DIR}/cpp/"
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    DIRECTORY "${TSV_RUST_GEN_INCLUDE_DIR}/"
+              "${CMAKE_CURRENT_SOURCE_DIR}/cpp/texture_share_vk"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/texture_share_vk"
     FILES_MATCHING
     PATTERN "*.h"
     PATTERN "*.hpp")
