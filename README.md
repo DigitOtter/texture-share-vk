@@ -1,6 +1,10 @@
 # Texture Sharing between Vulkan and OpenGL instances
 
-An API to share GPU texture memory between processes. Can be used to exchange images without performing a CPU roundtrip. 
+An API to share GPU texture memory between processes. Can be used to exchange images without performing a CPU roundtrip.
+
+Available implementations:
+- Godot: [https://github.com/DigitOtter/gd_texture_share_vk.git](https://github.com/DigitOtter/gd_texture_share_vk.git)
+- OBS:   [https://github.com/DigitOtter/obs-plugin-texture-share-vk.git](https://github.com/DigitOtter/obs-plugin-texture-share-vk.git)
 
 ## Build
 
