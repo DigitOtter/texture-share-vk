@@ -83,7 +83,7 @@ add_library(TextureShareIpc INTERFACE)
 add_library(${PROJECT_NAME}::TextureShareIpc ALIAS TextureShareIpc)
 
 target_include_directories(
-    TextureShareIpc INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+    TextureShareIpc INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${HEADER_DIRECTORY}>"
                               "$<BUILD_INTERFACE:${TSV_RUST_GEN_INCLUDE_DIR}>")
 
 target_link_libraries(
@@ -96,7 +96,7 @@ add_library(${PROJECT_NAME}::TextureShareVkClient ALIAS TextureShareVkClient)
 
 target_include_directories(
     TextureShareVkClient
-    INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+    INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${HEADER_DIRECTORY}>"
               "$<BUILD_INTERFACE:${TSV_RUST_GEN_INCLUDE_DIR}>")
 
 target_link_libraries(
@@ -111,7 +111,7 @@ add_library(${PROJECT_NAME}::TextureShareGlClient ALIAS TextureShareGlClient)
 
 target_include_directories(
     TextureShareGlClient
-    INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+    INTERFACE "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${HEADER_DIRECTORY}>"
               "$<BUILD_INTERFACE:${TSV_RUST_GEN_INCLUDE_DIR}>")
 
 target_link_libraries(
@@ -138,7 +138,7 @@ add_dependencies(TextureShareVkSetupCpp cargo-build_texture-share-vk-client)
 
 target_include_directories(
     TextureShareVkSetupCpp
-    PUBLIC "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+    PUBLIC "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${HEADER_DIRECTORY}>"
            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/cpp>"
            "$<BUILD_INTERFACE:${TSV_RUST_GEN_INCLUDE_DIR}>")
 
@@ -200,8 +200,8 @@ install(
     PATTERN "*.hpp")
 
 install(
-    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/cpp/texture_share_vk/"
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/texture_share_vk"
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/cpp/"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
     FILES_MATCHING
     PATTERN "*.h"
     PATTERN "*.hpp")
