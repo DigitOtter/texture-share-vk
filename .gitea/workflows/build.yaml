@@ -1,0 +1,60 @@
+name: texture-share-vk-testing
+run-name: TextureShareVk Testing
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'true'
+
+
+      - uses: lukka/get-cmake@latest
+
+      - name: Install OpenGL dependencies
+        run: |
+          apt-get update
+          apt-get -y install libgl1-mesa-dev libvulkan-dev jq sudo
+
+      - name: Prepare Vulkan SDK
+        uses: humbletim/setup-vulkan-sdk@v1.2.0
+        with:
+          vulkan-query-version: latest
+          vulkan-components: Vulkan-Headers
+          vulkan-use-cache: true
+
+      - name: Copy vulkan headers
+        run: |
+          rm -r /usr/include/vulkan
+          cp -r VULKAN_SDK/include/* /usr/include/
+
+      - name: Cache cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v1
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
+      # - name: cargo test
+      #   run: cargo test -- --test-threads=1
+
+      - name: Build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -GNinja
+          cmake --build build
