@@ -1,9 +1,9 @@
-[submodule "third_party/volk"]
-	path = texture-share-vk-base/cpp/third_party/volk
-	url = https://github.com/zeux/volk
-[submodule "third_party/vk-bootstrap"]
-	path = texture-share-vk-base/cpp/third_party/vk-bootstrap
-	url = https://github.com/charles-lunarg/vk-bootstrap.git
 [submodule "third_party/corrosion"]
 	path = third_party/corrosion
 	url = https://github.com/corrosion-rs/corrosion.git
+[submodule "texture-share-vk-base/cpp/third_party/volk"]
+	path = texture-share-vk-base/cpp/third_party/volk
+	url = https://github.com/zeux/volk.git
+[submodule "texture-share-vk-base/cpp/third_party/vk-bootstrap"]
+	path = texture-share-vk-base/cpp/third_party/vk-bootstrap
+	url = https://github.com/charles-lunarg/vk-bootstrap.git
