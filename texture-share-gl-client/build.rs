@@ -28,6 +28,7 @@ fn main() {
 
 	let cxx_conf = cxx_build::bridges(cxx_rs_files.clone())
 		.includes(["cpp", "../cpp"])
+		.std("c++20")
 		.to_owned();
 
 	let cxx_conf = add_cxx_file(
