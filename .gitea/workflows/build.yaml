@@ -22,17 +22,12 @@ jobs:
           apt-get update
           apt-get -y install libgl1-mesa-dev libvulkan-dev jq sudo
 
-      - name: Prepare Vulkan SDK
-        uses: humbletim/setup-vulkan-sdk@v1.2.0
+      - name: Install Vulkan SDK
+        uses: humbletim/install-vulkan-sdk@v1.1.1
+        id: vulkan_sdk
         with:
-          vulkan-query-version: latest
-          vulkan-components: Vulkan-Headers
-          vulkan-use-cache: true
-
-      - name: Copy vulkan headers
-        run: |
-          rm -r /usr/include/vulkan
-          cp -r VULKAN_SDK/include/* /usr/include/
+          version: latest
+          cache: true
 
       - name: Cache cargo registry
         uses: actions/cache@v1
@@ -51,10 +46,15 @@ jobs:
           toolchain: nightly
           override: true
 
-      # - name: cargo test
-      #   run: cargo test -- --test-threads=1
+      - name: cargo test
+        run: |
+          echo "SDK: $VULKAN_SDK"
+          export VULKAN_SDK=${{ env.VULKAN_SDK }}
+          cargo test -- --test-threads=1
 
       - name: Build
         run: |
+          echo "SDK: $VULKAN_SDK"
+          export VULKAN_SDK=${{ env.VULKAN_SDK }}
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -GNinja
           cmake --build build
