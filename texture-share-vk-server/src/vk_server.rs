@@ -97,7 +97,6 @@ impl VkServer {
 		let cmd = cmd.unwrap();
 		let res = match cmd.tag {
 			CommandTag::InitImage => {
-				println!("Processing init message");
 				VkServer::process_cmd_init_image(
 					conn,
 					unsafe { &cmd.data.init_img },
@@ -108,7 +107,6 @@ impl VkServer {
 				)
 			}
 			CommandTag::FindImage => {
-				println!("Processing find message");
 				VkServer::process_cmd_find_image(
 					conn,
 					unsafe { &cmd.data.find_img },
