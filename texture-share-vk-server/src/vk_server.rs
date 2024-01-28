@@ -1,9 +1,11 @@
+use std::ffi::CStr;
 use std::fs;
 use std::io::{Error, ErrorKind};
 use std::mem::ManuallyDrop;
 
+use std::os::fd::IntoRawFd;
 use std::time::Duration;
-use texture_share_vk_base::cxx::UniquePtr;
+use texture_share_vk_base::ash::{self, vk};
 use texture_share_vk_base::ipc::platform::img_data::ImgData;
 use texture_share_vk_base::ipc::platform::ipc_commands::{
 	CommFindImage, CommInitImage, CommandTag, ResultData, ResultFindImage, ResultInitImage,
@@ -12,19 +14,19 @@ use texture_share_vk_base::ipc::platform::ipc_commands::{
 use texture_share_vk_base::ipc::platform::ShmemDataInternal;
 use texture_share_vk_base::ipc::platform::{LockGuard, ReadLockGuard, Timeout};
 use texture_share_vk_base::ipc::{IpcConnection, IpcShmem, IpcSocket};
-use texture_share_vk_base::vk_setup::ffi::{vk_setup_new, VkSetup};
-use texture_share_vk_base::vk_shared_image::ffi::{vk_shared_image_new, VkFormat, VkSharedImage};
+use texture_share_vk_base::vk_setup::VkSetup;
+use texture_share_vk_base::vk_shared_image::VkSharedImage;
 
 pub(super) struct ServerImageData {
 	pub ipc_info: IpcShmem,
-	pub vk_shared_image: UniquePtr<VkSharedImage>,
+	pub vk_shared_image: VkSharedImage,
 }
 
 pub struct VkServer {
 	pub(crate) socket: IpcSocket,
 	pub(crate) socket_path: String,
 	pub(crate) shmem_prefix: String,
-	pub(crate) vk_setup: UniquePtr<VkSetup>,
+	pub(crate) vk_setup: VkSetup,
 	pub(crate) images: Vec<ServerImageData>,
 	pub(crate) connection_wait_timeout: Duration,
 	pub(crate) ipc_timeout: Duration,
@@ -33,7 +35,9 @@ pub struct VkServer {
 impl Drop for VkServer {
 	fn drop(&mut self) {
 		// Ensure that images are cleared before vk_setup is destroyed
-		self.images.clear();
+		self.images
+			.drain(..)
+			.for_each(|x| x.vk_shared_image.destroy(&self.vk_setup));
 
 		let _ = fs::remove_file(self.socket_path.to_owned());
 	}
@@ -53,8 +57,7 @@ impl VkServer {
 
 		let socket = IpcSocket::new(socket_path, socket_timeout).map_err(|e| Box::new(e))?;
 
-		let mut vk_setup = vk_setup_new();
-		vk_setup.as_mut().unwrap().initialize_vulkan();
+		let mut vk_setup = VkSetup::new(CStr::from_bytes_with_nul(b"VkServer\0").unwrap())?;
 
 		let images = Vec::default();
 		Ok(VkServer {
@@ -96,25 +99,21 @@ impl VkServer {
 
 		let cmd = cmd.unwrap();
 		let res = match cmd.tag {
-			CommandTag::InitImage => {
-				VkServer::process_cmd_init_image(
-					conn,
-					unsafe { &cmd.data.init_img },
-					vk_setup,
-					shmem_prefix,
-					images,
-					ipc_timeout,
-				)
-			}
-			CommandTag::FindImage => {
-				VkServer::process_cmd_find_image(
-					conn,
-					unsafe { &cmd.data.find_img },
-					vk_setup,
-					images,
-					ipc_timeout,
-				)
-			}
+			CommandTag::InitImage => VkServer::process_cmd_init_image(
+				conn,
+				unsafe { &cmd.data.init_img },
+				vk_setup,
+				shmem_prefix,
+				images,
+				ipc_timeout,
+			),
+			CommandTag::FindImage => VkServer::process_cmd_find_image(
+				conn,
+				unsafe { &cmd.data.find_img },
+				vk_setup,
+				images,
+				ipc_timeout,
+			),
 			// CommandTag::RenameImage => Server::process_cmd_rename_image(
 			//     &conn.borrow(),
 			//     unsafe { &cmd.data.rename_img },
@@ -186,13 +185,8 @@ impl VkServer {
 
 		// Send shared handles if image was created
 		if vk_shared_image.is_some() {
-			let mut handles = vk_shared_image
-				.unwrap()
-				.as_mut()
-				.unwrap()
-				.export_handles(vk_setup.get_external_handle_info());
-			connection
-				.send_anillary_handles(&[handles.as_mut().unwrap().release_memory_handle()])?;
+			let mut handles = vk_shared_image.unwrap().export_handle(vk_setup)?;
+			connection.send_anillary_handles(&[handles.into_raw_fd()])?;
 
 			// Receive ack
 			connection.recv_ack()?;
@@ -210,7 +204,7 @@ impl VkServer {
 	) -> Result<(), Box<dyn std::error::Error>> {
 		let img_name_str = ImgData::convert_shmem_array_to_str(&cmd.image_name);
 
-		let image_and_lock: Option<(ImgData, &mut UniquePtr<VkSharedImage>, ReadLockGuard)> =
+		let image_and_lock: Option<(ImgData, &mut VkSharedImage, ReadLockGuard)> =
 			images.iter_mut().find_map(|it| {
 				let rlock = it
 					.ipc_info
@@ -261,13 +255,8 @@ impl VkServer {
 		})?;
 
 		if vk_shared_image.is_some() {
-			let mut shared_handles = vk_shared_image
-				.unwrap()
-				.as_mut()
-				.unwrap()
-				.export_handles(vk_setup.get_external_handle_info());
-			let fd = shared_handles.as_mut().unwrap().release_memory_handle();
-			connection.send_anillary_handles(&[fd])?;
+			let fd = vk_shared_image.unwrap().export_handle(vk_setup)?;
+			connection.send_anillary_handles(&[fd.into_raw_fd()])?;
 			connection.recv_ack()?;
 		}
 
@@ -293,7 +282,7 @@ impl VkServer {
 	) -> Result<
 		(
 			ResultInitImage,
-			Option<&'a mut UniquePtr<VkSharedImage>>,
+			Option<&'a mut VkSharedImage>,
 			Option<LockGuard<'a>>,
 		),
 		Box<dyn std::error::Error>,
@@ -316,7 +305,8 @@ impl VkServer {
 				image_vec.get_mut(image_index.unwrap()).unwrap()
 			} else {
 				let ipc_info = IpcShmem::new(shmem_name, image_name, true)?;
-				let vk_shared_image = vk_shared_image_new();
+				let vk_shared_image =
+					VkSharedImage::new(vk_setup, 1, 1, vk::Format::R8G8B8A8_UNORM, 0)?;
 				image_vec.push(ServerImageData {
 					ipc_info,
 					vk_shared_image,
@@ -334,14 +324,11 @@ impl VkServer {
 		let mut data = IpcShmem::acquire_data(&lock);
 
 		// Update VkSharedImage
-		image.vk_shared_image.as_mut().unwrap().initialize(
-			vk_setup.get_vk_device(),
-			vk_setup.get_vk_physical_device(),
-			vk_setup.get_vk_queue(),
-			vk_setup.get_vk_command_buffer(),
+		image.vk_shared_image.resize_image(
+			vk_setup,
 			cmd.width,
 			cmd.height,
-			VkFormat::from(cmd.format),
+			VkSharedImage::get_vk_format(cmd.format),
 			data.handle_id + 1,
 		);
 
@@ -370,7 +357,7 @@ impl VkServer {
 
 		shmem_data.width = vk_data.width;
 		shmem_data.height = vk_data.height;
-		shmem_data.format = vk_data.format.into();
+		shmem_data.format = VkSharedImage::get_img_format(vk_data.format);
 		shmem_data.allocation_size = vk_data.allocation_size;
 		shmem_data.handle_id = vk_data.id;
 	}

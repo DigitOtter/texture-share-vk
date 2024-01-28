@@ -1,6 +1,7 @@
 use texture_share_ipc::platform::img_data::ImgFormat;
 
 use super::gl_shared_image::ffi::GlFormat;
+use super::glad;
 
 impl From<ImgFormat> for GlFormat {
 	fn from(value: ImgFormat) -> Self {

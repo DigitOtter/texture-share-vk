@@ -8,10 +8,8 @@ use std::{
 use libc::{c_char, c_int};
 use texture_share_ipc::platform::{img_data::ImgFormat, ReadLockGuard, ShmemDataInternal};
 
-use crate::{
-	gl_shared_image::{GLenum, GLuint, ImageExtent},
-	GlClient,
-};
+use crate::GlClient;
+use crate::{gl_shared_image::GlImageExtent, opengl::glad};
 
 #[repr(C)]
 enum ImageLookupResult {
@@ -200,11 +198,11 @@ extern "C" fn gl_client_image_data_guard_destroy(
 extern "C" fn gl_client_send_image(
 	gl_client: *mut GlClient,
 	image_name: *const c_char,
-	src_texture_id: GLuint,
-	src_texture_target: GLenum,
+	src_texture_id: glad::GLuint,
+	src_texture_target: glad::GLenum,
 	invert: bool,
-	prev_fbo: GLuint,
-	extents: *const ImageExtent,
+	prev_fbo: glad::GLuint,
+	extents: *const GlImageExtent,
 ) -> c_int {
 	let image_name = &get_str(&image_name);
 	let gl_client = unsafe { gl_client.as_mut().unwrap() };
@@ -243,11 +241,11 @@ extern "C" fn gl_client_send_image(
 extern "C" fn gl_client_recv_image(
 	gl_client: *mut GlClient,
 	image_name: *const c_char,
-	dst_texture_id: GLuint,
-	dst_texture_target: GLenum,
+	dst_texture_id: glad::GLuint,
+	dst_texture_target: glad::GLenum,
 	invert: bool,
-	prev_fbo: GLuint,
-	extents: *const ImageExtent,
+	prev_fbo: glad::GLuint,
+	extents: *const GlImageExtent,
 ) -> c_int {
 	let gl_client = unsafe { gl_client.as_mut() }.unwrap();
 	let image_name = &get_str(&image_name);

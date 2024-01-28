@@ -7,3 +7,6 @@
 [submodule "texture-share-vk-base/cpp/third_party/vk-bootstrap"]
 	path = texture-share-vk-base/cpp/third_party/vk-bootstrap
 	url = https://github.com/charles-lunarg/vk-bootstrap.git
+[submodule "texture-share-gl-client/c/third_party/glad"]
+	path = texture-share-gl-client/c/third_party/glad
+	url = https://github.com/Dav1dde/glad.git

@@ -1,20 +1,28 @@
 use std::{
 	borrow::Cow,
 	ffi::{c_char, c_int, CStr},
-	ptr::{null_mut, NonNull},
+	ptr::{self, null_mut, NonNull},
 	time::Duration,
 };
 use texture_share_vk_base::{
-	cxx::UniquePtr,
+	ash::{self, vk},
+	bindings::vk_setup_from_c,
 	ipc::platform::{img_data::ImgFormat, ReadLockGuard, ShmemDataInternal},
-	vk_setup::{ffi::VkSetup, VkFence},
-	vk_shared_image::{
-		ffi::{VkImageLayout, VkOffset3D},
-		VkImage,
-	},
+	vk_setup::{self, VkFencea, VkSetup},
 };
 
 use crate::VkClient;
+
+type VkInstance = vk::Instance;
+type VkDevice = vk::Device;
+type VkPhysicalDevice = vk::PhysicalDevice;
+type VkQueue = vk::Queue;
+type VkCommandPool = vk::CommandPool;
+type VkCommandBuffer = vk::CommandBuffer;
+type VkFence = vk::Fence;
+type VkOffset3D = vk::Offset3D;
+type VkImage = vk::Image;
+type VkImageLayout = vk::ImageLayout;
 
 #[repr(C)]
 enum ImageLookupResult {
@@ -26,6 +34,18 @@ enum ImageLookupResult {
 
 fn get_str<'a>(buf: &'a *const c_char) -> Cow<'a, str> {
 	unsafe { CStr::from_ptr(buf.to_owned()) }.to_string_lossy()
+}
+
+#[repr(C)]
+struct VkSetupData {
+	vk_instance: VkInstance,
+	vk_device: VkDevice,
+	vk_physical_device: VkPhysicalDevice,
+
+	vk_graphics_queue: VkQueue,
+	vk_graphics_queue_family_index: u32,
+
+	import_only: bool,
 }
 
 //#[repr(transparent)]
@@ -49,15 +69,21 @@ extern "C" fn vk_client_new(
 	vk_setup: Option<NonNull<VkSetup>>,
 	timeout_in_millis: u64,
 ) -> *mut VkClient {
-	if vk_setup.is_none() {
-		return null_mut();
-	}
+	let vk_setup = match vk_setup {
+		Some(ptr) => unsafe { vk_setup_from_c(ptr.as_ptr()) },
+		None => Box::new(
+			VkSetup::new(CStr::from_bytes_with_nul(b"VkClient\0").unwrap())
+				.map_err(|_x| {
+					println!("Failed to create VkSetup");
+					return ptr::null_mut::<VkClient>();
+				})
+				.unwrap(),
+		),
+	};
 
-	let vk_setup = vk_setup.unwrap().as_ptr();
-	let pvk_setup = unsafe { UniquePtr::from_raw(vk_setup) };
 	let vk_client = VkClient::new(
 		&get_str(&socket_path),
-		pvk_setup,
+		vk_setup,
 		Duration::from_millis(timeout_in_millis),
 	);
 
@@ -85,16 +111,21 @@ extern "C" fn vk_client_new_with_server_launch(
 	server_lockfile_timeout_in_millis: u64,
 	server_spawn_timeout_in_millis: u64,
 ) -> *mut VkClient {
-	if vk_setup.is_none() {
-		return null_mut();
-	}
-
-	let vk_setup = vk_setup.unwrap().as_ptr();
-	let pvk_setup = unsafe { UniquePtr::from_raw(vk_setup) };
+	let vk_setup = match vk_setup {
+		Some(ptr) => unsafe { vk_setup_from_c(ptr.as_ptr()) },
+		None => Box::new(
+			VkSetup::new(CStr::from_bytes_with_nul(b"VkClient\0").unwrap())
+				.map_err(|_x| {
+					println!("Failed to create VkSetup");
+					return ptr::null_mut::<VkClient>();
+				})
+				.unwrap(),
+		),
+	};
 
 	let vk_client = VkClient::new_with_server_launch(
 		&get_str(&socket_path),
-		pvk_setup,
+		vk_setup,
 		Duration::from_millis(client_timeout_in_millis),
 		&get_str(&server_program),
 		&get_str(&server_lock_path),

@@ -19,3 +19,8 @@ cc = "1.0.83"
 cmake = "0.1.50"
 cxx-build = "1.0.107"
 cbindgen = "0.26.0"
+itertools = "0.12.0"
+bindgen = "0.69.2"
+
+[dev-dependencies]
+glfw = "0.54.0"

@@ -125,7 +125,7 @@ TextureShareGlClient::ClientImageDataGuard TextureShareGlClient::find_image_data
 }
 
 int TextureShareGlClient::send_image(const char *image_name, GLuint src_texture_id, GLenum src_texture_target,
-                                     bool invert, GLuint prev_fbo, const struct ImageExtent *extents)
+                                     bool invert, GLuint prev_fbo, const struct GlImageExtent *extents)
 {
 	if(!this->_client)
 		return -1;
@@ -135,7 +135,7 @@ int TextureShareGlClient::send_image(const char *image_name, GLuint src_texture_
 }
 
 int TextureShareGlClient::recv_image(const char *image_name, GLuint dst_texture_id, GLenum dst_texture_target,
-                                     bool invert, GLuint prev_fbo, const struct ImageExtent *extents)
+                                     bool invert, GLuint prev_fbo, const struct GlImageExtent *extents)
 {
 	if(!this->_client)
 		return -1;

@@ -56,10 +56,10 @@ class TextureShareGlClient
 	ClientImageDataGuard find_image_data(const char *image_name, bool force_update);
 
 	int send_image(const char *image_name, GLuint src_texture_id, GLenum src_texture_target, bool invert,
-	               GLuint prev_fbo, const struct ImageExtent *extents);
+	               GLuint prev_fbo, const struct GlImageExtent *extents);
 
 	int recv_image(const char *image_name, GLuint dst_texture_id, GLenum dst_texture_target, bool invert,
-	               GLuint prev_fbo, const struct ImageExtent *extents);
+	               GLuint prev_fbo, const struct GlImageExtent *extents);
 
 	private:
 	struct GlClient *_client = nullptr;

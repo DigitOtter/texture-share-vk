@@ -1,4 +1,3 @@
-use cxx::UniquePtr;
 use std::collections::HashMap;
 use texture_share_ipc::platform::daemon_launch::server_connect_and_daemon_launch;
 use texture_share_ipc::platform::{ReadLockGuard, Timeout};
@@ -17,16 +16,12 @@ use texture_share_ipc::platform::ipc_commands::{
 use texture_share_ipc::platform::ShmemDataInternal;
 use texture_share_ipc::{IpcConnection, IpcShmem};
 
-use crate::gl_shared_image::ffi::gl_external_initialize;
-use crate::gl_shared_image::GLenum;
-use crate::opengl::gl_shared_image::ffi::{
-	gl_share_handles_from_fd, gl_shared_image_new, GLuint, GlSharedImage, ImageExtent,
-	ShareHandles, SharedImageData,
-};
+use crate::gl_shared_image::{GlImageExtent, GlSharedImage};
+use crate::opengl::glad;
 
 pub struct ImageData {
 	pub ipc_info: IpcShmem,
-	pub vk_shared_image: UniquePtr<GlSharedImage>,
+	pub vk_shared_image: GlSharedImage,
 }
 
 pub struct GlClient {
@@ -46,7 +41,10 @@ impl GlClient {
 	const IPC_TIMEOUT: Duration = Duration::from_millis(5000);
 
 	pub fn initialize_gl_external() -> bool {
-		gl_external_initialize()
+		match GlSharedImage::init_gl() {
+			Ok(_) => true,
+			Err(_) => false,
+		}
 	}
 
 	pub fn new(socket_path: &str, timeout: Duration) -> Result<GlClient, Error> {
@@ -125,7 +123,7 @@ impl GlClient {
 	}
 
 	fn check_for_update(image_data: &ImageData) -> bool {
-		image_data.ipc_info.get_id_unchecked() != image_data.vk_shared_image.get_image_data().id
+		image_data.ipc_info.get_id_unchecked() != image_data.vk_shared_image.get_data().id
 	}
 
 	pub fn init_image(
@@ -228,10 +226,10 @@ impl GlClient {
 	pub fn send_image(
 		&mut self,
 		image_name: &str,
-		src_texture_id: GLuint,
-		src_texture_target: GLenum,
+		src_texture_id: glad::GLuint,
+		src_texture_target: glad::GLenum,
 		invert: bool,
-		prev_fbo: GLuint,
+		prev_fbo: glad::GLuint,
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
 		let remote_image = self.shared_images.get_mut(image_name);
 		if remote_image.is_none() {
@@ -239,14 +237,23 @@ impl GlClient {
 		}
 
 		let remote_image = remote_image.unwrap();
-		unsafe {
-			// recv_image_... is correct, as it's from the perspective of the remove image
-			remote_image
-				.vk_shared_image
-				.as_mut()
-				.unwrap()
-				.recv_image_blit(src_texture_id, src_texture_target, invert, prev_fbo)
-		};
+		// recv_image_... is correct, as it's from the perspective of the remove image
+		remote_image
+			.vk_shared_image
+			.recv_blit_image(
+				src_texture_id,
+				src_texture_target,
+				&GlImageExtent {
+					top_left: [0, 0],
+					bottom_right: [
+						remote_image.vk_shared_image.get_data().width as i32,
+						remote_image.vk_shared_image.get_data().height as i32,
+					],
+				},
+				invert,
+				prev_fbo,
+			)
+			.unwrap();
 
 		Ok(Some(()))
 	}
@@ -254,11 +261,11 @@ impl GlClient {
 	pub fn send_image_with_extents(
 		&mut self,
 		image_name: &str,
-		src_texture_id: GLuint,
-		src_texture_target: GLenum,
+		src_texture_id: glad::GLuint,
+		src_texture_target: glad::GLenum,
 		invert: bool,
-		prev_fbo: GLuint,
-		extent: &ImageExtent,
+		prev_fbo: glad::GLuint,
+		extent: &GlImageExtent,
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
 		let remote_image = self.shared_images.get_mut(image_name);
 		if remote_image.is_none() {
@@ -266,30 +273,21 @@ impl GlClient {
 		}
 
 		let remote_image = remote_image.unwrap();
-		unsafe {
-			// recv_image_... is correct, as it's from the perspective of the remove image
-			remote_image
-				.vk_shared_image
-				.as_mut()
-				.unwrap()
-				.recv_image_blit_with_extents(
-					src_texture_id,
-					src_texture_target,
-					extent,
-					invert,
-					prev_fbo,
-				);
-		}
+		// recv_image_... is correct, as it's from the perspective of the remove image
+		remote_image
+			.vk_shared_image
+			.recv_blit_image(src_texture_id, src_texture_target, extent, invert, prev_fbo)
+			.unwrap();
 		Ok(Some(()))
 	}
 
 	pub fn recv_image(
 		&mut self,
 		image_name: &str,
-		dst_texture_id: GLuint,
-		dst_texture_target: GLenum,
+		dst_texture_id: glad::GLuint,
+		dst_texture_target: glad::GLenum,
 		invert: bool,
-		prev_fbo: GLuint,
+		prev_fbo: glad::GLuint,
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
 		let remote_image = self.shared_images.get_mut(image_name);
 		if remote_image.is_none() {
@@ -297,14 +295,23 @@ impl GlClient {
 		}
 
 		let remote_image = remote_image.unwrap();
-		unsafe {
-			// send_image_... is correct, as it's from the perspective of the remove image
-			remote_image
-				.vk_shared_image
-				.as_mut()
-				.unwrap()
-				.send_image_blit(dst_texture_id, dst_texture_target, invert, prev_fbo);
-		}
+		// send_image_... is correct, as it's from the perspective of the remove image
+		remote_image
+			.vk_shared_image
+			.send_blit_image(
+				dst_texture_id,
+				dst_texture_target,
+				&GlImageExtent {
+					top_left: [0, 0],
+					bottom_right: [
+						remote_image.vk_shared_image.get_data().width as i32,
+						remote_image.vk_shared_image.get_data().height as i32,
+					],
+				},
+				invert,
+				prev_fbo,
+			)
+			.unwrap();
 
 		Ok(Some(()))
 	}
@@ -312,11 +319,11 @@ impl GlClient {
 	pub fn recv_image_with_extents(
 		&mut self,
 		image_name: &str,
-		dst_texture_id: GLuint,
-		dst_texture_target: GLenum,
+		dst_texture_id: glad::GLuint,
+		dst_texture_target: glad::GLenum,
 		invert: bool,
-		prev_fbo: GLuint,
-		extent: &ImageExtent,
+		prev_fbo: glad::GLuint,
+		extent: &GlImageExtent,
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
 		let remote_image = self.shared_images.get_mut(image_name);
 		if remote_image.is_none() {
@@ -324,20 +331,14 @@ impl GlClient {
 		}
 
 		let remote_image = remote_image.unwrap();
-		unsafe {
-			// send_image_... is correct, as it's from the perspective of the remove image
-			remote_image
-				.vk_shared_image
-				.as_mut()
-				.unwrap()
-				.send_image_blit_with_extents(
-					dst_texture_id,
-					dst_texture_target,
-					extent,
-					invert,
-					prev_fbo,
-				);
-		}
+		// send_image_... is correct, as it's from the perspective of the remove image
+		remote_image.vk_shared_image.send_blit_image(
+			dst_texture_id,
+			dst_texture_target,
+			extent,
+			invert,
+			prev_fbo,
+		);
 		Ok(Some(()))
 	}
 
@@ -348,11 +349,10 @@ impl GlClient {
 	) -> Result<Option<&ImageData>, Box<dyn std::error::Error>> {
 		// TODO: Update if sharing more handles
 		debug_assert_eq!(share_handles.len(), 1);
-		let fd = share_handles.pop().unwrap().into_raw_fd();
-		let share_handles = gl_share_handles_from_fd(fd);
+		let fd = share_handles.pop().unwrap();
 
 		let image_name = ImgData::convert_shmem_array_to_str(&img_data.data.name);
-		let image_data = self.create_local_image(img_data, share_handles)?;
+		let image_data = self.create_local_image(img_data, fd)?;
 		self.shared_images
 			.insert(image_name.to_string(), image_data);
 
@@ -362,7 +362,7 @@ impl GlClient {
 	fn create_local_image(
 		&self,
 		img_data: &ImgData,
-		share_handles: UniquePtr<ShareHandles>,
+		img_mem_fd: OwnedFd,
 	) -> Result<ImageData, Box<dyn std::error::Error>> {
 		let shmem = IpcShmem::new(
 			&ImgData::convert_shmem_array_to_str(&img_data.shmem_name),
@@ -374,11 +374,16 @@ impl GlClient {
 			let rlock = shmem.acquire_rlock(Timeout::Val(GlClient::IPC_TIMEOUT))?;
 			let rdata = IpcShmem::acquire_rdata(&rlock);
 
-			let mut vk_shared_image: UniquePtr<GlSharedImage> = gl_shared_image_new();
-			vk_shared_image
-				.as_mut()
-				.unwrap()
-				.import_from_handle(share_handles, &SharedImageData::from_shmem_img_data(rdata));
+			let mut vk_shared_image = GlSharedImage::import_handle(
+				img_mem_fd,
+				img_data.data.width as i32,
+				img_data.data.height as i32,
+				img_data.data.allocation_size,
+				GlSharedImage::get_gl_format(img_data.data.format),
+				GlSharedImage::get_gl_internal_format(img_data.data.format) as u32,
+				img_data.data.handle_id,
+			)
+			.unwrap();
 			vk_shared_image
 		};
 
@@ -448,9 +453,9 @@ impl GlClient {
 
 		self.connection.send_ack()?;
 
-		let share_handles = gl_share_handles_from_fd(share_handles.pop().unwrap().into_raw_fd());
+		let fd = share_handles.pop().unwrap();
 
-		let image_data = self.create_local_image(&res_data, share_handles)?;
+		let image_data = self.create_local_image(&res_data, fd)?;
 		let local_image = self.shared_images.get_mut(image_name);
 		if local_image.is_none() {
 			self.shared_images

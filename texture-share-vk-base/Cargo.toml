@@ -7,6 +7,7 @@ edition = "2021"
 crate-type = [ "lib", "cdylib"]
 
 [dependencies]
+ash = "0.37.3"
 cxx = "1.0.107"
 libc = "0.2.148"
 texture-share-ipc = { path = "../texture-share-ipc" }

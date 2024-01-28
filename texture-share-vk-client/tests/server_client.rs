@@ -1,4 +1,5 @@
 use std::{
+	ffi::CStr,
 	fs,
 	sync::{
 		atomic::{AtomicBool, Ordering},
@@ -8,10 +9,12 @@ use std::{
 	time::Duration,
 };
 
-use texture_share_vk_base::ipc::platform::img_data::ImgFormat;
 use texture_share_vk_base::{
-	vk_setup::ffi::vk_setup_new,
-	vk_shared_image::ffi::{vk_shared_image_new, VkFormat},
+	ash::{self, vk},
+	vk_shared_image,
+};
+use texture_share_vk_base::{
+	ipc::platform::img_data::ImgFormat, vk_setup::VkSetup, vk_shared_image::VkSharedImage,
 };
 use texture_share_vk_client::VkClient;
 use texture_share_vk_server::VkServer;
@@ -34,8 +37,8 @@ fn _server_create() -> VkServer {
 }
 
 fn _client_create() -> VkClient {
-	let mut vk_setup = vk_setup_new();
-	vk_setup.as_mut().unwrap().initialize_vulkan();
+	let vk_setup =
+		Box::new(VkSetup::new(CStr::from_bytes_with_nul(b"VkClient\0").unwrap()).unwrap());
 	VkClient::new(SOCKET_PATH, vk_setup, SOCKET_TIMEOUT)
 		.expect("Client failed to connect to server")
 }
@@ -340,30 +343,17 @@ fn server_client_send_image() {
 		assert!(res.is_some());
 		println!("Image created");
 
-		let mut local_image = vk_shared_image_new();
-		local_image.as_mut().unwrap().initialize(
-			client.get_vk_setup().get_vk_device(),
-			client.get_vk_setup().get_vk_physical_device(),
-			client.get_vk_setup().get_vk_queue(),
-			client.get_vk_setup().get_vk_command_buffer(),
-			1,
-			1,
-			VkFormat::VK_FORMAT_B8G8R8A8_UNORM,
-			0,
-		);
+		let local_image =
+			VkSharedImage::new(client.get_vk_setup(), 1, 1, vk::Format::R8G8B8A8_UNORM, 0).unwrap();
 
-		let fence = client
-			.get_vk_setup_mut()
-			.as_mut()
-			.unwrap()
-			.create_vk_fence();
+		let fence = client.get_vk_setup().create_fence(None).unwrap();
 		let res = client
 			.send_image(
 				IMAGE_NAME,
-				local_image.get_vk_image(),
-				local_image.get_vk_image_layout(),
-				local_image.get_vk_image_layout(),
-				fence,
+				local_image.image,
+				local_image.image_layout,
+				local_image.image_layout,
+				fence.handle,
 			)
 			.unwrap();
 
@@ -373,21 +363,18 @@ fn server_client_send_image() {
 		let res = client
 			.recv_image(
 				IMAGE_NAME,
-				local_image.get_vk_image(),
-				local_image.get_vk_image_layout(),
-				local_image.get_vk_image_layout(),
-				fence,
+				local_image.image,
+				local_image.image_layout,
+				local_image.image_layout,
+				fence.handle,
 			)
 			.unwrap();
 
 		assert!(res.is_some(), "Failed to receive image");
 		println!("Image received");
 
-		client
-			.get_vk_setup_mut()
-			.as_mut()
-			.unwrap()
-			.destroy_vk_fence(fence);
+		client.get_vk_setup().destroy_fence(fence);
+		local_image.destroy(client.get_vk_setup());
 	};
 
 	let server_thread = thread::spawn(server_fcn);

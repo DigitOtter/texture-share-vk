@@ -4,6 +4,7 @@ pub mod bindings;
 mod vulkan;
 pub use vulkan::*;
 
+pub use ash;
 pub use cxx;
 
 pub mod ipc {

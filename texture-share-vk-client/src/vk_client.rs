@@ -1,8 +1,4 @@
 use std::collections::HashMap;
-use texture_share_vk_base::cxx::UniquePtr;
-use texture_share_vk_base::ipc::platform::daemon_launch::server_connect_and_daemon_launch;
-use texture_share_vk_base::ipc::platform::{ReadLockGuard, Timeout};
-
 use std::io::{Error, ErrorKind};
 use std::{
 	mem::ManuallyDrop,
@@ -10,28 +6,28 @@ use std::{
 	time::Duration,
 };
 
+use texture_share_vk_base::ash::{self, vk};
+use texture_share_vk_base::ipc::platform::daemon_launch::server_connect_and_daemon_launch;
 use texture_share_vk_base::ipc::platform::img_data::{ImgData, ImgFormat};
 use texture_share_vk_base::ipc::platform::ipc_commands::{
 	CommFindImage, CommInitImage, CommandData, CommandMsg, CommandTag,
 };
 use texture_share_vk_base::ipc::platform::ShmemDataInternal;
+use texture_share_vk_base::ipc::platform::{ReadLockGuard, Timeout};
 use texture_share_vk_base::ipc::{IpcConnection, IpcShmem};
-use texture_share_vk_base::vk_setup::ffi::VkSetup;
-use texture_share_vk_base::vk_setup::VkFence;
-use texture_share_vk_base::vk_shared_image::ffi::{
-	vk_share_handles_from_fd, vk_shared_image_new, ShareHandles, SharedImageData, VkSharedImage,
-};
-use texture_share_vk_base::vk_shared_image::ffi::{VkImageLayout, VkOffset3D};
-use texture_share_vk_base::vk_shared_image::VkImage;
+use texture_share_vk_base::vk_setup::VkFencea;
+use texture_share_vk_base::vk_setup::VkSetup;
+use texture_share_vk_base::vk_shared_image::SharedImageData;
+use texture_share_vk_base::vk_shared_image::VkSharedImage;
 
 pub struct ImageData {
 	pub ipc_info: IpcShmem,
-	pub vk_shared_image: UniquePtr<VkSharedImage>,
+	pub vk_shared_image: VkSharedImage,
 }
 
 pub struct VkClient {
 	connection: IpcConnection,
-	vk_setup: UniquePtr<VkSetup>,
+	vk_setup: Box<VkSetup>,
 	shared_images: HashMap<String, ImageData>,
 	//timeout: Duration,
 }
@@ -39,7 +35,9 @@ pub struct VkClient {
 impl Drop for VkClient {
 	fn drop(&mut self) {
 		// Ensure that images are cleared before destroying vulkan instance
-		self.shared_images.clear();
+		self.shared_images
+			.drain()
+			.for_each(|x| x.1.vk_shared_image.destroy(&self.vk_setup));
 	}
 }
 
@@ -48,7 +46,7 @@ impl VkClient {
 
 	pub fn new(
 		socket_path: &str,
-		vk_setup: UniquePtr<VkSetup>,
+		vk_setup: Box<VkSetup>,
 		timeout: Duration,
 	) -> Result<VkClient, Error> {
 		let connection = IpcConnection::try_connect(socket_path, timeout)?;
@@ -71,7 +69,7 @@ impl VkClient {
 
 	pub fn new_with_server_launch(
 		socket_path: &str,
-		vk_setup: UniquePtr<VkSetup>,
+		vk_setup: Box<VkSetup>,
 		client_timeout: Duration,
 		server_program: &str,
 		server_lock_path: &str,
@@ -95,14 +93,7 @@ impl VkClient {
 				return Ok(None);
 			}
 
-			let shared_images = HashMap::default();
-
-			Ok(Some(VkClient {
-				connection: connection.unwrap(),
-				vk_setup: UniquePtr::null(),
-				shared_images,
-				//timeout,
-			}))
+			Ok(Some(connection.unwrap()))
 		};
 
 		let res = server_connect_and_daemon_launch(
@@ -118,9 +109,12 @@ impl VkClient {
 			&conn_fn,
 		)?;
 
-		if let Some(mut client) = res {
-			*client.get_vk_setup_mut() = vk_setup;
-			return Ok(client);
+		if let Some(mut connection) = res {
+			return Ok(VkClient {
+				connection,
+				vk_setup,
+				shared_images: HashMap::default(),
+			});
 		} else {
 			return Err(Error::new(
 				ErrorKind::Interrupted,
@@ -129,11 +123,11 @@ impl VkClient {
 		}
 	}
 
-	pub fn get_vk_setup(&self) -> &UniquePtr<VkSetup> {
+	pub fn get_vk_setup(&self) -> &VkSetup {
 		&self.vk_setup
 	}
 
-	pub fn get_vk_setup_mut(&mut self) -> &mut UniquePtr<VkSetup> {
+	pub fn get_vk_setup_mut(&mut self) -> &mut VkSetup {
 		&mut self.vk_setup
 	}
 
@@ -241,10 +235,10 @@ impl VkClient {
 	pub fn send_image(
 		&mut self,
 		image_name: &str,
-		image: VkImage,
-		orig_layout: VkImageLayout,
-		target_layout: VkImageLayout,
-		fence: VkFence,
+		image: vk::Image,
+		orig_layout: vk::ImageLayout,
+		target_layout: vk::ImageLayout,
+		fence: vk::Fence,
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
 		let remote_image = self.shared_images.get_mut(image_name);
 		if remote_image.is_none() {
@@ -253,18 +247,13 @@ impl VkClient {
 
 		// Send image
 		let remote_image = remote_image.unwrap();
-		remote_image
-			.vk_shared_image
-			.as_mut()
-			.unwrap()
-			.recv_image_blit(
-				self.vk_setup.get_vk_queue(),
-				self.vk_setup.get_vk_command_buffer(),
-				image,
-				orig_layout,
-				target_layout,
-				fence,
-			);
+		remote_image.vk_shared_image.recv_image_blit(
+			&self.vk_setup,
+			&image,
+			orig_layout,
+			target_layout,
+			fence,
+		)?;
 
 		Ok(Some(()))
 	}
@@ -272,11 +261,11 @@ impl VkClient {
 	pub fn send_image_with_extents(
 		&mut self,
 		image_name: &str,
-		image: VkImage,
-		orig_layout: VkImageLayout,
-		target_layout: VkImageLayout,
-		fence: VkFence,
-		extents: &[VkOffset3D; 2],
+		image: vk::Image,
+		orig_layout: vk::ImageLayout,
+		target_layout: vk::ImageLayout,
+		fence: vk::Fence,
+		extents: &[vk::Offset3D; 2],
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
 		unsafe {
 			self.send_image_with_extents_unchecked(
@@ -293,32 +282,33 @@ impl VkClient {
 	pub(crate) unsafe fn send_image_with_extents_unchecked(
 		&mut self,
 		image_name: &str,
-		image: VkImage,
-		orig_layout: VkImageLayout,
-		target_layout: VkImageLayout,
-		fence: VkFence,
-		extents: *const VkOffset3D,
+		image: vk::Image,
+		orig_layout: vk::ImageLayout,
+		target_layout: vk::ImageLayout,
+		fence: vk::Fence,
+		extents: *const vk::Offset3D,
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
 		let remote_image = self.shared_images.get_mut(image_name);
 		if remote_image.is_none() {
 			return Ok(None);
 		}
 
+		let extents: &[vk::Offset3D; 2] = unsafe {
+			std::slice::from_raw_parts(extents, 2)
+				.try_into()
+				.unwrap_unchecked()
+		};
+
 		let remote_image = remote_image.unwrap();
 		unsafe {
-			remote_image
-				.vk_shared_image
-				.as_mut()
-				.unwrap()
-				.recv_image_blit_with_extents(
-					self.vk_setup.get_vk_queue(),
-					self.vk_setup.get_vk_command_buffer(),
-					image,
-					orig_layout,
-					target_layout,
-					fence,
-					extents,
-				);
+			remote_image.vk_shared_image.recv_image_blit_with_extents(
+				&self.vk_setup,
+				&image,
+				orig_layout,
+				target_layout,
+				extents,
+				fence,
+			);
 		}
 		Ok(Some(()))
 	}
@@ -326,10 +316,10 @@ impl VkClient {
 	pub fn recv_image(
 		&mut self,
 		image_name: &str,
-		image: VkImage,
-		orig_layout: VkImageLayout,
-		target_layout: VkImageLayout,
-		fence: VkFence,
+		image: vk::Image,
+		orig_layout: vk::ImageLayout,
+		target_layout: vk::ImageLayout,
+		fence: vk::Fence,
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
 		let remote_image = self.shared_images.get_mut(image_name);
 		if remote_image.is_none() {
@@ -337,18 +327,13 @@ impl VkClient {
 		}
 
 		let remote_image = remote_image.unwrap();
-		remote_image
-			.vk_shared_image
-			.as_mut()
-			.unwrap()
-			.send_image_blit(
-				self.vk_setup.get_vk_queue(),
-				self.vk_setup.get_vk_command_buffer(),
-				image,
-				orig_layout,
-				target_layout,
-				fence,
-			);
+		remote_image.vk_shared_image.send_image_blit(
+			&self.vk_setup,
+			&image,
+			orig_layout,
+			target_layout,
+			fence,
+		);
 
 		Ok(Some(()))
 	}
@@ -356,11 +341,11 @@ impl VkClient {
 	pub fn recv_image_with_extents(
 		&mut self,
 		image_name: &str,
-		image: VkImage,
-		orig_layout: VkImageLayout,
-		target_layout: VkImageLayout,
-		fence: VkFence,
-		extents: &[VkOffset3D; 2],
+		image: vk::Image,
+		orig_layout: vk::ImageLayout,
+		target_layout: vk::ImageLayout,
+		fence: vk::Fence,
+		extents: &[vk::Offset3D; 2],
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
 		unsafe {
 			self.recv_image_with_extents_unchecked(
@@ -377,32 +362,33 @@ impl VkClient {
 	pub(crate) unsafe fn recv_image_with_extents_unchecked(
 		&mut self,
 		image_name: &str,
-		image: VkImage,
-		orig_layout: VkImageLayout,
-		target_layout: VkImageLayout,
-		fence: VkFence,
-		extents: *const VkOffset3D,
+		image: vk::Image,
+		orig_layout: vk::ImageLayout,
+		target_layout: vk::ImageLayout,
+		fence: vk::Fence,
+		extents: *const vk::Offset3D,
 	) -> Result<Option<()>, Box<dyn std::error::Error>> {
 		let remote_image = self.shared_images.get_mut(image_name);
 		if remote_image.is_none() {
 			return Ok(None);
 		}
 
+		let extents: &[vk::Offset3D; 2] = unsafe {
+			std::slice::from_raw_parts(extents, 2)
+				.try_into()
+				.unwrap_unchecked()
+		};
+
 		let remote_image = remote_image.unwrap();
 		unsafe {
-			remote_image
-				.vk_shared_image
-				.as_mut()
-				.unwrap()
-				.send_image_blit_with_extents(
-					self.vk_setup.get_vk_queue(),
-					self.vk_setup.get_vk_command_buffer(),
-					image,
-					orig_layout,
-					target_layout,
-					fence,
-					extents,
-				);
+			remote_image.vk_shared_image.send_image_blit_with_extents(
+				&self.vk_setup,
+				&image,
+				orig_layout,
+				target_layout,
+				extents,
+				fence,
+			);
 		}
 		Ok(Some(()))
 	}
@@ -414,21 +400,21 @@ impl VkClient {
 	) -> Result<Option<&ImageData>, Box<dyn std::error::Error>> {
 		// TODO: Update if sharing more handles
 		debug_assert_eq!(share_handles.len(), 1);
-		let fd = share_handles.pop().unwrap().into_raw_fd();
-		let share_handles = vk_share_handles_from_fd(fd);
+		let fd = share_handles.pop().unwrap();
 
 		let image_name = ImgData::convert_shmem_array_to_str(&img_data.data.name);
-		let image_data = self.create_local_image(img_data, share_handles)?;
+		let image_data = Self::create_local_image(&self.vk_setup, img_data, fd)?;
 		self.shared_images
-			.insert(image_name.to_string(), image_data);
+			.insert(image_name.to_string(), image_data)
+			.map(|x| x.vk_shared_image.destroy(&self.vk_setup));
 
 		Ok(Some(self.shared_images.get(&image_name).unwrap()))
 	}
 
 	fn create_local_image(
-		&self,
+		vk_setup: &VkSetup,
 		img_data: &ImgData,
-		share_handles: UniquePtr<ShareHandles>,
+		img_mem_fd: OwnedFd,
 	) -> Result<ImageData, Box<dyn std::error::Error>> {
 		let shmem = IpcShmem::new(
 			&ImgData::convert_shmem_array_to_str(&img_data.shmem_name),
@@ -440,15 +426,11 @@ impl VkClient {
 			let rlock = shmem.acquire_rlock(Timeout::Val(VkClient::IPC_TIMEOUT))?;
 			let rdata = IpcShmem::acquire_rdata(&rlock);
 
-			let mut vk_shared_image: UniquePtr<VkSharedImage> = vk_shared_image_new();
-			vk_shared_image.as_mut().unwrap().import_from_handle(
-				self.vk_setup.get_vk_device(),
-				self.vk_setup.get_vk_physical_device(),
-				self.vk_setup.get_vk_queue(),
-				self.vk_setup.get_vk_command_buffer(),
-				share_handles,
-				&SharedImageData::from_shmem_img_data(rdata),
-			);
+			let mut vk_shared_image = VkSharedImage::import_from_handle(
+				vk_setup,
+				img_mem_fd,
+				SharedImageData::from_shmem_img_data(&img_data.data),
+			)?;
 			vk_shared_image
 		};
 
@@ -518,16 +500,12 @@ impl VkClient {
 
 		self.connection.send_ack()?;
 
-		let share_handles = vk_share_handles_from_fd(share_handles.pop().unwrap().into_raw_fd());
+		let fd = share_handles.pop().unwrap();
 
-		let image_data = self.create_local_image(&res_data, share_handles)?;
-		let local_image = self.shared_images.get_mut(image_name);
-		if local_image.is_none() {
-			self.shared_images
-				.insert(image_name.to_string(), image_data);
-		} else {
-			*(local_image.unwrap()) = image_data;
-		};
+		let image_data = Self::create_local_image(&self.vk_setup, &res_data, fd)?;
+		self.shared_images
+			.insert(image_name.to_string(), image_data)
+			.map(|x| x.vk_shared_image.destroy(&self.vk_setup));
 
 		Ok(Some(&self.shared_images.get(image_name).unwrap()))
 	}
@@ -535,11 +513,12 @@ impl VkClient {
 
 #[cfg(test)]
 mod tests {
+	use std::ffi::CStr;
 	use std::time::Duration;
 	use std::{fs, thread};
 
 	use texture_share_vk_base::ipc::IpcSocket;
-	use texture_share_vk_base::vk_setup::ffi::vk_setup_new;
+	use texture_share_vk_base::vk_setup::VkSetup;
 
 	use super::VkClient;
 
@@ -561,9 +540,8 @@ mod tests {
 
 		let server_thread = thread::spawn(server_socket_fcn);
 
-		let mut vk_setup = vk_setup_new();
-		vk_setup.as_mut().unwrap().initialize_vulkan();
-
+		let vk_setup =
+			Box::new(VkSetup::new(CStr::from_bytes_with_nul(b"vk_setup\0").unwrap()).unwrap());
 		let _client = VkClient::new(SOCKET_PATH, vk_setup, TIMEOUT).unwrap();
 
 		let server_res = server_thread.join().unwrap();

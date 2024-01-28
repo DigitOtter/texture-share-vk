@@ -18,8 +18,6 @@ class TextureShareVkSetup
 	void import_vulkan(VkInstance instance, VkDevice device, VkPhysicalDevice physical_device, VkQueue graphics_queue,
 	                   uint32_t graphics_queue_index, bool import_only);
 
-	void cleanup_vulkan();
-
 	VkSetup *release();
 
 	private:

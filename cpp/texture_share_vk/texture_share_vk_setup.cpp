@@ -43,14 +43,6 @@ void TextureShareVkSetup::import_vulkan(VkInstance instance, VkDevice device, Vk
 	                              import_only);
 }
 
-void TextureShareVkSetup::cleanup_vulkan()
-{
-	if(!this->_setup)
-		return;
-
-	return vk_setup_cleanup_vulkan(this->_setup);
-}
-
 VkSetup *TextureShareVkSetup::release()
 {
 	VkSetup *ret = this->_setup;

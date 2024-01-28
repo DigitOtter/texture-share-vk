@@ -1,4 +1,8 @@
-use std::path::Path;
+use itertools::Itertools;
+use std::{
+	env,
+	path::{Path, PathBuf},
+};
 
 use cbindgen::Language;
 use cc::{self, Build};
@@ -12,36 +16,50 @@ fn add_cxx_file(mut cfg: Build, cpp_file: &str, h_file: &str) -> Build {
 }
 
 fn main() {
-	// Build gl library
-	let lib_name = "GlSharedImage";
-	let mut dst = cmake::Config::new("cpp")
+	// Build gl binding library
+	#[cfg(target_os = "linux")]
+	let gl_extensions = [
+		"GL_EXT_memory_object",
+		"GL_EXT_memory_object_fd",
+		"GL_EXT_semaphore",
+		"GL_EXT_semaphore_fd",
+		"GL_EXT_texture_storage",
+	];
+
+	let lib_name = "glad";
+	let dst = cmake::Config::new("c")
 		.always_configure(true)
-		.configure_arg("-DBUILD_SHARED_LIBS=False")
-		//.configure_arg("-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON")
-		//.init_cxx_cfg(cxx_conf)
+		.configure_arg("-DBUILD_SHARED_LIBS=OFF")
+		.configure_arg("-DGLAD_API=")
+		.configure_arg("-DGLAD_GENERATOR=c")
+		.configure_arg(format!(
+			"-DGLAD_EXTENSIONS={}",
+			gl_extensions.into_iter().format(",")
+		))
+		.configure_arg("-DGLAD_SPEC=gl")
+		.configure_arg("-DGLAD_INSTALL=ON")
+		.configure_arg("-DGLAD_PROFILE=core")
 		.build();
 
-	dst.push("build");
-
-	// Generate gl library bindings
-	let cxx_rs_files = vec!["src/opengl/gl_shared_image.rs"];
-
-	let cxx_conf = cxx_build::bridges(cxx_rs_files.clone())
-		.includes(["cpp", "../cpp"])
-		.std("c++20")
-		.to_owned();
-
-	let cxx_conf = add_cxx_file(
-		cxx_conf.to_owned(),
-		"cpp/wrapper/gl_shared_image_wrapper.cpp",
-		"cpp/wrapper/gl_shared_image_wrapper.h",
+	println!(
+		"cargo:rustc-link-search=native={}",
+		dst.join("lib").display()
 	);
-
-	cxx_conf.compile("rust_gl_shared_image");
-
-	// Add link command after building cxx to ensure references are not discarded
-	println!("cargo:rustc-link-search=native={}", dst.display());
 	println!("cargo:rustc-link-lib=static={}", lib_name);
+
+	// Generate glad bindings
+	let header_path = dst.join("include/glad/glad.h");
+	println!("cargo:rerun-if-changed={}", header_path.display());
+	let bindings = bindgen::Builder::default()
+		.header(header_path.to_str().unwrap())
+		.parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+		.generate()
+		.expect("Unable to generate glad bindings");
+
+	let bindings_out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+	bindings
+		.write_to_file(bindings_out_path.join("glad_bindings.rs"))
+		.expect("Couldn't write glad bindings");
 
 	// Link to OpenGl
 	//#[cfg(test)]
@@ -49,10 +67,6 @@ fn main() {
 	println!("cargo:rustc-link-lib=GL");
 	//println!("cargo:rustc-link-lib=GLU");
 	//println!("cargo:rustc-link-lib=glut");
-
-	for file in cxx_rs_files.iter() {
-		println!("cargo:rerun-if-changed={}", file);
-	}
 
 	// Generate base bindings
 	let c_header_filename =
