@@ -1,12 +1,8 @@
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
-use std::{
-	mem::ManuallyDrop,
-	os::fd::{IntoRawFd, OwnedFd},
-	time::Duration,
-};
+use std::{mem::ManuallyDrop, os::fd::OwnedFd, time::Duration};
 
-use texture_share_vk_base::ash::{self, vk};
+use texture_share_vk_base::ash::vk;
 use texture_share_vk_base::ipc::platform::daemon_launch::server_connect_and_daemon_launch;
 use texture_share_vk_base::ipc::platform::img_data::{ImgData, ImgFormat};
 use texture_share_vk_base::ipc::platform::ipc_commands::{
@@ -15,7 +11,7 @@ use texture_share_vk_base::ipc::platform::ipc_commands::{
 use texture_share_vk_base::ipc::platform::ShmemDataInternal;
 use texture_share_vk_base::ipc::platform::{ReadLockGuard, Timeout};
 use texture_share_vk_base::ipc::{IpcConnection, IpcShmem};
-use texture_share_vk_base::vk_setup::VkFencea;
+
 use texture_share_vk_base::vk_setup::VkSetup;
 use texture_share_vk_base::vk_shared_image::SharedImageData;
 use texture_share_vk_base::vk_shared_image::VkSharedImage;
@@ -109,7 +105,7 @@ impl VkClient {
 			&conn_fn,
 		)?;
 
-		if let Some(mut connection) = res {
+		if let Some(connection) = res {
 			return Ok(VkClient {
 				connection,
 				vk_setup,
@@ -300,16 +296,14 @@ impl VkClient {
 		};
 
 		let remote_image = remote_image.unwrap();
-		unsafe {
-			remote_image.vk_shared_image.recv_image_blit_with_extents(
-				&self.vk_setup,
-				&image,
-				orig_layout,
-				target_layout,
-				extents,
-				fence,
-			);
-		}
+		remote_image.vk_shared_image.recv_image_blit_with_extents(
+			&self.vk_setup,
+			&image,
+			orig_layout,
+			target_layout,
+			extents,
+			fence,
+		)?;
 		Ok(Some(()))
 	}
 
@@ -333,7 +327,7 @@ impl VkClient {
 			orig_layout,
 			target_layout,
 			fence,
-		);
+		)?;
 
 		Ok(Some(()))
 	}
@@ -380,16 +374,14 @@ impl VkClient {
 		};
 
 		let remote_image = remote_image.unwrap();
-		unsafe {
-			remote_image.vk_shared_image.send_image_blit_with_extents(
-				&self.vk_setup,
-				&image,
-				orig_layout,
-				target_layout,
-				extents,
-				fence,
-			);
-		}
+		remote_image.vk_shared_image.send_image_blit_with_extents(
+			&self.vk_setup,
+			&image,
+			orig_layout,
+			target_layout,
+			extents,
+			fence,
+		)?;
 		Ok(Some(()))
 	}
 
@@ -424,9 +416,9 @@ impl VkClient {
 
 		let vk_shared_image = {
 			let rlock = shmem.acquire_rlock(Timeout::Val(VkClient::IPC_TIMEOUT))?;
-			let rdata = IpcShmem::acquire_rdata(&rlock);
+			let _rdata = IpcShmem::acquire_rdata(&rlock);
 
-			let mut vk_shared_image = VkSharedImage::import_from_handle(
+			let vk_shared_image = VkSharedImage::import_from_handle(
 				vk_setup,
 				img_mem_fd,
 				SharedImageData::from_shmem_img_data(&img_data.data),

@@ -1,6 +1,4 @@
 use std::{
-	default,
-	marker::PhantomData,
 	os::fd::{AsRawFd, OwnedFd},
 };
 
@@ -370,7 +368,7 @@ impl VkSharedImage {
 	pub fn set_image_layout(
 		&mut self,
 		vk_setup: &VkSetup,
-		vk_command_buffer: &VkCommandBuffera,
+		_vk_command_buffer: &VkCommandBuffera,
 		src_image_layout: vk::ImageLayout,
 		dst_image_layout: vk::ImageLayout,
 		src_access_mask: vk::AccessFlags,

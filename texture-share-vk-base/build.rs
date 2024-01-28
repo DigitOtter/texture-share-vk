@@ -1,8 +1,6 @@
 use std::{fs, path::Path};
 
 use cbindgen::Language;
-use cc::{self, Build};
-use cmake;
 
 fn main() {
 	println!("cargo:rustc-link-lib={}", "vulkan");

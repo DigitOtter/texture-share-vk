@@ -5,15 +5,7 @@ use std::{
 };
 
 use cbindgen::Language;
-use cc::{self, Build};
 use cmake;
-
-fn add_cxx_file(mut cfg: Build, cpp_file: &str, h_file: &str) -> Build {
-	println!("cargo:rerun-if-changed={}", cpp_file);
-	println!("cargo:rerun-if-changed={}", h_file);
-
-	cfg.file(cpp_file).to_owned()
-}
 
 fn main() {
 	// Build gl binding library

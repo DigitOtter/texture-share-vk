@@ -1,17 +1,12 @@
 use std::{
-	borrow::BorrowMut,
-	cmp::Ordering,
-	default,
-	error::Error,
 	ffi::{CStr, CString},
 	marker::PhantomData,
 };
 
-use ash::{vk, Device, Entry, Instance, LoadingError, RawPtr};
-use cxx::{type_id, ExternType};
-use libc::{c_char, c_void};
+use ash::{vk, Device, Entry, Instance};
 
 pub struct VkSetup {
+	#[allow(dead_code)]
 	entry: Box<Entry>,
 	pub vk_instance: Instance,
 	pub vk_device: Device,
@@ -60,8 +55,10 @@ impl Drop for VkSetup {
 		unsafe {
 			self.vk_device.device_wait_idle().unwrap();
 
+			// CommandPool and CommandBuffer are always owned by VkSetup
 			self._free_command_buffer(&self.vk_command_pool, self.vk_command_buffer);
 			self._destroy_command_pool(self.vk_command_pool);
+
 			if !self.import_only {
 				self.vk_device.destroy_device(None);
 				self.vk_instance.destroy_instance(None)
@@ -220,7 +217,7 @@ impl VkSetup {
 			}
 		});
 
-		let ext_properties = entry.enumerate_instance_extension_properties(None)?;
+		//let ext_properties = entry.enumerate_instance_extension_properties(None)?;
 		let extensions = [
 			vk::KhrGetPhysicalDeviceProperties2Fn::name().as_ptr(),
 			vk::KhrExternalSemaphoreCapabilitiesFn::name().as_ptr(),

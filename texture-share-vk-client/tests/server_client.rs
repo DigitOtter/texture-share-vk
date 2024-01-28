@@ -9,10 +9,7 @@ use std::{
 	time::Duration,
 };
 
-use texture_share_vk_base::{
-	ash::{self, vk},
-	vk_shared_image,
-};
+use texture_share_vk_base::ash::vk;
 use texture_share_vk_base::{
 	ipc::platform::img_data::ImgFormat, vk_setup::VkSetup, vk_shared_image::VkSharedImage,
 };

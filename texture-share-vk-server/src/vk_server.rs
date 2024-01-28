@@ -5,7 +5,7 @@ use std::mem::ManuallyDrop;
 
 use std::os::fd::IntoRawFd;
 use std::time::Duration;
-use texture_share_vk_base::ash::{self, vk};
+use texture_share_vk_base::ash::vk;
 use texture_share_vk_base::ipc::platform::img_data::ImgData;
 use texture_share_vk_base::ipc::platform::ipc_commands::{
 	CommFindImage, CommInitImage, CommandTag, ResultData, ResultFindImage, ResultInitImage,
@@ -57,7 +57,7 @@ impl VkServer {
 
 		let socket = IpcSocket::new(socket_path, socket_timeout).map_err(|e| Box::new(e))?;
 
-		let mut vk_setup = VkSetup::new(CStr::from_bytes_with_nul(b"VkServer\0").unwrap())?;
+		let vk_setup = VkSetup::new(CStr::from_bytes_with_nul(b"VkServer\0").unwrap())?;
 
 		let images = Vec::default();
 		Ok(VkServer {
@@ -185,7 +185,7 @@ impl VkServer {
 
 		// Send shared handles if image was created
 		if vk_shared_image.is_some() {
-			let mut handles = vk_shared_image.unwrap().export_handle(vk_setup)?;
+			let handles = vk_shared_image.unwrap().export_handle(vk_setup)?;
 			connection.send_anillary_handles(&[handles.into_raw_fd()])?;
 
 			// Receive ack
@@ -330,7 +330,7 @@ impl VkServer {
 			cmd.height,
 			VkSharedImage::get_vk_format(cmd.format),
 			data.handle_id + 1,
-		);
+		)?;
 
 		// Update Shmem data
 		VkServer::update_shmem_data(&mut data, &image.vk_shared_image);

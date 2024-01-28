@@ -5,20 +5,14 @@ use std::{
 	time::Duration,
 };
 use texture_share_vk_base::{
-	ash::{self, vk},
+	ash::vk,
 	bindings::vk_setup_from_c,
 	ipc::platform::{img_data::ImgFormat, ReadLockGuard, ShmemDataInternal},
-	vk_setup::{self, VkFencea, VkSetup},
+	vk_setup::VkSetup,
 };
 
 use crate::VkClient;
 
-type VkInstance = vk::Instance;
-type VkDevice = vk::Device;
-type VkPhysicalDevice = vk::PhysicalDevice;
-type VkQueue = vk::Queue;
-type VkCommandPool = vk::CommandPool;
-type VkCommandBuffer = vk::CommandBuffer;
 type VkFence = vk::Fence;
 type VkOffset3D = vk::Offset3D;
 type VkImage = vk::Image;
@@ -34,18 +28,6 @@ enum ImageLookupResult {
 
 fn get_str<'a>(buf: &'a *const c_char) -> Cow<'a, str> {
 	unsafe { CStr::from_ptr(buf.to_owned()) }.to_string_lossy()
-}
-
-#[repr(C)]
-struct VkSetupData {
-	vk_instance: VkInstance,
-	vk_device: VkDevice,
-	vk_physical_device: VkPhysicalDevice,
-
-	vk_graphics_queue: VkQueue,
-	vk_graphics_queue_family_index: u32,
-
-	import_only: bool,
 }
 
 //#[repr(transparent)]

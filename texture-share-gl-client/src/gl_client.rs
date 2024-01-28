@@ -3,11 +3,7 @@ use texture_share_ipc::platform::daemon_launch::server_connect_and_daemon_launch
 use texture_share_ipc::platform::{ReadLockGuard, Timeout};
 
 use std::io::{Error, ErrorKind};
-use std::{
-	mem::ManuallyDrop,
-	os::fd::{IntoRawFd, OwnedFd},
-	time::Duration,
-};
+use std::{mem::ManuallyDrop, os::fd::OwnedFd, time::Duration};
 
 use texture_share_ipc::platform::img_data::{ImgData, ImgFormat};
 use texture_share_ipc::platform::ipc_commands::{
@@ -332,13 +328,15 @@ impl GlClient {
 
 		let remote_image = remote_image.unwrap();
 		// send_image_... is correct, as it's from the perspective of the remove image
-		remote_image.vk_shared_image.send_blit_image(
-			dst_texture_id,
-			dst_texture_target,
-			extent,
-			invert,
-			prev_fbo,
-		);
+		remote_image
+			.vk_shared_image
+			.send_blit_image(dst_texture_id, dst_texture_target, extent, invert, prev_fbo)
+			.map_err(|x| {
+				Box::new(std::io::Error::new(
+					ErrorKind::InvalidData,
+					format!("GL Error: {}", x),
+				))
+			})?;
 		Ok(Some(()))
 	}
 
@@ -372,9 +370,9 @@ impl GlClient {
 
 		let vk_shared_image = {
 			let rlock = shmem.acquire_rlock(Timeout::Val(GlClient::IPC_TIMEOUT))?;
-			let rdata = IpcShmem::acquire_rdata(&rlock);
+			let _rdata = IpcShmem::acquire_rdata(&rlock);
 
-			let mut vk_shared_image = GlSharedImage::import_handle(
+			let vk_shared_image = GlSharedImage::import_handle(
 				img_mem_fd,
 				img_data.data.width as i32,
 				img_data.data.height as i32,
