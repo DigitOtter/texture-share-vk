@@ -1,4 +1,5 @@
 use std::{
+	borrow::Borrow,
 	ffi::{CStr, CString},
 	marker::PhantomData,
 };
@@ -38,6 +39,10 @@ pub struct VkCommandBuffera<'a> {
 pub struct VkSemaphore<'a> {
 	pub handle: vk::Semaphore,
 	phantom_dev: PhantomData<&'a VkSetup>,
+}
+
+pub struct VkBuffer {
+	pub handle: vk::Buffer,
 }
 
 pub struct VkFencea {
@@ -82,6 +87,12 @@ impl Drop for VkCommandBuffera<'_> {
 impl Drop for VkSemaphore<'_> {
 	fn drop(&mut self) {
 		println!("Warning: VkSemaphore should be manually destroyed, not dropped");
+	}
+}
+
+impl Drop for VkBuffer {
+	fn drop(&mut self) {
+		println!("Warning: VkBuffer should be manually destroyed, not dropped");
 	}
 }
 
@@ -210,6 +221,10 @@ impl VkSetup {
 	}
 
 	pub fn new(vk_instance_name: &CStr) -> Result<VkSetup, vk::Result> {
+		const ENABLE_VALIDATION: bool = true;
+		let validation_layers: &[&CStr] =
+			&[CStr::from_bytes_with_nul(b"VK_LAYER_KHRONOS_validation\0").unwrap()];
+
 		let entry: Box<Entry> = Box::new(unsafe {
 			match Entry::load() {
 				Ok(o) => o,
@@ -218,11 +233,25 @@ impl VkSetup {
 		});
 
 		//let ext_properties = entry.enumerate_instance_extension_properties(None)?;
-		let extensions = [
+		let mut extensions = vec![
 			vk::KhrGetPhysicalDeviceProperties2Fn::name().as_ptr(),
 			vk::KhrExternalSemaphoreCapabilitiesFn::name().as_ptr(),
 			vk::KhrExternalMemoryCapabilitiesFn::name().as_ptr(),
 		];
+
+		if ENABLE_VALIDATION {
+			extensions.push(vk::ExtDebugUtilsFn::name().as_ptr())
+		}
+
+		let layers = if ENABLE_VALIDATION && Self::check_layer_support(&entry, validation_layers) {
+			validation_layers
+				.iter()
+				.map(|&x| x.as_ptr())
+				.collect::<Vec<_>>()
+		} else {
+			println!("Validation layers not supported!");
+			Vec::default()
+		};
 
 		let app_info = vk::ApplicationInfo {
 			api_version: vk::make_api_version(0, 1, 2, 0),
@@ -234,6 +263,8 @@ impl VkSetup {
 			p_application_info: &app_info,
 			enabled_extension_count: extensions.len() as u32,
 			pp_enabled_extension_names: extensions.as_ptr(),
+			enabled_layer_count: layers.len() as u32,
+			pp_enabled_layer_names: layers.as_ptr(),
 			..Default::default()
 		};
 
@@ -333,6 +364,26 @@ impl VkSetup {
 			external_memory_fd,
 			import_only: false,
 		})
+	}
+
+	fn check_layer_support(entry: &Entry, layers: &[&CStr]) -> bool {
+		let props = entry
+			.enumerate_instance_layer_properties()
+			.map_err(|_| return false)
+			.unwrap();
+
+		let mut all_available = true;
+		layers.iter().for_each(|&l| {
+			if props
+				.iter()
+				.any(|p| unsafe { Self::to_cstr(&p.layer_name) } == l)
+				== false
+			{
+				all_available = false;
+			}
+		});
+
+		all_available
 	}
 
 	fn _create_command_pool(
@@ -439,6 +490,26 @@ impl VkSetup {
 		std::mem::forget(semaphore);
 	}
 
+	fn _create_buffer(
+		vk_device: &Device,
+		create_info: &vk::BufferCreateInfo,
+	) -> Result<VkBuffer, vk::Result> {
+		let handle = unsafe { vk_device.create_buffer(create_info, None) }?;
+		Ok(VkBuffer { handle })
+	}
+
+	pub fn create_buffer(
+		&self,
+		create_info: &vk::BufferCreateInfo,
+	) -> Result<VkBuffer, vk::Result> {
+		Self::_create_buffer(&self.vk_device, create_info)
+	}
+
+	pub fn destroy_buffer(&self, vk_buffer: VkBuffer) {
+		unsafe { self.vk_device.destroy_buffer(vk_buffer.handle, None) }
+		std::mem::forget(vk_buffer)
+	}
+
 	pub fn create_fence(
 		&self,
 		fence_info: Option<vk::FenceCreateInfo>,
@@ -519,6 +590,35 @@ impl VkSetup {
 		})?;
 
 		Ok(())
+	}
+
+	pub fn get_memory_type(
+		&self,
+		mut memory_type_bits_requirement: u32,
+		required_properties: vk::MemoryPropertyFlags,
+	) -> Option<u32> {
+		let memory_properties = unsafe {
+			self.vk_instance
+				.get_physical_device_memory_properties(self.vk_physical_device)
+		};
+
+		// Code taken from https://registry.khronos.org/vulkan/specs/1.3/html/chap11.html#memory-device
+		for memory_index in 0..memory_properties.memory_type_count {
+			let memory_type_bits = 1 << memory_index;
+
+			// Check bits
+			if (memory_type_bits_requirement & memory_type_bits) != 0 {
+				let properties =
+					memory_properties.memory_types[memory_index as usize].property_flags;
+				let has_required_properties =
+					(properties & required_properties) == required_properties;
+				if has_required_properties {
+					return Some(memory_index);
+				}
+			}
+		}
+
+		None
 	}
 }
 

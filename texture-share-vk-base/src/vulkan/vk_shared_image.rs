@@ -1,6 +1,4 @@
-use std::{
-	os::fd::{AsRawFd, OwnedFd},
-};
+use std::os::fd::{AsRawFd, OwnedFd};
 
 use ash::vk;
 use texture_share_ipc::platform::{img_data::ImgFormat, ShmemDataInternal};
@@ -77,31 +75,6 @@ impl VkSharedImage {
 	const MEMORY_HANDLE_TYPE_FLAG: vk::ExternalMemoryHandleTypeFlags =
 		vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD;
 
-	fn get_memory_type(
-		vk_setup: &VkSetup,
-		mut bits: u32,
-		properties: vk::MemoryPropertyFlags,
-	) -> Option<u32> {
-		let memory_properties = unsafe {
-			vk_setup
-				.vk_instance
-				.get_physical_device_memory_properties(vk_setup.vk_physical_device)
-		};
-
-		memory_properties
-			.memory_types
-			.into_iter()
-			.position(|mem_type| {
-				if (bits & 1) == 1 && mem_type.property_flags & properties == properties {
-					true
-				} else {
-					bits >>= 1;
-					false
-				}
-			})
-			.map(|x| x as u32)
-	}
-
 	pub fn new(
 		vk_setup: &VkSetup,
 		width: u32,
@@ -145,12 +118,12 @@ impl VkSharedImage {
 		let mem_allocate_info = vk::MemoryAllocateInfo::builder()
 			.allocation_size(memory_requirements.size)
 			.memory_type_index(
-				Self::get_memory_type(
-					&vk_setup,
-					memory_requirements.memory_type_bits,
-					vk::MemoryPropertyFlags::DEVICE_LOCAL,
-				)
-				.unwrap(),
+				vk_setup
+					.get_memory_type(
+						memory_requirements.memory_type_bits,
+						vk::MemoryPropertyFlags::DEVICE_LOCAL,
+					)
+					.unwrap(),
 			)
 			.push_next(&mut export_memory_alloc_info)
 			.build();
@@ -256,12 +229,12 @@ impl VkSharedImage {
 			.push_next(&mut import_memory_info)
 			.allocation_size(memory_requirements.size)
 			.memory_type_index(
-				Self::get_memory_type(
-					vk_setup,
-					memory_requirements.memory_type_bits,
-					vk::MemoryPropertyFlags::DEVICE_LOCAL,
-				)
-				.unwrap(),
+				vk_setup
+					.get_memory_type(
+						memory_requirements.memory_type_bits,
+						vk::MemoryPropertyFlags::DEVICE_LOCAL,
+					)
+					.unwrap(),
 			)
 			.build();
 
@@ -452,7 +425,7 @@ impl VkSharedImage {
 				.aspect_mask(vk::ImageAspectFlags::COLOR)
 				.base_array_layer(0)
 				.layer_count(1)
-				.mip_level(1)
+				.mip_level(0)
 				.build();
 			let image_blit = vk::ImageBlit::builder()
 				.src_subresource(image_subresource_layer)
