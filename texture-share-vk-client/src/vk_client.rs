@@ -13,8 +13,8 @@ use texture_share_vk_base::ipc::platform::{ReadLockGuard, Timeout};
 use texture_share_vk_base::ipc::{IpcConnection, IpcShmem};
 
 use texture_share_vk_base::vk_setup::VkSetup;
-use texture_share_vk_base::vk_shared_image::SharedImageData;
 use texture_share_vk_base::vk_shared_image::VkSharedImage;
+use texture_share_vk_base::vk_shared_image::{ImageBlit, SharedImageData};
 
 pub struct ImageData {
 	pub ipc_info: IpcShmem,

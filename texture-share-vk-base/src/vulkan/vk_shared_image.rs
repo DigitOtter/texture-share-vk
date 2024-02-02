@@ -32,7 +32,7 @@ pub struct VkSharedImage {
 	pub image_layout: vk::ImageLayout,
 	memory: vk::DeviceMemory,
 
-	data: SharedImageData,
+	pub(crate) data: SharedImageData,
 	//_phantom_dev: PhantomData<&'a VkSetup>,
 }
 
@@ -45,6 +45,46 @@ impl Drop for VkSharedImage {
 			println!("Warning: VkSharedImage should be manually destroyed, not dropped");
 		}
 	}
+}
+
+pub trait ImageBlit {
+	fn send_image_blit_with_extents(
+		&self,
+		vk_setup: &VkSetup,
+		dst_image: &vk::Image,
+		orig_dst_image_layout: vk::ImageLayout,
+		target_dst_image_layout: vk::ImageLayout,
+		dst_image_extent: &[vk::Offset3D; 2],
+		fence: vk::Fence,
+	) -> Result<(), vk::Result>;
+
+	fn send_image_blit(
+		&self,
+		vk_setup: &VkSetup,
+		dst_image: &vk::Image,
+		orig_dst_image_layout: vk::ImageLayout,
+		target_dst_image_layout: vk::ImageLayout,
+		fence: vk::Fence,
+	) -> Result<(), vk::Result>;
+
+	fn recv_image_blit_with_extents(
+		&self,
+		vk_setup: &VkSetup,
+		src_image: &vk::Image,
+		orig_src_image_layout: vk::ImageLayout,
+		target_src_image_layout: vk::ImageLayout,
+		src_image_extent: &[vk::Offset3D; 2],
+		fence: vk::Fence,
+	) -> Result<(), vk::Result>;
+
+	fn recv_image_blit(
+		&self,
+		vk_setup: &VkSetup,
+		src_image: &vk::Image,
+		orig_src_image_layout: vk::ImageLayout,
+		target_src_image_layout: vk::ImageLayout,
+		fence: vk::Fence,
+	) -> Result<(), vk::Result>;
 }
 
 impl VkSharedImage {
@@ -172,7 +212,7 @@ impl VkSharedImage {
 		Ok(())
 	}
 
-	fn _destroy(&self, vk_setup: &VkSetup) {
+	pub(crate) fn _destroy(&self, vk_setup: &VkSetup) {
 		unsafe {
 			vk_setup.vk_device.device_wait_idle().unwrap();
 			vk_setup.vk_device.destroy_image(self.image, None);
@@ -359,7 +399,33 @@ impl VkSharedImage {
 		Ok(self.image_layout)
 	}
 
-	fn image_blit(
+	pub fn gen_img_mem_barrier(
+		image: vk::Image,
+		orig_layout: vk::ImageLayout,
+		target_layout: vk::ImageLayout,
+		src_access_mask: vk::AccessFlags,
+		dst_access_mask: vk::AccessFlags,
+	) -> vk::ImageMemoryBarrier {
+		let subresource_range: vk::ImageSubresourceRange = vk::ImageSubresourceRange {
+			aspect_mask: vk::ImageAspectFlags::COLOR,
+			level_count: 1,
+			layer_count: 1,
+			..Default::default()
+		};
+
+		vk::ImageMemoryBarrier::builder()
+			.image(image)
+			.old_layout(orig_layout)
+			.new_layout(target_layout)
+			.src_access_mask(src_access_mask)
+			.dst_access_mask(dst_access_mask)
+			.src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+			.dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+			.subresource_range(subresource_range)
+			.build()
+	}
+
+	pub(crate) fn image_blit(
 		vk_setup: &VkSetup,
 		src_image: &vk::Image,
 		orig_src_image_layout: vk::ImageLayout,
@@ -372,13 +438,6 @@ impl VkSharedImage {
 		fence: vk::Fence,
 	) -> Result<(), vk::Result> {
 		let blit_fcn = |cmd_buf: vk::CommandBuffer| -> Result<(), vk::Result> {
-			let subresource_range: vk::ImageSubresourceRange = vk::ImageSubresourceRange {
-				aspect_mask: vk::ImageAspectFlags::COLOR,
-				level_count: 1,
-				layer_count: 1,
-				..Default::default()
-			};
-
 			const SRC_BLIT_LAYOUT: vk::ImageLayout = vk::ImageLayout::TRANSFER_SRC_OPTIMAL;
 			const DST_BLIT_LAYOUT: vk::ImageLayout = vk::ImageLayout::TRANSFER_DST_OPTIMAL;
 
@@ -386,26 +445,20 @@ impl VkSharedImage {
 			// Sets src_image to TRANSFER_SRC_OPTIMAL layout
 			// Sets dst_image to TRANSFER_DST_OPTIMAL layout
 			// Ensures that dst access masks are set to TRANSFER_READ and TRANSFER_WRITE respectively
-			let src_img_mem_barrier = vk::ImageMemoryBarrier::builder()
-				.image(*src_image)
-				.src_access_mask(vk::AccessFlags::NONE)
-				.dst_access_mask(vk::AccessFlags::TRANSFER_READ)
-				.old_layout(orig_src_image_layout)
-				.new_layout(SRC_BLIT_LAYOUT)
-				.src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-				.dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-				.subresource_range(subresource_range)
-				.build();
-			let dst_img_mem_barrier = vk::ImageMemoryBarrier::builder()
-				.image(*dst_image)
-				.src_access_mask(vk::AccessFlags::NONE)
-				.dst_access_mask(vk::AccessFlags::TRANSFER_WRITE)
-				.old_layout(orig_dst_image_layout)
-				.new_layout(DST_BLIT_LAYOUT)
-				.src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-				.dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-				.subresource_range(subresource_range)
-				.build();
+			let src_img_mem_barrier = Self::gen_img_mem_barrier(
+				*src_image,
+				orig_src_image_layout,
+				SRC_BLIT_LAYOUT,
+				vk::AccessFlags::NONE,
+				vk::AccessFlags::TRANSFER_READ,
+			);
+			let dst_img_mem_barrier = Self::gen_img_mem_barrier(
+				*dst_image,
+				orig_dst_image_layout,
+				DST_BLIT_LAYOUT,
+				vk::AccessFlags::NONE,
+				vk::AccessFlags::TRANSFER_WRITE,
+			);
 
 			// Push pipeline barrier
 			unsafe {
@@ -449,26 +502,20 @@ impl VkSharedImage {
 			// Sets src_image to target_src_image_layout layout
 			// Sets dst_image to target_dst_image_layout layout
 			// Ensures that src access masks are set to TRANSFER_READ and TRANSFER_WRITE respectively
-			let src_img_mem_barrier = vk::ImageMemoryBarrier::builder()
-				.image(*src_image)
-				.src_access_mask(vk::AccessFlags::TRANSFER_READ)
-				.dst_access_mask(vk::AccessFlags::NONE)
-				.old_layout(SRC_BLIT_LAYOUT)
-				.new_layout(target_src_image_layout)
-				.src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-				.dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-				.subresource_range(subresource_range)
-				.build();
-			let dst_img_mem_barrier = vk::ImageMemoryBarrier::builder()
-				.image(*dst_image)
-				.src_access_mask(vk::AccessFlags::TRANSFER_WRITE)
-				.dst_access_mask(vk::AccessFlags::NONE)
-				.old_layout(DST_BLIT_LAYOUT)
-				.new_layout(target_dst_image_layout)
-				.src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-				.dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
-				.subresource_range(subresource_range)
-				.build();
+			let src_img_mem_barrier = Self::gen_img_mem_barrier(
+				*src_image,
+				SRC_BLIT_LAYOUT,
+				target_src_image_layout,
+				vk::AccessFlags::TRANSFER_READ,
+				vk::AccessFlags::NONE,
+			);
+			let dst_img_mem_barrier = Self::gen_img_mem_barrier(
+				*dst_image,
+				DST_BLIT_LAYOUT,
+				target_dst_image_layout,
+				vk::AccessFlags::TRANSFER_WRITE,
+				vk::AccessFlags::NONE,
+			);
 
 			// Push pipeline barrier
 			unsafe {
@@ -496,8 +543,10 @@ impl VkSharedImage {
 
 		Ok(())
 	}
+}
 
-	pub fn send_image_blit_with_extents(
+impl ImageBlit for VkSharedImage {
+	fn send_image_blit_with_extents(
 		&self,
 		vk_setup: &VkSetup,
 		dst_image: &vk::Image,
@@ -529,7 +578,7 @@ impl VkSharedImage {
 		)
 	}
 
-	pub fn send_image_blit(
+	fn send_image_blit(
 		&self,
 		vk_setup: &VkSetup,
 		dst_image: &vk::Image,
@@ -556,7 +605,7 @@ impl VkSharedImage {
 		)
 	}
 
-	pub fn recv_image_blit_with_extents(
+	fn recv_image_blit_with_extents(
 		&self,
 		vk_setup: &VkSetup,
 		src_image: &vk::Image,
@@ -588,7 +637,7 @@ impl VkSharedImage {
 		)
 	}
 
-	pub fn recv_image_blit(
+	fn recv_image_blit(
 		&self,
 		vk_setup: &VkSetup,
 		src_image: &vk::Image,
@@ -624,7 +673,7 @@ mod testsa {
 
 	use crate::vk_setup::{VkCommandBuffera, VkCommandPoola, VkSetup};
 
-	use super::VkSharedImage;
+	use super::{ImageBlit, VkSharedImage};
 
 	fn _init_vk_setup<'a>() -> VkSetup {
 		VkSetup::new(CStr::from_bytes_with_nul(b"VkSetup\0").unwrap()).unwrap()

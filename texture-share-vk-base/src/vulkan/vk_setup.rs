@@ -6,6 +6,8 @@ use std::{
 
 use ash::{vk, Device, Entry, Instance};
 
+use crate::vk_shared_image;
+
 pub struct VkSetup {
 	#[allow(dead_code)]
 	entry: Box<Entry>,
@@ -22,6 +24,8 @@ pub struct VkSetup {
 
 	#[cfg(target_os = "linux")]
 	pub external_memory_fd: ash::extensions::khr::ExternalMemoryFd,
+
+	pub vma: vk_mem::Allocator,
 
 	import_only: bool,
 }
@@ -174,6 +178,21 @@ impl VkSetup {
 		return Some((physical_device, avail_extensions));
 	}
 
+	fn generate_vma_allocator(
+		vk_instance: &Instance,
+		vk_device: &Device,
+		vk_physical_device: vk::PhysicalDevice,
+	) -> Result<vk_mem::Allocator, vk::Result> {
+		let vma_allocator_create_info =
+			vk_mem::AllocatorCreateInfo::new(&vk_instance, &vk_device, vk_physical_device);
+
+		// #[cfg(target_os = "linux")]
+		// let vma_allocator_create_info = vma_allocator_create_info
+		// 	.external_memory_handles(&[vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD]);
+
+		vk_mem::Allocator::new(vma_allocator_create_info)
+	}
+
 	pub fn import_vk(
 		entry: Option<Box<Entry>>,
 		vk_instance: vk::Instance,
@@ -205,6 +224,8 @@ impl VkSetup {
 		#[cfg(target_os = "linux")]
 		let external_memory_fd = ash::extensions::khr::ExternalMemoryFd::new(&vk_instance, &vk_device);
 
+		let vma = Self::generate_vma_allocator(&vk_instance, &vk_device, vk_physical_device)?;
+
 		Ok(VkSetup {
 			entry,
 			vk_instance,
@@ -216,6 +237,7 @@ impl VkSetup {
 			vk_command_pool,
 			vk_command_buffer,
 			external_memory_fd,
+			vma,
 			import_only,
 		})
 	}
@@ -351,6 +373,8 @@ impl VkSetup {
 		#[cfg(target_os = "linux")]
 		let external_memory_fd = ash::extensions::khr::ExternalMemoryFd::new(&vk_instance, &vk_device);
 
+		let vma = Self::generate_vma_allocator(&vk_instance, &vk_device, sel_physical_device)?;
+
 		Ok(VkSetup {
 			entry,
 			vk_instance,
@@ -362,6 +386,7 @@ impl VkSetup {
 			vk_command_pool,
 			vk_command_buffer,
 			external_memory_fd,
+			vma,
 			import_only: false,
 		})
 	}
