@@ -32,6 +32,12 @@ struct Args {
 
 	#[arg(long, default_value_t = 2000)]
 	lockfile_timeout_millis: u64,
+
+	#[arg(long, required = false)]
+	gpu_vendor_id: Option<u32>,
+
+	#[arg(long, required = false)]
+	gpu_device_id: Option<u32>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -66,12 +72,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	let _ = fs::remove_file(&args.socket_file);
 
+	// Check if GPU vendor and device ID's were submitted
+	let gpu_vendor_device_ids = if args.gpu_vendor_id.is_some() && args.gpu_device_id.is_some() {
+		Some((args.gpu_vendor_id.unwrap(), args.gpu_device_id.unwrap()))
+	} else {
+		None
+	};
+
 	let vk_server = VkServer::new(
 		&args.socket_file,
 		&args.shmem_prefix,
 		Duration::from_millis(args.socket_timeout_millis),
 		Duration::from_millis(args.connection_wait_timeout_millis),
 		Duration::from_millis(args.ipc_timeout_millis),
+		gpu_vendor_device_ids,
 	)?;
 
 	vk_server.loop_server(Arc::new(AtomicBool::new(false)))?;

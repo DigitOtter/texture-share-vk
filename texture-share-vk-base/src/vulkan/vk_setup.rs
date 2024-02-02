@@ -30,6 +30,13 @@ pub struct VkSetup {
 	import_only: bool,
 }
 
+pub struct VkPhysicalDeviceOptions {
+	pub vendor_id: Option<u32>,
+	pub device_id: Option<u32>,
+	pub device_name: Option<CString>,
+	pub device_type: Option<vk::PhysicalDeviceType>,
+}
+
 pub struct VkCommandPoola<'a> {
 	handle: vk::CommandPool,
 	phantom_dev: PhantomData<&'a VkSetup>,
@@ -57,6 +64,17 @@ pub struct VkFencea {
 enum ExtensionOptions<'a> {
 	Name(&'a CStr),
 	SelectFirst(Vec<&'a CStr>),
+}
+
+impl Default for VkPhysicalDeviceOptions {
+	fn default() -> Self {
+		VkPhysicalDeviceOptions {
+			vendor_id: None,
+			device_id: None,
+			device_name: None,
+			device_type: None,
+		}
+	}
 }
 
 impl Drop for VkSetup {
@@ -117,6 +135,8 @@ impl VkSetup {
 		physical_device: vk::PhysicalDevice,
 		vk_instance: &Instance,
 		api_version: Option<u32>,
+		vendor_id: Option<u32>,
+		device_id: Option<u32>,
 		device_name: Option<&CStr>,
 		device_type: Option<vk::PhysicalDeviceType>,
 		device_extensions: Option<&[ExtensionOptions<'_>]>,
@@ -124,6 +144,18 @@ impl VkSetup {
 		let props = unsafe { vk_instance.get_physical_device_properties(physical_device) };
 		if let Some(api_version) = api_version {
 			if props.api_version < api_version {
+				return None;
+			}
+		}
+
+		if let Some(vendor_id) = vendor_id {
+			if vendor_id != props.vendor_id {
+				return None;
+			}
+		}
+
+		if let Some(device_id) = device_id {
+			if device_id != props.device_id {
 				return None;
 			}
 		}
@@ -136,7 +168,7 @@ impl VkSetup {
 		}
 
 		if let Some(device_type) = device_type {
-			if device_type == props.device_type {
+			if device_type != props.device_type {
 				return None;
 			}
 		}
@@ -242,7 +274,10 @@ impl VkSetup {
 		})
 	}
 
-	pub fn new(vk_instance_name: &CStr) -> Result<VkSetup, vk::Result> {
+	pub fn new(
+		vk_instance_name: &CStr,
+		physical_device_options: Option<VkPhysicalDeviceOptions>,
+	) -> Result<VkSetup, vk::Result> {
 		const ENABLE_VALIDATION: bool = true;
 		let validation_layers: &[&CStr] =
 			&[CStr::from_bytes_with_nul(b"VK_LAYER_KHRONOS_validation\0").unwrap()];
@@ -315,6 +350,8 @@ impl VkSetup {
 			.push_next(&mut physical_device_vk_12_features)
 			.build();
 
+		let physical_device_options = physical_device_options.unwrap_or_default();
+
 		let avail_physical_devices = unsafe { vk_instance.enumerate_physical_devices() }?;
 		let (sel_physical_device, avail_extensions) =
 			match avail_physical_devices.into_iter().find_map(|x| {
@@ -322,8 +359,10 @@ impl VkSetup {
 					x,
 					&vk_instance,
 					Some(vk::API_VERSION_1_2),
-					None,
-					None,
+					physical_device_options.vendor_id,
+					physical_device_options.device_id,
+					physical_device_options.device_name.as_deref(),
+					physical_device_options.device_type,
 					Some(&extensions),
 				)
 			}) {
@@ -656,7 +695,7 @@ mod testsa {
 	use super::VkSetup;
 
 	fn _init_vk_setup() -> VkSetup {
-		VkSetup::new(CStr::from_bytes_with_nul(b"Name\0").unwrap()).unwrap()
+		VkSetup::new(CStr::from_bytes_with_nul(b"Name\0").unwrap(), None).unwrap()
 	}
 
 	#[test]

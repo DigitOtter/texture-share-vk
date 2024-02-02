@@ -150,6 +150,7 @@ impl VkClient {
 					height,
 					format,
 					overwrite_existing,
+					..Default::default() // TODO: Add GPU vendor-device-ids
 				}),
 			},
 		};
@@ -532,8 +533,9 @@ mod tests {
 
 		let server_thread = thread::spawn(server_socket_fcn);
 
-		let vk_setup =
-			Box::new(VkSetup::new(CStr::from_bytes_with_nul(b"vk_setup\0").unwrap()).unwrap());
+		let vk_setup = Box::new(
+			VkSetup::new(CStr::from_bytes_with_nul(b"vk_setup\0").unwrap(), None).unwrap(),
+		);
 		let _client = VkClient::new(SOCKET_PATH, vk_setup, TIMEOUT).unwrap();
 
 		let server_res = server_thread.join().unwrap();

@@ -676,7 +676,7 @@ mod testsa {
 	use super::{ImageBlit, VkSharedImage};
 
 	fn _init_vk_setup<'a>() -> VkSetup {
-		VkSetup::new(CStr::from_bytes_with_nul(b"VkSetup\0").unwrap()).unwrap()
+		VkSetup::new(CStr::from_bytes_with_nul(b"VkSetup\0").unwrap(), None).unwrap()
 	}
 
 	fn _init_vk_command_pool<'a>(vk_setup: &'a VkSetup) -> VkCommandPoola<'a> {

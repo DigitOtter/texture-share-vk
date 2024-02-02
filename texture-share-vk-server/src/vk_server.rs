@@ -14,7 +14,7 @@ use texture_share_vk_base::ipc::platform::ipc_commands::{
 use texture_share_vk_base::ipc::platform::ShmemDataInternal;
 use texture_share_vk_base::ipc::platform::{LockGuard, ReadLockGuard, Timeout};
 use texture_share_vk_base::ipc::{IpcConnection, IpcShmem, IpcSocket};
-use texture_share_vk_base::vk_setup::VkSetup;
+use texture_share_vk_base::vk_setup::{VkPhysicalDeviceOptions, VkSetup};
 use texture_share_vk_base::vk_shared_image::VkSharedImage;
 
 pub(super) struct ServerImageData {
@@ -52,12 +52,25 @@ impl VkServer {
 		socket_timeout: Duration,
 		connection_wait_timeout: Duration,
 		ipc_timeout: Duration,
+		gpu_vendor_device_ids: Option<(u32, u32)>,
 	) -> Result<VkServer, Box<dyn std::error::Error>> {
 		let _ = fs::remove_file(socket_path.to_owned());
 
 		let socket = IpcSocket::new(socket_path, socket_timeout).map_err(|e| Box::new(e))?;
 
-		let vk_setup = VkSetup::new(CStr::from_bytes_with_nul(b"VkServer\0").unwrap())?;
+		let physical_device_options = match gpu_vendor_device_ids {
+			Some(ids) => Some(VkPhysicalDeviceOptions {
+				vendor_id: Some(ids.0),
+				device_id: Some(ids.1),
+				..Default::default()
+			}),
+			None => None,
+		};
+
+		let vk_setup = VkSetup::new(
+			CStr::from_bytes_with_nul(b"VkServer\0").unwrap(),
+			physical_device_options,
+		)?;
 
 		let images = Vec::default();
 		Ok(VkServer {
@@ -392,6 +405,7 @@ mod tests {
 			SOCKET_TIMEOUT,
 			NO_CONNECTION_TIMEOUT,
 			IPC_TIMEOUT,
+			None,
 		)
 		.unwrap()
 	}
@@ -404,6 +418,7 @@ mod tests {
 			SOCKET_TIMEOUT,
 			NO_CONNECTION_TIMEOUT,
 			IPC_TIMEOUT,
+			None,
 		)
 		.unwrap();
 	}

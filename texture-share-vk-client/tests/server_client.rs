@@ -29,13 +29,14 @@ fn _server_create() -> VkServer {
 		SOCKET_TIMEOUT,
 		NO_CONNECTION_TIMEOUT,
 		IPC_TIMEOUT,
+		None,
 	)
 	.unwrap()
 }
 
 fn _client_create() -> VkClient {
 	let vk_setup =
-		Box::new(VkSetup::new(CStr::from_bytes_with_nul(b"VkClient\0").unwrap()).unwrap());
+		Box::new(VkSetup::new(CStr::from_bytes_with_nul(b"VkClient\0").unwrap(), None).unwrap());
 	VkClient::new(SOCKET_PATH, vk_setup, SOCKET_TIMEOUT)
 		.expect("Client failed to connect to server")
 }

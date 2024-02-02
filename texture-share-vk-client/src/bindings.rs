@@ -54,7 +54,7 @@ extern "C" fn vk_client_new(
 	let vk_setup = match vk_setup {
 		Some(ptr) => unsafe { vk_setup_from_c(ptr.as_ptr()) },
 		None => Box::new(
-			VkSetup::new(CStr::from_bytes_with_nul(b"VkClient\0").unwrap())
+			VkSetup::new(CStr::from_bytes_with_nul(b"VkClient\0").unwrap(), None)
 				.map_err(|_x| {
 					println!("Failed to create VkSetup");
 					return ptr::null_mut::<VkClient>();
@@ -96,7 +96,7 @@ extern "C" fn vk_client_new_with_server_launch(
 	let vk_setup = match vk_setup {
 		Some(ptr) => unsafe { vk_setup_from_c(ptr.as_ptr()) },
 		None => Box::new(
-			VkSetup::new(CStr::from_bytes_with_nul(b"VkClient\0").unwrap())
+			VkSetup::new(CStr::from_bytes_with_nul(b"VkClient\0").unwrap(), None)
 				.map_err(|_x| {
 					println!("Failed to create VkSetup");
 					return ptr::null_mut::<VkClient>();

@@ -25,14 +25,12 @@ pub enum CommandTag {
 #[repr(C)]
 pub union CommandData {
 	pub init_img: ManuallyDrop<CommInitImage>,
-	pub rename_img: ManuallyDrop<CommRenameImage>,
 	pub find_img: ManuallyDrop<CommFindImage>,
 }
 
 #[repr(C)]
 pub union ResultData {
 	pub init_img: ManuallyDrop<ResultInitImage>,
-	pub rename_img: ManuallyDrop<ResultRenameImage>,
 	pub find_img: ManuallyDrop<ResultFindImage>,
 }
 
@@ -43,6 +41,8 @@ pub struct CommInitImage {
 	pub height: u32,
 	pub format: ImgFormat,
 	pub overwrite_existing: bool,
+	pub vendor_id: u32,
+	pub device_id: u32,
 }
 
 pub struct ResultInitImage {
@@ -92,6 +92,21 @@ impl Default for ResultMsg {
 					img_data: ImgData::default(),
 				}),
 			},
+		}
+	}
+}
+
+impl Default for CommInitImage {
+	fn default() -> Self {
+		CommInitImage {
+			image_name: [0 as u8; size_of::<ImgName>()],
+			shmem_name: [0 as u8; size_of::<ShmemName>()],
+			format: ImgFormat::default(),
+			width: 0,
+			height: 0,
+			overwrite_existing: false,
+			vendor_id: 0,
+			device_id: 0,
 		}
 	}
 }

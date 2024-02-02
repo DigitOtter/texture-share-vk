@@ -10,7 +10,8 @@ type VkPhysicalDevice = vk::PhysicalDevice;
 type VkQueue = vk::Queue;
 
 pub unsafe fn vk_setup_init_c() -> *mut VkSetup {
-	let pvk_setup = Box::new(VkSetup::new(CStr::from_bytes_with_nul(b"VkSetup").unwrap()).unwrap());
+	let pvk_setup =
+		Box::new(VkSetup::new(CStr::from_bytes_with_nul(b"VkSetup").unwrap(), None).unwrap());
 	Box::into_raw(pvk_setup)
 }
 

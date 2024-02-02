@@ -12,7 +12,7 @@ pub struct VkCpuBuffer {
 	pub buffer: VkBuffer,
 	memory: vk::DeviceMemory,
 	pub buffer_size: u64,
-	ram_memory: *mut c_void,
+	pub ram_memory: *mut c_void,
 }
 
 impl Drop for VkCpuBuffer {
@@ -120,18 +120,11 @@ impl VkCpuBuffer {
 		image_height: u32,
 	) -> Result<(), vk::Result> {
 		let img_copy_fcn = |cmd_buf: vk::CommandBuffer| {
-			let subresource_range: vk::ImageSubresourceRange = vk::ImageSubresourceRange {
-				aspect_mask: vk::ImageAspectFlags::COLOR,
-				level_count: 1,
-				layer_count: 1,
-				..Default::default()
-			};
-
 			// Ensure that image is ready to send and buffer is ready for receive
 			let buf_mem_barrier = Self::gen_buffer_memory_barrier(
 				self.buffer.handle,
 				vk::AccessFlags::NONE,
-				vk::AccessFlags::MEMORY_WRITE,
+				vk::AccessFlags::TRANSFER_WRITE,
 				self.buffer_size,
 			);
 			let img_mem_barrier = VkSharedImage::gen_img_mem_barrier(
@@ -139,13 +132,13 @@ impl VkCpuBuffer {
 				image_layout,
 				vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
 				vk::AccessFlags::NONE,
-				vk::AccessFlags::MEMORY_READ,
+				vk::AccessFlags::TRANSFER_READ,
 			);
 			unsafe {
 				vk_setup.vk_device.cmd_pipeline_barrier(
 					cmd_buf,
 					vk::PipelineStageFlags::TOP_OF_PIPE,
-					vk::PipelineStageFlags::HOST,
+					vk::PipelineStageFlags::TRANSFER,
 					vk::DependencyFlags::default(),
 					&[],
 					&[buf_mem_barrier],
@@ -185,16 +178,34 @@ impl VkCpuBuffer {
 			// Ensure that memory write has been completed
 			let buf_mem_barrier = Self::gen_buffer_memory_barrier(
 				self.buffer.handle,
-				vk::AccessFlags::MEMORY_WRITE,
-				vk::AccessFlags::NONE,
+				vk::AccessFlags::TRANSFER_WRITE,
+				vk::AccessFlags::HOST_WRITE,
 				self.buffer_size,
 			);
 			let img_mem_barrier = VkSharedImage::gen_img_mem_barrier(
 				image,
 				vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
 				image_layout,
-				vk::AccessFlags::MEMORY_READ,
+				vk::AccessFlags::TRANSFER_READ,
 				vk::AccessFlags::NONE,
+			);
+			unsafe {
+				vk_setup.vk_device.cmd_pipeline_barrier(
+					cmd_buf,
+					vk::PipelineStageFlags::TRANSFER,
+					vk::PipelineStageFlags::HOST,
+					vk::DependencyFlags::default(),
+					&[],
+					&[buf_mem_barrier],
+					&[img_mem_barrier],
+				)
+			};
+
+			let buf_mem_barrier = Self::gen_buffer_memory_barrier(
+				self.buffer.handle,
+				vk::AccessFlags::HOST_WRITE,
+				vk::AccessFlags::NONE,
+				self.buffer_size,
 			);
 			unsafe {
 				vk_setup.vk_device.cmd_pipeline_barrier(
@@ -204,7 +215,7 @@ impl VkCpuBuffer {
 					vk::DependencyFlags::default(),
 					&[],
 					&[buf_mem_barrier],
-					&[img_mem_barrier],
+					&[],
 				)
 			};
 
@@ -217,7 +228,7 @@ impl VkCpuBuffer {
 		Ok(())
 	}
 
-	pub fn write_to_image(
+	pub fn write_image_from_cpu(
 		&self,
 		vk_setup: &VkSetup,
 		image: vk::Image,
@@ -226,18 +237,30 @@ impl VkCpuBuffer {
 		image_height: u32,
 	) -> Result<(), vk::Result> {
 		let img_copy_fcn = |cmd_buf: vk::CommandBuffer| {
-			let subresource_range: vk::ImageSubresourceRange = vk::ImageSubresourceRange {
-				aspect_mask: vk::ImageAspectFlags::COLOR,
-				level_count: 1,
-				layer_count: 1,
-				..Default::default()
+			// Read from host. Not sure if this is required, but it works so I'll keep it
+			let buf_mem_barrier = Self::gen_buffer_memory_barrier(
+				self.buffer.handle,
+				vk::AccessFlags::NONE,
+				vk::AccessFlags::HOST_READ,
+				self.buffer_size,
+			);
+			unsafe {
+				vk_setup.vk_device.cmd_pipeline_barrier(
+					cmd_buf,
+					vk::PipelineStageFlags::TOP_OF_PIPE,
+					vk::PipelineStageFlags::HOST,
+					vk::DependencyFlags::default(),
+					&[],
+					&[buf_mem_barrier],
+					&[],
+				)
 			};
 
 			// Ensure that buffer is ready to send and image is ready for receive
 			let buf_mem_barrier = Self::gen_buffer_memory_barrier(
 				self.buffer.handle,
-				vk::AccessFlags::NONE,
-				vk::AccessFlags::MEMORY_READ,
+				vk::AccessFlags::HOST_READ,
+				vk::AccessFlags::TRANSFER_READ,
 				self.buffer_size,
 			);
 			let img_mem_barrier = VkSharedImage::gen_img_mem_barrier(
@@ -245,13 +268,13 @@ impl VkCpuBuffer {
 				image_layout,
 				vk::ImageLayout::TRANSFER_DST_OPTIMAL,
 				vk::AccessFlags::NONE,
-				vk::AccessFlags::MEMORY_WRITE,
+				vk::AccessFlags::TRANSFER_WRITE,
 			);
 			unsafe {
 				vk_setup.vk_device.cmd_pipeline_barrier(
 					cmd_buf,
-					vk::PipelineStageFlags::TOP_OF_PIPE,
 					vk::PipelineStageFlags::HOST,
+					vk::PipelineStageFlags::TRANSFER,
 					vk::DependencyFlags::default(),
 					&[],
 					&[buf_mem_barrier],
@@ -291,7 +314,7 @@ impl VkCpuBuffer {
 			// Ensure that memory write has been completed
 			let buf_mem_barrier = Self::gen_buffer_memory_barrier(
 				self.buffer.handle,
-				vk::AccessFlags::MEMORY_READ,
+				vk::AccessFlags::TRANSFER_READ,
 				vk::AccessFlags::NONE,
 				self.buffer_size,
 			);
@@ -299,13 +322,13 @@ impl VkCpuBuffer {
 				image,
 				vk::ImageLayout::TRANSFER_DST_OPTIMAL,
 				image_layout,
-				vk::AccessFlags::MEMORY_WRITE,
+				vk::AccessFlags::TRANSFER_WRITE,
 				vk::AccessFlags::NONE,
 			);
 			unsafe {
 				vk_setup.vk_device.cmd_pipeline_barrier(
 					cmd_buf,
-					vk::PipelineStageFlags::HOST,
+					vk::PipelineStageFlags::TRANSFER,
 					vk::PipelineStageFlags::BOTTOM_OF_PIPE,
 					vk::DependencyFlags::default(),
 					&[],
@@ -541,7 +564,7 @@ mod tests {
 	};
 
 	fn _init_vk_setup() -> VkSetup {
-		VkSetup::new(CStr::from_bytes_with_nul(b"VkSetup\0").unwrap()).unwrap()
+		VkSetup::new(CStr::from_bytes_with_nul(b"VkSetup\0").unwrap(), None).unwrap()
 	}
 
 	#[test]
@@ -645,7 +668,7 @@ mod tests {
 		out_buffer[0] = fake_val;
 
 		vk_cpu_buffer_in
-			.write_to_image(
+			.write_image_from_cpu(
 				&vk_setup,
 				vk_shared_image.image,
 				vk_shared_image.image_layout,

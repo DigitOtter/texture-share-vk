@@ -141,6 +141,7 @@ impl GlClient {
 					height,
 					format,
 					overwrite_existing,
+					..Default::default() // TODO: Add GPU vendor and device id
 				}),
 			},
 		};
