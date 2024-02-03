@@ -33,7 +33,7 @@ impl Drop for VkClient {
 		// Ensure that images are cleared before destroying vulkan instance
 		self.shared_images
 			.drain()
-			.for_each(|x| x.1.vk_shared_image.destroy(&self.vk_setup));
+			.for_each(|x| x.1.vk_shared_image.destroy(&self.vk_setup.device));
 	}
 }
 
@@ -245,7 +245,7 @@ impl VkClient {
 		// Send image
 		let remote_image = remote_image.unwrap();
 		remote_image.vk_shared_image.recv_image_blit(
-			&self.vk_setup,
+			&self.vk_setup.device,
 			&image,
 			orig_layout,
 			target_layout,
@@ -298,7 +298,7 @@ impl VkClient {
 
 		let remote_image = remote_image.unwrap();
 		remote_image.vk_shared_image.recv_image_blit_with_extents(
-			&self.vk_setup,
+			&self.vk_setup.device,
 			&image,
 			orig_layout,
 			target_layout,
@@ -323,7 +323,7 @@ impl VkClient {
 
 		let remote_image = remote_image.unwrap();
 		remote_image.vk_shared_image.send_image_blit(
-			&self.vk_setup,
+			&self.vk_setup.device,
 			&image,
 			orig_layout,
 			target_layout,
@@ -376,7 +376,7 @@ impl VkClient {
 
 		let remote_image = remote_image.unwrap();
 		remote_image.vk_shared_image.send_image_blit_with_extents(
-			&self.vk_setup,
+			&self.vk_setup.device,
 			&image,
 			orig_layout,
 			target_layout,
@@ -399,7 +399,7 @@ impl VkClient {
 		let image_data = Self::create_local_image(&self.vk_setup, img_data, fd)?;
 		self.shared_images
 			.insert(image_name.to_string(), image_data)
-			.map(|x| x.vk_shared_image.destroy(&self.vk_setup));
+			.map(|x| x.vk_shared_image.destroy(&self.vk_setup.device));
 
 		Ok(Some(self.shared_images.get(&image_name).unwrap()))
 	}
@@ -420,7 +420,8 @@ impl VkClient {
 			let _rdata = IpcShmem::acquire_rdata(&rlock);
 
 			let vk_shared_image = VkSharedImage::import_from_handle(
-				vk_setup,
+				&vk_setup.instance,
+				&vk_setup.device,
 				img_mem_fd,
 				SharedImageData::from_shmem_img_data(&img_data.data),
 			)?;
@@ -498,7 +499,7 @@ impl VkClient {
 		let image_data = Self::create_local_image(&self.vk_setup, &res_data, fd)?;
 		self.shared_images
 			.insert(image_name.to_string(), image_data)
-			.map(|x| x.vk_shared_image.destroy(&self.vk_setup));
+			.map(|x| x.vk_shared_image.destroy(&self.vk_setup.device));
 
 		Ok(Some(&self.shared_images.get(image_name).unwrap()))
 	}
@@ -511,6 +512,8 @@ mod tests {
 	use std::{fs, thread};
 
 	use texture_share_vk_base::ipc::IpcSocket;
+	use texture_share_vk_base::vk_device::{self, VkDevice};
+	use texture_share_vk_base::vk_instance::VkInstance;
 	use texture_share_vk_base::vk_setup::VkSetup;
 
 	use super::VkClient;
@@ -533,9 +536,11 @@ mod tests {
 
 		let server_thread = thread::spawn(server_socket_fcn);
 
-		let vk_setup = Box::new(
-			VkSetup::new(CStr::from_bytes_with_nul(b"vk_setup\0").unwrap(), None).unwrap(),
-		);
+		let vk_instance =
+			VkInstance::new(None, CStr::from_bytes_with_nul(b"vk_setup\0").unwrap()).unwrap();
+		let vk_device = VkDevice::new(&vk_instance, None).unwrap();
+		let vk_setup = Box::new(VkSetup::new(vk_instance, vk_device));
+
 		let _client = VkClient::new(SOCKET_PATH, vk_setup, TIMEOUT).unwrap();
 
 		let server_res = server_thread.join().unwrap();

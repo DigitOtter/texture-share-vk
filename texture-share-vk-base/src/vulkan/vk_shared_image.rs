@@ -3,7 +3,7 @@ use std::os::fd::{AsRawFd, OwnedFd};
 use ash::vk;
 use texture_share_ipc::platform::{img_data::ImgFormat, ShmemDataInternal};
 
-use crate::vk_setup::{VkCommandBuffera, VkSetup};
+use crate::{vk_device::VkDevice, vk_instance::VkInstance};
 
 #[derive(Clone)]
 #[repr(C)]
@@ -50,7 +50,7 @@ impl Drop for VkSharedImage {
 pub trait ImageBlit {
 	fn send_image_blit_with_extents(
 		&self,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		dst_image: &vk::Image,
 		orig_dst_image_layout: vk::ImageLayout,
 		target_dst_image_layout: vk::ImageLayout,
@@ -60,7 +60,7 @@ pub trait ImageBlit {
 
 	fn send_image_blit(
 		&self,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		dst_image: &vk::Image,
 		orig_dst_image_layout: vk::ImageLayout,
 		target_dst_image_layout: vk::ImageLayout,
@@ -69,7 +69,7 @@ pub trait ImageBlit {
 
 	fn recv_image_blit_with_extents(
 		&self,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		src_image: &vk::Image,
 		orig_src_image_layout: vk::ImageLayout,
 		target_src_image_layout: vk::ImageLayout,
@@ -79,7 +79,7 @@ pub trait ImageBlit {
 
 	fn recv_image_blit(
 		&self,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		src_image: &vk::Image,
 		orig_src_image_layout: vk::ImageLayout,
 		target_src_image_layout: vk::ImageLayout,
@@ -116,7 +116,8 @@ impl VkSharedImage {
 		vk::ExternalMemoryHandleTypeFlags::OPAQUE_FD;
 
 	pub fn new(
-		vk_setup: &VkSetup,
+		vk_instance: &VkInstance,
+		vk_device: &VkDevice,
 		width: u32,
 		height: u32,
 		format: vk::Format,
@@ -148,18 +149,18 @@ impl VkSharedImage {
 			.push_next(&mut external_memory_image_info)
 			.build();
 
-		let image = unsafe { vk_setup.vk_device.create_image(&image_create_info, None) }?;
+		let image = unsafe { vk_device.device.create_image(&image_create_info, None) }?;
 
-		let memory_requirements =
-			unsafe { vk_setup.vk_device.get_image_memory_requirements(image) };
+		let memory_requirements = unsafe { vk_device.device.get_image_memory_requirements(image) };
 		let mut export_memory_alloc_info = vk::ExportMemoryAllocateInfo::builder()
 			.handle_types(Self::MEMORY_HANDLE_TYPE_FLAG)
 			.build();
 		let mem_allocate_info = vk::MemoryAllocateInfo::builder()
 			.allocation_size(memory_requirements.size)
 			.memory_type_index(
-				vk_setup
+				vk_instance
 					.get_memory_type(
+						vk_device.physical_device,
 						memory_requirements.memory_type_bits,
 						vk::MemoryPropertyFlags::DEVICE_LOCAL,
 					)
@@ -168,13 +169,13 @@ impl VkSharedImage {
 			.push_next(&mut export_memory_alloc_info)
 			.build();
 
-		let memory = unsafe { vk_setup.vk_device.allocate_memory(&mem_allocate_info, None) }?;
-		unsafe { vk_setup.vk_device.bind_image_memory(image, memory, 0) }?;
+		let memory = unsafe { vk_device.device.allocate_memory(&mem_allocate_info, None) }?;
+		unsafe { vk_device.device.bind_image_memory(image, memory, 0) }?;
 
 		// Initialize image
 		let image_layout = Self::_set_image_layout(
 			&image,
-			vk_setup,
+			vk_device,
 			vk::ImageLayout::UNDEFINED,
 			Self::DEFAULT_IMAGE_LAYOUT,
 			vk::AccessFlags::NONE,
@@ -200,33 +201,35 @@ impl VkSharedImage {
 
 	pub fn resize_image(
 		&mut self,
-		vk_setup: &VkSetup,
+		vk_instance: &VkInstance,
+		vk_device: &VkDevice,
 		width: u32,
 		height: u32,
 		format: vk::Format,
 		id: u32,
 	) -> Result<(), vk::Result> {
-		self._destroy(vk_setup);
+		self._destroy(vk_device);
 		self.image_layout = vk::ImageLayout::UNDEFINED;
-		*self = VkSharedImage::new(vk_setup, width, height, format, id)?;
+		*self = VkSharedImage::new(vk_instance, vk_device, width, height, format, id)?;
 		Ok(())
 	}
 
-	pub(crate) fn _destroy(&self, vk_setup: &VkSetup) {
+	pub(crate) fn _destroy(&self, vk_device: &VkDevice) {
 		unsafe {
-			vk_setup.vk_device.device_wait_idle().unwrap();
-			vk_setup.vk_device.destroy_image(self.image, None);
-			vk_setup.vk_device.free_memory(self.memory, None);
+			vk_device.device.device_wait_idle().unwrap();
+			vk_device.device.destroy_image(self.image, None);
+			vk_device.device.free_memory(self.memory, None);
 		}
 	}
 
-	pub fn destroy(self, vk_setup: &VkSetup) {
-		self._destroy(&vk_setup);
+	pub fn destroy(self, vk_device: &VkDevice) {
+		self._destroy(vk_device);
 		std::mem::forget(self)
 	}
 
 	pub fn import_from_handle(
-		vk_setup: &VkSetup,
+		vk_instance: &VkInstance,
+		vk_device: &VkDevice,
 		mem_fd: VkMemoryHandle,
 		image_data: SharedImageData,
 	) -> Result<VkSharedImage, vk::Result> {
@@ -254,10 +257,9 @@ impl VkSharedImage {
 			)
 			.build();
 
-		let image = unsafe { vk_setup.vk_device.create_image(&image_create_info, None) }?;
+		let image = unsafe { vk_device.device.create_image(&image_create_info, None) }?;
 
-		let memory_requirements =
-			unsafe { vk_setup.vk_device.get_image_memory_requirements(image) };
+		let memory_requirements = unsafe { vk_device.device.get_image_memory_requirements(image) };
 
 		#[cfg(target_os = "linux")]
 		let mut import_memory_info = vk::ImportMemoryFdInfoKHR::builder()
@@ -269,8 +271,9 @@ impl VkSharedImage {
 			.push_next(&mut import_memory_info)
 			.allocation_size(memory_requirements.size)
 			.memory_type_index(
-				vk_setup
+				vk_instance
 					.get_memory_type(
+						vk_device.physical_device,
 						memory_requirements.memory_type_bits,
 						vk::MemoryPropertyFlags::DEVICE_LOCAL,
 					)
@@ -279,8 +282,8 @@ impl VkSharedImage {
 			.build();
 
 		let memory = unsafe {
-			vk_setup
-				.vk_device
+			vk_device
+				.device
 				.allocate_memory(&memory_allocate_info, None)
 		}?;
 
@@ -288,12 +291,12 @@ impl VkSharedImage {
 		#[cfg(target_os = "linux")]
 		std::mem::forget(mem_fd);
 
-		unsafe { vk_setup.vk_device.bind_image_memory(image, memory, 0) }?;
+		unsafe { vk_device.device.bind_image_memory(image, memory, 0) }?;
 
 		// Initialize image
 		let image_layout = Self::_set_image_layout(
 			&image,
-			vk_setup,
+			vk_device,
 			vk::ImageLayout::UNDEFINED,
 			Self::DEFAULT_IMAGE_LAYOUT,
 			vk::AccessFlags::NONE,
@@ -311,14 +314,14 @@ impl VkSharedImage {
 
 	fn _set_image_layout(
 		image: &vk::Image,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		src_image_layout: vk::ImageLayout,
 		dst_image_layout: vk::ImageLayout,
 		src_access_mask: vk::AccessFlags,
 		dst_access_mask: vk::AccessFlags,
 	) -> Result<vk::ImageLayout, vk::Result> {
 		// Initialize image
-		let fence = vk_setup.create_fence(None)?;
+		let fence = vk_device.create_fence(None)?;
 
 		let image_layout_fcn = |com_buf: vk::CommandBuffer| {
 			let img_mem_barrier = vk::ImageMemoryBarrier::builder()
@@ -338,7 +341,7 @@ impl VkSharedImage {
 				.build();
 
 			unsafe {
-				vk_setup.vk_device.cmd_pipeline_barrier(
+				vk_device.device.cmd_pipeline_barrier(
 					com_buf,
 					vk::PipelineStageFlags::TOP_OF_PIPE,
 					vk::PipelineStageFlags::BOTTOM_OF_PIPE,
@@ -351,9 +354,9 @@ impl VkSharedImage {
 
 			Ok(())
 		};
-		vk_setup.immediate_submit(vk_setup.vk_command_buffer, image_layout_fcn, &[], &[])?;
+		vk_device.immediate_submit(vk_device.command_buffer, image_layout_fcn, &[], &[])?;
 
-		vk_setup.destroy_fence(fence);
+		vk_device.destroy_fence(fence);
 
 		Ok(dst_image_layout)
 	}
@@ -363,7 +366,7 @@ impl VkSharedImage {
 	}
 
 	#[cfg(target_os = "linux")]
-	pub fn export_handle(&self, vk_setup: &VkSetup) -> Result<VkMemoryHandle, vk::Result> {
+	pub fn export_handle(&self, vk_device: &VkDevice) -> Result<VkMemoryHandle, vk::Result> {
 		use std::os::fd::FromRawFd;
 
 		let memory_info = vk::MemoryGetFdInfoKHR::builder()
@@ -372,7 +375,7 @@ impl VkSharedImage {
 			.build();
 
 		let fd = unsafe {
-			OwnedFd::from_raw_fd(vk_setup.external_memory_fd.get_memory_fd(&memory_info)?)
+			OwnedFd::from_raw_fd(vk_device.external_memory_fd.get_memory_fd(&memory_info)?)
 		};
 
 		Ok(fd)
@@ -380,8 +383,7 @@ impl VkSharedImage {
 
 	pub fn set_image_layout(
 		&mut self,
-		vk_setup: &VkSetup,
-		_vk_command_buffer: &VkCommandBuffera,
+		vk_device: &VkDevice,
 		src_image_layout: vk::ImageLayout,
 		dst_image_layout: vk::ImageLayout,
 		src_access_mask: vk::AccessFlags,
@@ -389,7 +391,7 @@ impl VkSharedImage {
 	) -> Result<vk::ImageLayout, vk::Result> {
 		self.image_layout = Self::_set_image_layout(
 			&self.image,
-			vk_setup,
+			vk_device,
 			src_image_layout,
 			dst_image_layout,
 			src_access_mask,
@@ -426,7 +428,7 @@ impl VkSharedImage {
 	}
 
 	pub(crate) fn image_blit(
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		src_image: &vk::Image,
 		orig_src_image_layout: vk::ImageLayout,
 		target_src_image_layout: vk::ImageLayout,
@@ -462,7 +464,7 @@ impl VkSharedImage {
 
 			// Push pipeline barrier
 			unsafe {
-				vk_setup.vk_device.cmd_pipeline_barrier(
+				vk_device.device.cmd_pipeline_barrier(
 					cmd_buf,
 					vk::PipelineStageFlags::TOP_OF_PIPE,
 					vk::PipelineStageFlags::TRANSFER,
@@ -487,7 +489,7 @@ impl VkSharedImage {
 				.dst_offsets(*dst_image_extent)
 				.build();
 			unsafe {
-				vk_setup.vk_device.cmd_blit_image(
+				vk_device.device.cmd_blit_image(
 					cmd_buf,
 					*src_image,
 					SRC_BLIT_LAYOUT,
@@ -519,7 +521,7 @@ impl VkSharedImage {
 
 			// Push pipeline barrier
 			unsafe {
-				vk_setup.vk_device.cmd_pipeline_barrier(
+				vk_device.device.cmd_pipeline_barrier(
 					cmd_buf,
 					vk::PipelineStageFlags::TRANSFER,
 					vk::PipelineStageFlags::BOTTOM_OF_PIPE,
@@ -533,8 +535,8 @@ impl VkSharedImage {
 			Ok(())
 		};
 
-		vk_setup.immediate_submit_with_fence(
-			vk_setup.vk_command_buffer,
+		vk_device.immediate_submit_with_fence(
+			vk_device.command_buffer,
 			blit_fcn,
 			&[],
 			&[],
@@ -548,7 +550,7 @@ impl VkSharedImage {
 impl ImageBlit for VkSharedImage {
 	fn send_image_blit_with_extents(
 		&self,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		dst_image: &vk::Image,
 		orig_dst_image_layout: vk::ImageLayout,
 		target_dst_image_layout: vk::ImageLayout,
@@ -565,7 +567,7 @@ impl ImageBlit for VkSharedImage {
 		];
 
 		Self::image_blit(
-			vk_setup,
+			vk_device,
 			&self.image,
 			self.image_layout,
 			self.image_layout,
@@ -580,7 +582,7 @@ impl ImageBlit for VkSharedImage {
 
 	fn send_image_blit(
 		&self,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		dst_image: &vk::Image,
 		orig_dst_image_layout: vk::ImageLayout,
 		target_dst_image_layout: vk::ImageLayout,
@@ -596,7 +598,7 @@ impl ImageBlit for VkSharedImage {
 		];
 
 		self.send_image_blit_with_extents(
-			vk_setup,
+			vk_device,
 			dst_image,
 			orig_dst_image_layout,
 			target_dst_image_layout,
@@ -607,7 +609,7 @@ impl ImageBlit for VkSharedImage {
 
 	fn recv_image_blit_with_extents(
 		&self,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		src_image: &vk::Image,
 		orig_src_image_layout: vk::ImageLayout,
 		target_src_image_layout: vk::ImageLayout,
@@ -624,7 +626,7 @@ impl ImageBlit for VkSharedImage {
 		];
 
 		Self::image_blit(
-			vk_setup,
+			vk_device,
 			src_image,
 			orig_src_image_layout,
 			target_src_image_layout,
@@ -639,7 +641,7 @@ impl ImageBlit for VkSharedImage {
 
 	fn recv_image_blit(
 		&self,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		src_image: &vk::Image,
 		orig_src_image_layout: vk::ImageLayout,
 		target_src_image_layout: vk::ImageLayout,
@@ -655,7 +657,7 @@ impl ImageBlit for VkSharedImage {
 		];
 
 		self.recv_image_blit_with_extents(
-			vk_setup,
+			vk_device,
 			src_image,
 			orig_src_image_layout,
 			target_src_image_layout,
@@ -666,100 +668,106 @@ impl ImageBlit for VkSharedImage {
 }
 
 #[cfg(test)]
-mod testsa {
+mod tests {
+	use ash::vk;
 	use std::ffi::CStr;
 
-	use ash::vk;
-
-	use crate::vk_setup::{VkCommandBuffera, VkCommandPoola, VkSetup};
-
 	use super::{ImageBlit, VkSharedImage};
+	use crate::{vk_device::VkDevice, vk_instance::VkInstance};
 
-	fn _init_vk_setup<'a>() -> VkSetup {
-		VkSetup::new(CStr::from_bytes_with_nul(b"VkSetup\0").unwrap(), None).unwrap()
-	}
-
-	fn _init_vk_command_pool<'a>(vk_setup: &'a VkSetup) -> VkCommandPoola<'a> {
-		vk_setup.create_command_pool().unwrap()
-	}
-
-	fn _init_vk_command_buffer<'a>(
-		command_pool: &'a VkCommandPoola<'_>,
-		vk_setup: &VkSetup,
-	) -> VkCommandBuffera<'a> {
-		vk_setup
-			.allocate_command_buffer(command_pool, vk::CommandBufferLevel::PRIMARY)
-			.unwrap()
+	fn _init_vk_device() -> (VkInstance, VkDevice) {
+		let vk_instance =
+			VkInstance::new(None, CStr::from_bytes_with_nul(b"VkSetup\0").unwrap()).unwrap();
+		let vk_device = VkDevice::new(&vk_instance, None).unwrap();
+		(vk_instance, vk_device)
 	}
 
 	#[test]
 	fn vk_shared_image_new() {
-		let vk_setup = _init_vk_setup();
+		let (vk_instance, vk_device) = _init_vk_device();
 
-		let vk_shared_image =
-			VkSharedImage::new(&vk_setup, 1, 1, vk::Format::R8G8B8A8_UNORM, 0).unwrap();
+		let vk_shared_image = VkSharedImage::new(
+			&vk_instance,
+			&vk_device,
+			1,
+			1,
+			vk::Format::R8G8B8A8_UNORM,
+			0,
+		)
+		.unwrap();
 
-		vk_shared_image.destroy(&vk_setup);
+		vk_shared_image.destroy(&vk_device);
 	}
 
 	#[test]
 	fn vk_shared_image_export_handles() {
-		let vk_setup = _init_vk_setup();
+		let (vk_instance, vk_device) = _init_vk_device();
 
-		let vk_shared_image =
-			VkSharedImage::new(&vk_setup, 1, 1, vk::Format::R8G8B8A8_UNORM, 0).unwrap();
+		let vk_shared_image = VkSharedImage::new(
+			&vk_instance,
+			&vk_device,
+			1,
+			1,
+			vk::Format::R8G8B8A8_UNORM,
+			0,
+		)
+		.unwrap();
 
-		let _shared_handle = vk_shared_image.export_handle(&vk_setup);
+		let _shared_handle = vk_shared_image.export_handle(&vk_device);
 		std::mem::drop(_shared_handle);
 
-		vk_shared_image.destroy(&vk_setup);
+		vk_shared_image.destroy(&vk_device);
 	}
 
 	#[test]
 	fn vk_shared_image_handle_exchange() {
-		let vk_setup = _init_vk_setup();
+		let (vk_instance, vk_device) = _init_vk_device();
 
 		let width: u32 = 1;
 		let height: u32 = 2;
 		let format = vk::Format::R8G8B8A8_UNORM;
-		let original_image = VkSharedImage::new(&vk_setup, width, height, format, 0).unwrap();
+		let original_image =
+			VkSharedImage::new(&vk_instance, &vk_device, width, height, format, 0).unwrap();
 
-		let share_handle = original_image.export_handle(&vk_setup).unwrap();
+		let share_handle = original_image.export_handle(&vk_device).unwrap();
 		let import_img = VkSharedImage::import_from_handle(
-			&vk_setup,
+			&vk_instance,
+			&vk_device,
 			share_handle,
 			original_image.get_image_data().clone(),
 		)
 		.unwrap();
 
-		import_img.destroy(&vk_setup);
-		original_image.destroy(&vk_setup);
+		import_img.destroy(&vk_device);
+		original_image.destroy(&vk_device);
 	}
 
 	#[test]
 	fn vk_shared_image_blit() {
-		let vk_setup = _init_vk_setup();
+		let (vk_instance, vk_device) = _init_vk_device();
 
 		let width: u32 = 1;
 		let height: u32 = 2;
 		let format = vk::Format::R8G8B8A8_UNORM;
-		let src_image = VkSharedImage::new(&vk_setup, width, height, format, 0).unwrap();
-		let dst_image = VkSharedImage::new(&vk_setup, width, height, format, 0).unwrap();
+		let src_image =
+			VkSharedImage::new(&vk_instance, &vk_device, width, height, format, 0).unwrap();
+		let dst_image =
+			VkSharedImage::new(&vk_instance, &vk_device, width, height, format, 0).unwrap();
 
-		let fence = vk_setup.create_fence(None).unwrap();
+		let fence = vk_device.create_fence(None).unwrap();
 		src_image
 			.send_image_blit(
-				&vk_setup,
+				&vk_device,
 				&dst_image.image,
 				dst_image.image_layout,
 				dst_image.image_layout,
-				fence.handle,
+				fence,
 			)
 			.unwrap();
-		vk_setup.destroy_fence(fence);
+		vk_device.destroy_fence(fence);
 
-		dst_image.destroy(&vk_setup);
-		src_image.destroy(&vk_setup);
+		dst_image.destroy(&vk_device);
+		src_image.destroy(&vk_device);
 	}
 }
 

@@ -1,4 +1,5 @@
 use crate::vk_setup::VkSetup;
+use crate::{vk_device, vk_instance};
 
 use ash::{self, vk};
 use std::boxed::Box;
@@ -10,8 +11,13 @@ type VkPhysicalDevice = vk::PhysicalDevice;
 type VkQueue = vk::Queue;
 
 pub unsafe fn vk_setup_init_c() -> *mut VkSetup {
-	let pvk_setup =
-		Box::new(VkSetup::new(CStr::from_bytes_with_nul(b"VkSetup").unwrap(), None).unwrap());
+	let vk_instance =
+		vk_instance::VkInstance::new(None, CStr::from_bytes_with_nul(b"VkSetup").unwrap())
+			.expect("Unable to instantiate VkInstance");
+	let vk_device =
+		vk_device::VkDevice::new(&vk_instance, None).expect("Unable to instantiate VkDevice");
+
+	let pvk_setup = Box::new(VkSetup::new(vk_instance, vk_device));
 	Box::into_raw(pvk_setup)
 }
 
@@ -55,9 +61,10 @@ extern "C" fn vk_setup_import_vulkan(
 	import_only: bool,
 ) {
 	let mut vk_setup = unsafe { vk_setup_c_as_mut(&vk_setup) };
-	*vk_setup = VkSetup::import_vk(
-		None,
-		instance,
+	let vk_instance = vk_instance::VkInstance::import_vk(None, instance, import_only)
+		.expect("Unable to import VkInstance");
+	let vk_device = vk_device::VkDevice::import_vk(
+		&vk_instance,
 		device,
 		physical_device,
 		graphics_queue,
@@ -65,7 +72,9 @@ extern "C" fn vk_setup_import_vulkan(
 		0,
 		import_only,
 	)
-	.unwrap();
+	.expect("Unable to import VkDevice");
+
+	*vk_setup = VkSetup::new(vk_instance, vk_device);
 }
 
 #[no_mangle]
@@ -77,21 +86,21 @@ extern "C" fn vk_setup_new_import_vulkan(
 	graphics_queue_family_index: u32,
 	import_only: bool,
 ) -> *mut VkSetup {
-	let vk_setup = Box::new(
-		VkSetup::import_vk(
-			None,
-			instance,
-			device,
-			physical_device,
-			graphics_queue,
-			graphics_queue_family_index,
-			0,
-			import_only,
-		)
-		.unwrap(),
-	);
+	let vk_instance = vk_instance::VkInstance::import_vk(None, instance, import_only)
+		.expect("Unable to import VkInstance");
+	let vk_device = vk_device::VkDevice::import_vk(
+		&vk_instance,
+		device,
+		physical_device,
+		graphics_queue,
+		graphics_queue_family_index,
+		0,
+		import_only,
+	)
+	.expect("Unable to import VkDevice");
 
-	Box::into_raw(vk_setup)
+	let pvk_setup = Box::new(VkSetup::new(vk_instance, vk_device));
+	Box::into_raw(pvk_setup)
 }
 
 // #[no_mangle]

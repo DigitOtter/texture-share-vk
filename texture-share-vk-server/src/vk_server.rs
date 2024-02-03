@@ -14,7 +14,9 @@ use texture_share_vk_base::ipc::platform::ipc_commands::{
 use texture_share_vk_base::ipc::platform::ShmemDataInternal;
 use texture_share_vk_base::ipc::platform::{LockGuard, ReadLockGuard, Timeout};
 use texture_share_vk_base::ipc::{IpcConnection, IpcShmem, IpcSocket};
-use texture_share_vk_base::vk_setup::{VkPhysicalDeviceOptions, VkSetup};
+use texture_share_vk_base::vk_device::{VkDevice, VkPhysicalDeviceOptions};
+use texture_share_vk_base::vk_instance::VkInstance;
+use texture_share_vk_base::vk_setup::VkSetup;
 use texture_share_vk_base::vk_shared_image::VkSharedImage;
 
 pub(super) struct ServerImageData {
@@ -37,7 +39,7 @@ impl Drop for VkServer {
 		// Ensure that images are cleared before vk_setup is destroyed
 		self.images
 			.drain(..)
-			.for_each(|x| x.vk_shared_image.destroy(&self.vk_setup));
+			.for_each(|x| x.vk_shared_image.destroy(&self.vk_setup.device));
 
 		let _ = fs::remove_file(self.socket_path.to_owned());
 	}
@@ -52,25 +54,15 @@ impl VkServer {
 		socket_timeout: Duration,
 		connection_wait_timeout: Duration,
 		ipc_timeout: Duration,
-		gpu_vendor_device_ids: Option<(u32, u32)>,
+		physical_device_options: Option<VkPhysicalDeviceOptions>,
 	) -> Result<VkServer, Box<dyn std::error::Error>> {
 		let _ = fs::remove_file(socket_path.to_owned());
 
 		let socket = IpcSocket::new(socket_path, socket_timeout).map_err(|e| Box::new(e))?;
 
-		let physical_device_options = match gpu_vendor_device_ids {
-			Some(ids) => Some(VkPhysicalDeviceOptions {
-				vendor_id: Some(ids.0),
-				device_id: Some(ids.1),
-				..Default::default()
-			}),
-			None => None,
-		};
-
-		let vk_setup = VkSetup::new(
-			CStr::from_bytes_with_nul(b"VkServer\0").unwrap(),
-			physical_device_options,
-		)?;
+		let vk_instance = VkInstance::new(None, CStr::from_bytes_with_nul(b"VkServer\0").unwrap())?;
+		let vk_device = VkDevice::new(&vk_instance, physical_device_options)?;
+		let vk_setup = VkSetup::new(vk_instance, vk_device);
 
 		let images = Vec::default();
 		Ok(VkServer {
@@ -198,7 +190,7 @@ impl VkServer {
 
 		// Send shared handles if image was created
 		if vk_shared_image.is_some() {
-			let handles = vk_shared_image.unwrap().export_handle(vk_setup)?;
+			let handles = vk_shared_image.unwrap().export_handle(&vk_setup.device)?;
 			connection.send_anillary_handles(&[handles.into_raw_fd()])?;
 
 			// Receive ack
@@ -268,7 +260,7 @@ impl VkServer {
 		})?;
 
 		if vk_shared_image.is_some() {
-			let fd = vk_shared_image.unwrap().export_handle(vk_setup)?;
+			let fd = vk_shared_image.unwrap().export_handle(&vk_setup.device)?;
 			connection.send_anillary_handles(&[fd.into_raw_fd()])?;
 			connection.recv_ack()?;
 		}
@@ -318,8 +310,14 @@ impl VkServer {
 				image_vec.get_mut(image_index.unwrap()).unwrap()
 			} else {
 				let ipc_info = IpcShmem::new(shmem_name, image_name, true)?;
-				let vk_shared_image =
-					VkSharedImage::new(vk_setup, 1, 1, vk::Format::R8G8B8A8_UNORM, 0)?;
+				let vk_shared_image = VkSharedImage::new(
+					&vk_setup.instance,
+					&vk_setup.device,
+					1,
+					1,
+					vk::Format::R8G8B8A8_UNORM,
+					0,
+				)?;
 				image_vec.push(ServerImageData {
 					ipc_info,
 					vk_shared_image,
@@ -338,7 +336,8 @@ impl VkServer {
 
 		// Update VkSharedImage
 		image.vk_shared_image.resize_image(
-			vk_setup,
+			&vk_setup.instance,
+			&vk_setup.device,
 			cmd.width,
 			cmd.height,
 			VkSharedImage::get_vk_format(cmd.format),

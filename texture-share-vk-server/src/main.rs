@@ -1,4 +1,5 @@
 use std::{
+	ffi::{CStr, CString},
 	fs::{self, OpenOptions},
 	path::Path,
 	sync::{atomic::AtomicBool, Arc},
@@ -7,6 +8,7 @@ use std::{
 
 use clap::Parser;
 use fs2::FileExt;
+use texture_share_vk_base::vk_device::VkPhysicalDeviceOptions;
 use texture_share_vk_server::VkServer;
 
 #[derive(Parser, Debug)]
@@ -38,6 +40,9 @@ struct Args {
 
 	#[arg(long, required = false)]
 	gpu_device_id: Option<u32>,
+
+	#[arg(long, required = false)]
+	gpu_device_name: Option<String>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -73,10 +78,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let _ = fs::remove_file(&args.socket_file);
 
 	// Check if GPU vendor and device ID's were submitted
-	let gpu_vendor_device_ids = if args.gpu_vendor_id.is_some() && args.gpu_device_id.is_some() {
-		Some((args.gpu_vendor_id.unwrap(), args.gpu_device_id.unwrap()))
-	} else {
-		None
+	let physical_device_properties = VkPhysicalDeviceOptions {
+		vendor_id: args.gpu_vendor_id,
+		device_id: args.gpu_device_id,
+		device_name: args
+			.gpu_device_name
+			.map(|x| CString::new(x).expect("Failed to get GPU device name")),
+		..Default::default()
 	};
 
 	let vk_server = VkServer::new(
@@ -85,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		Duration::from_millis(args.socket_timeout_millis),
 		Duration::from_millis(args.connection_wait_timeout_millis),
 		Duration::from_millis(args.ipc_timeout_millis),
-		gpu_vendor_device_ids,
+		Some(physical_device_properties),
 	)?;
 
 	vk_server.loop_server(Arc::new(AtomicBool::new(false)))?;

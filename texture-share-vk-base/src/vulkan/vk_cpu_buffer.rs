@@ -4,7 +4,8 @@ use ash::vk;
 use vk_mem::Alloc;
 
 use crate::{
-	vk_setup::{self, VkBuffer, VkSetup},
+	vk_device::{VkBuffer, VkDevice},
+	vk_instance::VkInstance,
 	vk_shared_image::{ImageBlit, VkSharedImage},
 };
 
@@ -22,27 +23,32 @@ impl Drop for VkCpuBuffer {
 }
 
 impl VkCpuBuffer {
-	pub fn new(vk_setup: &VkSetup, buffer_size: u64) -> Result<VkCpuBuffer, vk::Result> {
+	pub fn new(
+		vk_instance: &VkInstance,
+		vk_device: &VkDevice,
+		buffer_size: u64,
+	) -> Result<VkCpuBuffer, vk::Result> {
 		let create_info = vk::BufferCreateInfo::builder()
 			.flags(vk::BufferCreateFlags::default())
 			.size(buffer_size)
 			.usage(vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::TRANSFER_SRC)
-			.queue_family_indices(&[vk_setup.vk_graphics_queue_family_index])
+			.queue_family_indices(&[vk_device.graphics_queue_family_index])
 			.sharing_mode(vk::SharingMode::EXCLUSIVE)
 			.build();
-		let buffer = vk_setup.create_buffer(&create_info)?;
+		let buffer = vk_device.create_buffer(&create_info)?;
 
 		let buffer_memory_requirements = unsafe {
-			vk_setup
-				.vk_device
+			vk_device
+				.device
 				.get_buffer_memory_requirements(buffer.handle)
 		};
 
 		let memory_allocate_info = vk::MemoryAllocateInfo::builder()
 			.allocation_size(buffer_size)
 			.memory_type_index(
-				vk_setup
+				vk_instance
 					.get_memory_type(
+						vk_device.physical_device,
 						buffer_memory_requirements.memory_type_bits,
 						vk::MemoryPropertyFlags::HOST_VISIBLE
 							| vk::MemoryPropertyFlags::HOST_CACHED,
@@ -52,21 +58,21 @@ impl VkCpuBuffer {
 			.build();
 
 		let memory = unsafe {
-			vk_setup
-				.vk_device
+			vk_device
+				.device
 				.allocate_memory(&memory_allocate_info, None)
 		}?;
 
 		unsafe {
-			vk_setup
-				.vk_device
+			vk_device
+				.device
 				.bind_buffer_memory(buffer.handle, memory, 0)
 		}?;
 
 		// Map memory to RAM
 		let ram_memory = unsafe {
-			vk_setup
-				.vk_device
+			vk_device
+				.device
 				.map_memory(memory, 0, buffer_size, vk::MemoryMapFlags::default())
 		}?;
 
@@ -78,19 +84,19 @@ impl VkCpuBuffer {
 		})
 	}
 
-	pub(crate) fn _destroy(&self, vk_setup: &VkSetup) {
+	pub(crate) fn _destroy(&self, vk_device: &VkDevice) {
 		unsafe {
-			vk_setup.vk_device.device_wait_idle().unwrap();
+			vk_device.device.device_wait_idle().unwrap();
 
-			vk_setup.vk_device.unmap_memory(self.memory);
+			vk_device.device.unmap_memory(self.memory);
 
-			vk_setup.vk_device.destroy_buffer(self.buffer.handle, None);
-			vk_setup.vk_device.free_memory(self.memory, None);
+			vk_device.device.destroy_buffer(self.buffer.handle, None);
+			vk_device.device.free_memory(self.memory, None);
 		}
 	}
 
-	pub fn destroy(self, vk_setup: &VkSetup) {
-		self._destroy(vk_setup);
+	pub fn destroy(self, vk_device: &VkDevice) {
+		self._destroy(vk_device);
 		std::mem::forget(self)
 	}
 
@@ -113,7 +119,7 @@ impl VkCpuBuffer {
 
 	pub fn read_image_to_cpu(
 		&self,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		image: vk::Image,
 		image_layout: vk::ImageLayout,
 		image_width: u32,
@@ -135,7 +141,7 @@ impl VkCpuBuffer {
 				vk::AccessFlags::TRANSFER_READ,
 			);
 			unsafe {
-				vk_setup.vk_device.cmd_pipeline_barrier(
+				vk_device.device.cmd_pipeline_barrier(
 					cmd_buf,
 					vk::PipelineStageFlags::TOP_OF_PIPE,
 					vk::PipelineStageFlags::TRANSFER,
@@ -166,7 +172,7 @@ impl VkCpuBuffer {
 				.build();
 
 			unsafe {
-				vk_setup.vk_device.cmd_copy_image_to_buffer(
+				vk_device.device.cmd_copy_image_to_buffer(
 					cmd_buf,
 					image,
 					vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
@@ -190,7 +196,7 @@ impl VkCpuBuffer {
 				vk::AccessFlags::NONE,
 			);
 			unsafe {
-				vk_setup.vk_device.cmd_pipeline_barrier(
+				vk_device.device.cmd_pipeline_barrier(
 					cmd_buf,
 					vk::PipelineStageFlags::TRANSFER,
 					vk::PipelineStageFlags::HOST,
@@ -208,7 +214,7 @@ impl VkCpuBuffer {
 				self.buffer_size,
 			);
 			unsafe {
-				vk_setup.vk_device.cmd_pipeline_barrier(
+				vk_device.device.cmd_pipeline_barrier(
 					cmd_buf,
 					vk::PipelineStageFlags::HOST,
 					vk::PipelineStageFlags::BOTTOM_OF_PIPE,
@@ -222,15 +228,15 @@ impl VkCpuBuffer {
 			Ok(())
 		};
 
-		vk_setup.immediate_submit(vk_setup.vk_command_buffer, img_copy_fcn, &[], &[])?;
-		self.sync_memory_to_cpu(vk_setup)?;
+		vk_device.immediate_submit(vk_device.command_buffer, img_copy_fcn, &[], &[])?;
+		self.sync_memory_to_cpu(vk_device)?;
 
 		Ok(())
 	}
 
 	pub fn write_image_from_cpu(
 		&self,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		image: vk::Image,
 		image_layout: vk::ImageLayout,
 		image_width: u32,
@@ -245,7 +251,7 @@ impl VkCpuBuffer {
 				self.buffer_size,
 			);
 			unsafe {
-				vk_setup.vk_device.cmd_pipeline_barrier(
+				vk_device.device.cmd_pipeline_barrier(
 					cmd_buf,
 					vk::PipelineStageFlags::TOP_OF_PIPE,
 					vk::PipelineStageFlags::HOST,
@@ -271,7 +277,7 @@ impl VkCpuBuffer {
 				vk::AccessFlags::TRANSFER_WRITE,
 			);
 			unsafe {
-				vk_setup.vk_device.cmd_pipeline_barrier(
+				vk_device.device.cmd_pipeline_barrier(
 					cmd_buf,
 					vk::PipelineStageFlags::HOST,
 					vk::PipelineStageFlags::TRANSFER,
@@ -302,7 +308,7 @@ impl VkCpuBuffer {
 				.build();
 
 			unsafe {
-				vk_setup.vk_device.cmd_copy_buffer_to_image(
+				vk_device.device.cmd_copy_buffer_to_image(
 					cmd_buf,
 					self.buffer.handle,
 					image,
@@ -326,7 +332,7 @@ impl VkCpuBuffer {
 				vk::AccessFlags::NONE,
 			);
 			unsafe {
-				vk_setup.vk_device.cmd_pipeline_barrier(
+				vk_device.device.cmd_pipeline_barrier(
 					cmd_buf,
 					vk::PipelineStageFlags::TRANSFER,
 					vk::PipelineStageFlags::BOTTOM_OF_PIPE,
@@ -340,15 +346,15 @@ impl VkCpuBuffer {
 			Ok(())
 		};
 
-		self.sync_memory_from_cpu(vk_setup)?;
-		vk_setup.immediate_submit(vk_setup.vk_command_buffer, img_copy_fcn, &[], &[])?;
+		self.sync_memory_from_cpu(vk_device)?;
+		vk_device.immediate_submit(vk_device.command_buffer, img_copy_fcn, &[], &[])?;
 
 		Ok(())
 	}
 
 	pub fn read_from_buffer(
 		&self,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		read_buffer: vk::Buffer,
 		read_memory: vk::DeviceMemory,
 	) -> Result<(), vk::Result> {
@@ -367,7 +373,7 @@ impl VkCpuBuffer {
 				self.buffer_size,
 			);
 			unsafe {
-				vk_setup.vk_device.cmd_pipeline_barrier(
+				vk_device.device.cmd_pipeline_barrier(
 					cmd_buf,
 					vk::PipelineStageFlags::TOP_OF_PIPE,
 					vk::PipelineStageFlags::HOST,
@@ -385,7 +391,7 @@ impl VkCpuBuffer {
 				.size(self.buffer_size)
 				.build();
 			unsafe {
-				vk_setup.vk_device.cmd_copy_buffer(
+				vk_device.device.cmd_copy_buffer(
 					cmd_buf,
 					read_buffer,
 					self.buffer.handle,
@@ -407,7 +413,7 @@ impl VkCpuBuffer {
 				self.buffer_size,
 			);
 			unsafe {
-				vk_setup.vk_device.cmd_pipeline_barrier(
+				vk_device.device.cmd_pipeline_barrier(
 					cmd_buf,
 					vk::PipelineStageFlags::HOST,
 					vk::PipelineStageFlags::BOTTOM_OF_PIPE,
@@ -421,16 +427,16 @@ impl VkCpuBuffer {
 			Ok(())
 		};
 
-		Self::_sync_memory_from_cpu(read_memory, self.buffer_size, vk_setup)?;
-		vk_setup.immediate_submit(vk_setup.vk_command_buffer, buffer_read_fcn, &[], &[])?;
-		self.sync_memory_to_cpu(vk_setup)?;
+		Self::_sync_memory_from_cpu(read_memory, self.buffer_size, vk_device)?;
+		vk_device.immediate_submit(vk_device.command_buffer, buffer_read_fcn, &[], &[])?;
+		self.sync_memory_to_cpu(vk_device)?;
 
 		Ok(())
 	}
 
 	pub fn write_to_buffer(
 		&self,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 		write_buffer: vk::Buffer,
 		write_memory: vk::DeviceMemory,
 	) -> Result<(), vk::Result> {
@@ -449,7 +455,7 @@ impl VkCpuBuffer {
 				self.buffer_size,
 			);
 			unsafe {
-				vk_setup.vk_device.cmd_pipeline_barrier(
+				vk_device.device.cmd_pipeline_barrier(
 					cmd_buf,
 					vk::PipelineStageFlags::TOP_OF_PIPE,
 					vk::PipelineStageFlags::HOST,
@@ -467,7 +473,7 @@ impl VkCpuBuffer {
 				.size(self.buffer_size)
 				.build();
 			unsafe {
-				vk_setup.vk_device.cmd_copy_buffer(
+				vk_device.device.cmd_copy_buffer(
 					cmd_buf,
 					self.buffer.handle,
 					write_buffer,
@@ -489,7 +495,7 @@ impl VkCpuBuffer {
 				self.buffer_size,
 			);
 			unsafe {
-				vk_setup.vk_device.cmd_pipeline_barrier(
+				vk_device.device.cmd_pipeline_barrier(
 					cmd_buf,
 					vk::PipelineStageFlags::HOST,
 					vk::PipelineStageFlags::BOTTOM_OF_PIPE,
@@ -503,9 +509,9 @@ impl VkCpuBuffer {
 			Ok(())
 		};
 
-		self.sync_memory_from_cpu(vk_setup)?;
-		vk_setup.immediate_submit(vk_setup.vk_command_buffer, buffer_read_fcn, &[], &[])?;
-		Self::_sync_memory_to_cpu(write_memory, self.buffer_size, vk_setup)?;
+		self.sync_memory_from_cpu(vk_device)?;
+		vk_device.immediate_submit(vk_device.command_buffer, buffer_read_fcn, &[], &[])?;
+		Self::_sync_memory_to_cpu(write_memory, self.buffer_size, vk_device)?;
 
 		Ok(())
 	}
@@ -513,11 +519,11 @@ impl VkCpuBuffer {
 	fn _sync_memory_to_cpu(
 		memory: vk::DeviceMemory,
 		memory_size: u64,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 	) -> Result<(), vk::Result> {
 		unsafe {
-			vk_setup
-				.vk_device
+			vk_device
+				.device
 				.invalidate_mapped_memory_ranges(&[vk::MappedMemoryRange::builder()
 					.memory(memory)
 					.size(memory_size)
@@ -525,19 +531,19 @@ impl VkCpuBuffer {
 		}
 	}
 
-	pub fn sync_memory_to_cpu(&self, vk_setup: &VkSetup) -> Result<(), vk::Result> {
-		Self::_sync_memory_to_cpu(self.memory, self.buffer_size, vk_setup)?;
+	pub fn sync_memory_to_cpu(&self, vk_device: &VkDevice) -> Result<(), vk::Result> {
+		Self::_sync_memory_to_cpu(self.memory, self.buffer_size, vk_device)?;
 		Ok(())
 	}
 
 	fn _sync_memory_from_cpu(
 		memory: vk::DeviceMemory,
 		memory_size: u64,
-		vk_setup: &VkSetup,
+		vk_device: &VkDevice,
 	) -> Result<(), vk::Result> {
 		unsafe {
-			vk_setup
-				.vk_device
+			vk_device
+				.device
 				.flush_mapped_memory_ranges(&[vk::MappedMemoryRange::builder()
 					.memory(memory)
 					.size(memory_size)
@@ -545,8 +551,8 @@ impl VkCpuBuffer {
 		}
 	}
 
-	pub fn sync_memory_from_cpu(&self, vk_setup: &VkSetup) -> Result<(), vk::Result> {
-		Self::_sync_memory_from_cpu(self.memory, self.buffer_size, vk_setup)?;
+	pub fn sync_memory_from_cpu(&self, vk_device: &VkDevice) -> Result<(), vk::Result> {
+		Self::_sync_memory_from_cpu(self.memory, self.buffer_size, vk_device)?;
 		Ok(())
 	}
 }
@@ -559,31 +565,35 @@ mod tests {
 
 	use super::VkCpuBuffer;
 	use crate::{
-		vk_setup::VkSetup,
+		vk_device::VkDevice,
+		vk_instance::{self, VkInstance},
 		vk_shared_image::{self, VkSharedImage},
 	};
 
-	fn _init_vk_setup() -> VkSetup {
-		VkSetup::new(CStr::from_bytes_with_nul(b"VkSetup\0").unwrap(), None).unwrap()
+	fn _init_vk_device() -> (VkInstance, VkDevice) {
+		let vk_instance =
+			VkInstance::new(None, CStr::from_bytes_with_nul(b"VkDevice\0").unwrap()).unwrap();
+		let vk_device = VkDevice::new(&vk_instance, None).unwrap();
+		(vk_instance, vk_device)
 	}
 
 	#[test]
 	fn vk_cpu_buffer_new() {
-		let vk_setup = _init_vk_setup();
-		let vk_cpu_buffer =
-			VkCpuBuffer::new(&vk_setup, 4).expect("Unable to initialize VkCpuBuffer");
+		let (vk_instance, vk_device) = _init_vk_device();
+		let vk_cpu_buffer = VkCpuBuffer::new(&vk_instance, &vk_device, 4)
+			.expect("Unable to initialize VkCpuBuffer");
 
-		vk_cpu_buffer.destroy(&vk_setup);
+		vk_cpu_buffer.destroy(&vk_device);
 	}
 
 	#[test]
 	fn vk_cpu_buffer_buffer_read_write() {
 		let buffer_size: u64 = 4;
 
-		let vk_setup = _init_vk_setup();
-		let vk_cpu_buffer_in = VkCpuBuffer::new(&vk_setup, buffer_size)
+		let (vk_instance, vk_device) = _init_vk_device();
+		let vk_cpu_buffer_in = VkCpuBuffer::new(&vk_instance, &vk_device, buffer_size)
 			.expect("Unable to initialize vk_cpu_buffer_in");
-		let vk_cpu_buffer_out = VkCpuBuffer::new(&vk_setup, buffer_size)
+		let vk_cpu_buffer_out = VkCpuBuffer::new(&vk_instance, &vk_device, buffer_size)
 			.expect("Unable to initialize vk_cpu_buffer_in");
 
 		let in_buffer = unsafe {
@@ -606,7 +616,7 @@ mod tests {
 
 		vk_cpu_buffer_in
 			.write_to_buffer(
-				&vk_setup,
+				&vk_device,
 				vk_cpu_buffer_out.buffer.handle,
 				vk_cpu_buffer_out.memory,
 			)
@@ -621,7 +631,7 @@ mod tests {
 
 		vk_cpu_buffer_out
 			.read_from_buffer(
-				&vk_setup,
+				&vk_device,
 				vk_cpu_buffer_in.buffer.handle,
 				vk_cpu_buffer_in.memory,
 			)
@@ -630,21 +640,36 @@ mod tests {
 		assert_eq!(in_buffer[0], test_val);
 		assert_eq!(out_buffer[0], test_val);
 
-		vk_cpu_buffer_out.destroy(&vk_setup);
-		vk_cpu_buffer_in.destroy(&vk_setup);
+		vk_cpu_buffer_out.destroy(&vk_device);
+		vk_cpu_buffer_in.destroy(&vk_device);
 	}
 
 	#[test]
 	fn vk_cpu_buffer_image_read_write() {
-		let vk_setup = _init_vk_setup();
+		let (vk_instance, vk_device) = _init_vk_device();
 
-		let vk_shared_image = VkSharedImage::new(&vk_setup, 1, 1, vk::Format::R8G8B8A8_UNORM, 0)
-			.expect("Unable to create VkSharedImage");
+		let vk_shared_image = VkSharedImage::new(
+			&vk_instance,
+			&vk_device,
+			1,
+			1,
+			vk::Format::R8G8B8A8_UNORM,
+			0,
+		)
+		.expect("Unable to create VkSharedImage");
 
-		let vk_cpu_buffer_in = VkCpuBuffer::new(&vk_setup, vk_shared_image.data.allocation_size)
-			.expect("Unable to initialize vk_cpu_buffer_in");
-		let vk_cpu_buffer_out = VkCpuBuffer::new(&vk_setup, vk_shared_image.data.allocation_size)
-			.expect("Unable to initialize vk_cpu_buffer_in");
+		let vk_cpu_buffer_in = VkCpuBuffer::new(
+			&vk_instance,
+			&vk_device,
+			vk_shared_image.data.allocation_size,
+		)
+		.expect("Unable to initialize vk_cpu_buffer_in");
+		let vk_cpu_buffer_out = VkCpuBuffer::new(
+			&vk_instance,
+			&vk_device,
+			vk_shared_image.data.allocation_size,
+		)
+		.expect("Unable to initialize vk_cpu_buffer_in");
 
 		let in_buffer = unsafe {
 			slice::from_raw_parts_mut(
@@ -669,7 +694,7 @@ mod tests {
 
 		vk_cpu_buffer_in
 			.write_image_from_cpu(
-				&vk_setup,
+				&vk_device,
 				vk_shared_image.image,
 				vk_shared_image.image_layout,
 				vk_shared_image.data.width,
@@ -679,7 +704,7 @@ mod tests {
 
 		vk_cpu_buffer_out
 			.read_image_to_cpu(
-				&vk_setup,
+				&vk_device,
 				vk_shared_image.image,
 				vk_shared_image.image_layout,
 				vk_shared_image.data.width,
@@ -690,8 +715,8 @@ mod tests {
 		assert_eq!(in_buffer[0], test_val);
 		assert_eq!(out_buffer[0], test_val);
 
-		vk_cpu_buffer_out.destroy(&vk_setup);
-		vk_cpu_buffer_in.destroy(&vk_setup);
-		vk_shared_image.destroy(&vk_setup);
+		vk_cpu_buffer_out.destroy(&vk_device);
+		vk_cpu_buffer_in.destroy(&vk_device);
+		vk_shared_image.destroy(&vk_device);
 	}
 }

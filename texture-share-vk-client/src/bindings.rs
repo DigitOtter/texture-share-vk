@@ -8,6 +8,8 @@ use texture_share_vk_base::{
 	ash::vk,
 	bindings::vk_setup_from_c,
 	ipc::platform::{img_data::ImgFormat, ReadLockGuard, ShmemDataInternal},
+	vk_device::VkDevice,
+	vk_instance::VkInstance,
 	vk_setup::VkSetup,
 };
 
@@ -53,14 +55,22 @@ extern "C" fn vk_client_new(
 ) -> *mut VkClient {
 	let vk_setup = match vk_setup {
 		Some(ptr) => unsafe { vk_setup_from_c(ptr.as_ptr()) },
-		None => Box::new(
-			VkSetup::new(CStr::from_bytes_with_nul(b"VkClient\0").unwrap(), None)
-				.map_err(|_x| {
-					println!("Failed to create VkSetup");
+		None => {
+			let vk_instance =
+				VkInstance::new(None, CStr::from_bytes_with_nul(b"VkClient\0").unwrap())
+					.map_err(|_| {
+						println!("Failed to instantiate VkInstance");
+						return ptr::null_mut::<VkClient>();
+					})
+					.unwrap();
+			let vk_device = VkDevice::new(&vk_instance, None)
+				.map_err(|_| {
+					println!("Failed to instantiate VkDevice");
 					return ptr::null_mut::<VkClient>();
 				})
-				.unwrap(),
-		),
+				.unwrap();
+			Box::new(VkSetup::new(vk_instance, vk_device))
+		}
 	};
 
 	let vk_client = VkClient::new(
@@ -95,14 +105,22 @@ extern "C" fn vk_client_new_with_server_launch(
 ) -> *mut VkClient {
 	let vk_setup = match vk_setup {
 		Some(ptr) => unsafe { vk_setup_from_c(ptr.as_ptr()) },
-		None => Box::new(
-			VkSetup::new(CStr::from_bytes_with_nul(b"VkClient\0").unwrap(), None)
-				.map_err(|_x| {
-					println!("Failed to create VkSetup");
+		None => {
+			let vk_instance =
+				VkInstance::new(None, CStr::from_bytes_with_nul(b"VkClient\0").unwrap())
+					.map_err(|_| {
+						println!("Failed to instantiate VkInstance");
+						return ptr::null_mut::<VkClient>();
+					})
+					.unwrap();
+			let vk_device = VkDevice::new(&vk_instance, None)
+				.map_err(|_| {
+					println!("Failed to instantiate VkDevice");
 					return ptr::null_mut::<VkClient>();
 				})
-				.unwrap(),
-		),
+				.unwrap();
+			Box::new(VkSetup::new(vk_instance, vk_device))
+		}
 	};
 
 	let vk_client = VkClient::new_with_server_launch(

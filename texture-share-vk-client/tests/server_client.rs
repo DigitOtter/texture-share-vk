@@ -9,7 +9,7 @@ use std::{
 	time::Duration,
 };
 
-use texture_share_vk_base::ash::vk;
+use texture_share_vk_base::{ash::vk, vk_device::VkDevice, vk_instance::VkInstance};
 use texture_share_vk_base::{
 	ipc::platform::img_data::ImgFormat, vk_setup::VkSetup, vk_shared_image::VkSharedImage,
 };
@@ -35,8 +35,11 @@ fn _server_create() -> VkServer {
 }
 
 fn _client_create() -> VkClient {
-	let vk_setup =
-		Box::new(VkSetup::new(CStr::from_bytes_with_nul(b"VkClient\0").unwrap(), None).unwrap());
+	let vk_instance =
+		VkInstance::new(None, CStr::from_bytes_with_nul(b"VkClient\0").unwrap()).unwrap();
+	let vk_device = VkDevice::new(&vk_instance, None).unwrap();
+	let vk_setup = Box::new(VkSetup::new(vk_instance, vk_device));
+
 	VkClient::new(SOCKET_PATH, vk_setup, SOCKET_TIMEOUT)
 		.expect("Client failed to connect to server")
 }
@@ -341,17 +344,24 @@ fn server_client_send_image() {
 		assert!(res.is_some());
 		println!("Image created");
 
-		let local_image =
-			VkSharedImage::new(client.get_vk_setup(), 1, 1, vk::Format::R8G8B8A8_UNORM, 0).unwrap();
+		let local_image = VkSharedImage::new(
+			&client.get_vk_setup().instance,
+			&client.get_vk_setup().device,
+			1,
+			1,
+			vk::Format::R8G8B8A8_UNORM,
+			0,
+		)
+		.unwrap();
 
-		let fence = client.get_vk_setup().create_fence(None).unwrap();
+		let fence = client.get_vk_setup().device.create_fence(None).unwrap();
 		let res = client
 			.send_image(
 				IMAGE_NAME,
 				local_image.image,
 				local_image.image_layout,
 				local_image.image_layout,
-				fence.handle,
+				fence,
 			)
 			.unwrap();
 
@@ -364,15 +374,15 @@ fn server_client_send_image() {
 				local_image.image,
 				local_image.image_layout,
 				local_image.image_layout,
-				fence.handle,
+				fence,
 			)
 			.unwrap();
 
 		assert!(res.is_some(), "Failed to receive image");
 		println!("Image received");
 
-		client.get_vk_setup().destroy_fence(fence);
-		local_image.destroy(client.get_vk_setup());
+		client.get_vk_setup().device.destroy_fence(fence);
+		local_image.destroy(&client.get_vk_setup().device);
 	};
 
 	let server_thread = thread::spawn(server_fcn);
