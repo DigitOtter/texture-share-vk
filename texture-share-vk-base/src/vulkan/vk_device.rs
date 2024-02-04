@@ -1,5 +1,6 @@
 use ash::{vk, Device, Instance};
 use std::ffi::{CStr, CString};
+use texture_share_ipc::uuid;
 
 use super::vk_entry::VkEntry;
 use super::vk_instance::VkInstance;
@@ -24,6 +25,7 @@ pub struct VkDevice {
 pub struct VkPhysicalDeviceOptions {
 	pub vendor_id: Option<u32>,
 	pub device_id: Option<u32>,
+	pub device_uuid: Option<uuid::Uuid>,
 	pub device_name: Option<CString>,
 	pub device_type: Option<vk::PhysicalDeviceType>,
 }
@@ -66,6 +68,7 @@ impl Default for VkPhysicalDeviceOptions {
 		VkPhysicalDeviceOptions {
 			vendor_id: None,
 			device_id: None,
+			device_uuid: None,
 			device_name: None,
 			device_type: None,
 		}
@@ -111,6 +114,7 @@ impl VkDevice {
 					Some(vk::API_VERSION_1_2),
 					physical_device_options.vendor_id,
 					physical_device_options.device_id,
+					physical_device_options.device_uuid.as_ref(),
 					physical_device_options.device_name.as_deref(),
 					physical_device_options.device_type,
 					Some(&extensions),
@@ -224,6 +228,7 @@ impl VkDevice {
 		api_version: Option<u32>,
 		vendor_id: Option<u32>,
 		device_id: Option<u32>,
+		device_uuid: Option<&uuid::Uuid>,
 		device_name: Option<&CStr>,
 		device_type: Option<vk::PhysicalDeviceType>,
 		device_extensions: Option<&[ExtensionOptions<'_>]>,
@@ -243,6 +248,13 @@ impl VkDevice {
 
 		if let Some(device_id) = device_id {
 			if device_id != props.device_id {
+				return None;
+			}
+		}
+
+		if let Some(device_uuid) = device_uuid {
+			let cur_device_uuid = Self::get_gpu_device_uuid(vk_instance, physical_device);
+			if cur_device_uuid != *device_uuid {
 				return None;
 			}
 		}
@@ -298,6 +310,29 @@ impl VkDevice {
 		}
 
 		return Some((physical_device, avail_extensions));
+	}
+
+	pub fn get_gpu_device_uuid(
+		vk_instance: &Instance,
+		physical_device: vk::PhysicalDevice,
+	) -> uuid::Uuid {
+		let mut uuid_props = vk::PhysicalDeviceVulkan11Properties::default();
+		let mut props = vk::PhysicalDeviceProperties2::builder()
+			.push_next(&mut uuid_props)
+			.build();
+		unsafe { vk_instance.get_physical_device_properties2(physical_device, &mut props) };
+
+		let gpu_device_uuid = uuid::Uuid::from_bytes(uuid_props.device_uuid);
+		//println!("UUID: {:}", gpu_device_uuid.to_string());
+		gpu_device_uuid
+	}
+
+	pub fn get_gpu_vendor_device_ids(
+		vk_instance: &Instance,
+		physical_device: vk::PhysicalDevice,
+	) -> (u32, u32) {
+		let props = unsafe { vk_instance.get_physical_device_properties(physical_device) };
+		(props.vendor_id, props.device_id)
 	}
 
 	fn _create_command_pool(

@@ -41,8 +41,7 @@ pub struct CommInitImage {
 	pub height: u32,
 	pub format: ImgFormat,
 	pub overwrite_existing: bool,
-	pub vendor_id: u32,
-	pub device_id: u32,
+	pub gpu_device_uuid: u128,
 }
 
 pub struct ResultInitImage {
@@ -105,8 +104,7 @@ impl Default for CommInitImage {
 			width: 0,
 			height: 0,
 			overwrite_existing: false,
-			vendor_id: 0,
-			device_id: 0,
+			gpu_device_uuid: uuid::Uuid::nil().as_u128(),
 		}
 	}
 }

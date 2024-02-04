@@ -1,6 +1,8 @@
 #![feature(unix_socket_ancillary_data)]
 //#![allow(dead_code, unused_imports)]
 
+pub use uuid;
+
 mod bindings;
 
 // cbindgen:ignore

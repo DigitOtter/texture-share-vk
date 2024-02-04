@@ -5,7 +5,7 @@ mod vulkan;
 pub use vulkan::*;
 
 pub use ash;
-pub use cxx;
+pub use texture_share_ipc::uuid;
 
 pub mod ipc {
 	pub use texture_share_ipc::*;

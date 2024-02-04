@@ -105,6 +105,7 @@ impl GlClient {
 			server_ipc_timeout,
 			server_lockfile_timeout,
 			server_spawn_timeout,
+			None,
 			&conn_fn,
 		)?;
 

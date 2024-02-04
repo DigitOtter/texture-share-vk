@@ -15,6 +15,7 @@ pub fn server_connect_and_daemon_launch<T>(
 	ipc_timeout: Duration,
 	lockfile_timeout: Duration,
 	spawn_timeout: Duration,
+	gpu_device_uuid: Option<uuid::Uuid>,
 	f: &dyn Fn() -> Result<Option<T>, Error>,
 ) -> Result<Option<T>, Error> {
 	let stop_time = SystemTime::now() + spawn_timeout;
@@ -31,6 +32,7 @@ pub fn server_connect_and_daemon_launch<T>(
 			connection_wait_timeout,
 			ipc_timeout,
 			lockfile_timeout,
+			gpu_device_uuid,
 			f,
 		)?;
 
@@ -67,6 +69,7 @@ fn try_connect<T>(
 	connection_wait_timeout: Duration,
 	ipc_timeout: Duration,
 	lockfile_timeout: Duration,
+	gpu_device_uuid: Option<uuid::Uuid>,
 	f: &dyn Fn() -> Result<Option<T>, Error>,
 ) -> Result<Option<T>, Error> {
 	// Execute function to launch and connect client
@@ -96,6 +99,7 @@ fn try_connect<T>(
 			connection_wait_timeout.as_millis(),
 			ipc_timeout.as_millis(),
 			lockfile_timeout.as_millis(),
+			gpu_device_uuid,
 		)?);
 	}
 
@@ -111,19 +115,26 @@ fn spawn(
 	connection_wait_timeout_in_millis: u128,
 	ipc_timeout_in_millis: u128,
 	lockfile_timeout_in_millis: u128,
+	gpu_device_uuid: Option<uuid::Uuid>,
 ) -> Result<process::Child, Error> {
-	process::Command::new(program_path)
-		.args([
-			format!("--lock-file={}", lock_file_path),
-			format!("--socket-file={}", socket_path),
-			format!("--shmem-prefix={}", shmem_prefix),
-			format!("--socket-timeout-millis={}", socket_timeout_in_millis),
-			format!(
-				"--connection-wait-timeout-millis={}",
-				connection_wait_timeout_in_millis
-			),
-			format!("--ipc-timeout-millis={}", ipc_timeout_in_millis),
-			format!("--lockfile-timeout-millis={}", lockfile_timeout_in_millis),
-		])
-		.spawn()
+	let mut args = vec![
+		format!("--lock-file={}", lock_file_path),
+		format!("--socket-file={}", socket_path),
+		format!("--shmem-prefix={}", shmem_prefix),
+		format!("--socket-timeout-millis={}", socket_timeout_in_millis),
+		format!(
+			"--connection-wait-timeout-millis={}",
+			connection_wait_timeout_in_millis
+		),
+		format!("--ipc-timeout-millis={}", ipc_timeout_in_millis),
+		format!("--lockfile-timeout-millis={}", lockfile_timeout_in_millis),
+	];
+	if gpu_device_uuid.is_some() {
+		args.push(format!(
+			"--gpu-device-id={}",
+			gpu_device_uuid.unwrap().to_string()
+		));
+	}
+
+	process::Command::new(program_path).args(args).spawn()
 }

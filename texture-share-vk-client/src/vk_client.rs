@@ -12,6 +12,8 @@ use texture_share_vk_base::ipc::platform::ShmemDataInternal;
 use texture_share_vk_base::ipc::platform::{ReadLockGuard, Timeout};
 use texture_share_vk_base::ipc::{IpcConnection, IpcShmem};
 
+use texture_share_vk_base::uuid;
+use texture_share_vk_base::vk_device::VkDevice;
 use texture_share_vk_base::vk_setup::VkSetup;
 use texture_share_vk_base::vk_shared_image::VkSharedImage;
 use texture_share_vk_base::vk_shared_image::{ImageBlit, SharedImageData};
@@ -25,7 +27,7 @@ pub struct VkClient {
 	connection: IpcConnection,
 	vk_setup: Box<VkSetup>,
 	shared_images: HashMap<String, ImageData>,
-	//timeout: Duration,
+	gpu_device_uuid: uuid::Uuid,
 }
 
 impl Drop for VkClient {
@@ -55,11 +57,16 @@ impl VkClient {
 
 		let shared_images = HashMap::default();
 
+		let gpu_device_uuid = VkDevice::get_gpu_device_uuid(
+			&vk_setup.instance.instance,
+			vk_setup.device.physical_device,
+		);
+
 		Ok(VkClient {
 			connection: connection.unwrap(),
 			vk_setup,
 			shared_images,
-			//timeout,
+			gpu_device_uuid,
 		})
 	}
 
@@ -92,6 +99,11 @@ impl VkClient {
 			Ok(Some(connection.unwrap()))
 		};
 
+		let gpu_device_uuid = VkDevice::get_gpu_device_uuid(
+			&vk_setup.instance.instance,
+			vk_setup.device.physical_device,
+		);
+
 		let res = server_connect_and_daemon_launch(
 			server_program,
 			server_lock_path,
@@ -102,6 +114,7 @@ impl VkClient {
 			server_ipc_timeout,
 			server_lockfile_timeout,
 			server_spawn_timeout,
+			Some(gpu_device_uuid),
 			&conn_fn,
 		)?;
 
@@ -110,6 +123,7 @@ impl VkClient {
 				connection,
 				vk_setup,
 				shared_images: HashMap::default(),
+				gpu_device_uuid,
 			});
 		} else {
 			return Err(Error::new(
@@ -150,7 +164,7 @@ impl VkClient {
 					height,
 					format,
 					overwrite_existing,
-					..Default::default() // TODO: Add GPU vendor-device-ids
+					gpu_device_uuid: self.gpu_device_uuid.as_u128(),
 				}),
 			},
 		};

@@ -1,15 +1,53 @@
+#![feature(cstr_count_bytes)]
+
 use std::{
 	ffi::{CStr, CString},
 	fs::{self, OpenOptions},
 	path::Path,
+	str::FromStr,
 	sync::{atomic::AtomicBool, Arc},
 	time::{Duration, SystemTime},
 };
 
-use clap::Parser;
+use clap::{builder::TypedValueParser, Parser};
 use fs2::FileExt;
-use texture_share_vk_base::vk_device::VkPhysicalDeviceOptions;
+use texture_share_vk_base::{uuid, vk_device::VkPhysicalDeviceOptions};
 use texture_share_vk_server::VkServer;
+
+#[derive(Clone)]
+struct UuidParser;
+
+impl TypedValueParser for UuidParser {
+	type Value = uuid::Uuid;
+
+	fn parse_ref(
+		&self,
+		cmd: &clap::Command,
+		arg: Option<&clap::Arg>,
+		value: &std::ffi::OsStr,
+	) -> Result<Self::Value, clap::Error> {
+		let inner = clap::builder::StringValueParser::new();
+		let val = inner.parse_ref(cmd, arg, value)?;
+
+		let uuid = uuid::Uuid::from_str(val.as_str()).map_err(|e| {
+			let mut err = clap::Error::new(clap::error::ErrorKind::ValueValidation).with_cmd(cmd);
+			if let Some(arg) = arg {
+				err.insert(
+					clap::error::ContextKind::InvalidArg,
+					clap::error::ContextValue::String(arg.to_string()),
+				);
+			}
+			err.insert(
+				clap::error::ContextKind::InvalidValue,
+				clap::error::ContextValue::String(format!("{}", e.to_string())),
+			);
+
+			err
+		})?;
+
+		Ok(uuid)
+	}
+}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -43,6 +81,9 @@ struct Args {
 
 	#[arg(long, required = false)]
 	gpu_device_name: Option<String>,
+
+	#[arg(long, required = false, value_parser=clap::builder::ValueParser::new(UuidParser{}))]
+	gpu_device_uuid: Option<uuid::Uuid>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -81,6 +122,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let physical_device_properties = VkPhysicalDeviceOptions {
 		vendor_id: args.gpu_vendor_id,
 		device_id: args.gpu_device_id,
+		device_uuid: args.gpu_device_uuid,
 		device_name: args
 			.gpu_device_name
 			.map(|x| CString::new(x).expect("Failed to get GPU device name")),
