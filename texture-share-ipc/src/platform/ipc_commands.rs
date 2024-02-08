@@ -20,12 +20,14 @@ pub enum CommandTag {
 	InitImage,
 	//RenameImage,
 	FindImage,
+	CopyImage,
 }
 
 #[repr(C)]
 pub union CommandData {
 	pub init_img: ManuallyDrop<CommInitImage>,
 	pub find_img: ManuallyDrop<CommFindImage>,
+	pub copy_img: ManuallyDrop<CommCopyImage>,
 }
 
 #[repr(C)]
@@ -61,6 +63,7 @@ pub struct ResultRenameImage {
 
 pub struct CommFindImage {
 	pub image_name: ImgName,
+	pub gpu_device_uuid: u128,
 }
 
 pub struct ResultFindImage {
@@ -68,14 +71,17 @@ pub struct ResultFindImage {
 	pub img_data: ImgData,
 }
 
+pub struct CommCopyImage {
+	pub image_name: ImgName,
+	pub gpu_device_uuid: u128,
+}
+
 impl Default for CommandMsg {
 	fn default() -> Self {
 		Self {
 			tag: CommandTag::FindImage,
 			data: CommandData {
-				find_img: ManuallyDrop::new(CommFindImage {
-					image_name: [0 as u8; size_of::<ImgName>()],
-				}),
+				find_img: ManuallyDrop::new(CommFindImage::default()),
 			},
 		}
 	}
@@ -104,6 +110,24 @@ impl Default for CommInitImage {
 			width: 0,
 			height: 0,
 			overwrite_existing: false,
+			gpu_device_uuid: uuid::Uuid::nil().as_u128(),
+		}
+	}
+}
+
+impl Default for CommFindImage {
+	fn default() -> Self {
+		Self {
+			image_name: [0 as u8; size_of::<ImgName>()],
+			gpu_device_uuid: uuid::Uuid::nil().as_u128(),
+		}
+	}
+}
+
+impl Default for CommCopyImage {
+	fn default() -> Self {
+		Self {
+			image_name: [0 as u8; size_of::<ImgName>()],
 			gpu_device_uuid: uuid::Uuid::nil().as_u128(),
 		}
 	}

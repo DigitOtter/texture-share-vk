@@ -1,11 +1,12 @@
-use std::ffi::CStr;
+use std::collections::hash_map::{Entry, OccupiedEntry};
+use std::collections::{hash_map, HashMap};
+use std::ffi::{CStr, CString};
 use std::fs;
 use std::io::{Error, ErrorKind};
 use std::mem::ManuallyDrop;
 
 use std::os::fd::IntoRawFd;
 use std::time::Duration;
-use texture_share_vk_base::ash::vk;
 use texture_share_vk_base::ipc::platform::img_data::ImgData;
 use texture_share_vk_base::ipc::platform::ipc_commands::{
 	CommFindImage, CommInitImage, CommandTag, ResultData, ResultFindImage, ResultInitImage,
@@ -14,32 +15,60 @@ use texture_share_vk_base::ipc::platform::ipc_commands::{
 use texture_share_vk_base::ipc::platform::ShmemDataInternal;
 use texture_share_vk_base::ipc::platform::{LockGuard, ReadLockGuard, Timeout};
 use texture_share_vk_base::ipc::{IpcConnection, IpcShmem, IpcSocket};
-use texture_share_vk_base::vk_device::{VkDevice, VkPhysicalDeviceOptions};
+use texture_share_vk_base::vk_device::{self, VkDevice, VkPhysicalDeviceOptions};
 use texture_share_vk_base::vk_instance::VkInstance;
 use texture_share_vk_base::vk_setup::VkSetup;
-use texture_share_vk_base::vk_shared_image::VkSharedImage;
+use texture_share_vk_base::vk_shared_image::{self, VkSharedImage};
+use texture_share_vk_base::{ash::vk, uuid};
 
 pub(super) struct ServerImageData {
 	pub ipc_info: IpcShmem,
 	pub vk_shared_image: VkSharedImage,
 }
 
+#[derive(Default)]
+pub(super) struct GpuImageData {
+	pub buffer: Vec<u8>,
+	pub images: GpuImagesMap,
+}
+
+type DevicesMap = HashMap<u128, VkDevice>;
+
+type GpuImagesMap = HashMap<u128, ServerImageData>;
+type NameImagesMap = HashMap<String, GpuImageData>;
+
 pub struct VkServer {
 	pub(crate) socket: IpcSocket,
 	pub(crate) socket_path: String,
 	pub(crate) shmem_prefix: String,
-	pub(crate) vk_setup: VkSetup,
-	pub(crate) images: Vec<ServerImageData>,
+	pub(crate) images: NameImagesMap,
+	pub(crate) vk_instance: VkInstance,
+	pub(crate) vk_devices: DevicesMap,
 	pub(crate) connection_wait_timeout: Duration,
 	pub(crate) ipc_timeout: Duration,
 }
 
 impl Drop for VkServer {
 	fn drop(&mut self) {
-		// Ensure that images are cleared before vk_setup is destroyed
-		self.images
-			.drain(..)
-			.for_each(|x| x.vk_shared_image.destroy(&self.vk_setup.device));
+		// Ensure that images are cleared before vk_devices are destroyed
+		self.images.drain().for_each(|mut map| {
+			map.1.images.drain().for_each(|x| {
+				let _rlock =
+					x.1.ipc_info
+						.acquire_rlock(Timeout::Val(self.ipc_timeout))
+						.expect("Failed to acquire lock on IpcData");
+				let uuid = uuid::Uuid::from_u128(x.0);
+				x.1.vk_shared_image.destroy(
+					&self
+						.vk_devices
+						.get(&uuid.as_u128())
+						.expect("Failed to find device for VkSharedImage"),
+				);
+			})
+		});
+
+		// Destroy devices before vk_instance
+		self.vk_devices.clear();
 
 		let _ = fs::remove_file(self.socket_path.to_owned());
 	}
@@ -62,15 +91,22 @@ impl VkServer {
 
 		let vk_instance = VkInstance::new(None, CStr::from_bytes_with_nul(b"VkServer\0").unwrap())?;
 		let vk_device = VkDevice::new(&vk_instance, physical_device_options)?;
-		let vk_setup = VkSetup::new(vk_instance, vk_device);
 
-		let images = Vec::default();
+		let gpu_device_uuid =
+			VkDevice::get_gpu_device_uuid(&vk_instance.instance, vk_device.physical_device);
+
+		let mut vk_devices = HashMap::default();
+		vk_devices.insert(gpu_device_uuid.as_u128(), vk_device);
+
+		let mut images = HashMap::default();
+
 		Ok(VkServer {
 			socket,
 			socket_path: socket_path.to_string(),
 			shmem_prefix: shmem_prefix.to_string(),
-			vk_setup,
 			images,
+			vk_instance,
+			vk_devices,
 			connection_wait_timeout,
 			ipc_timeout,
 		})
@@ -82,9 +118,10 @@ impl VkServer {
 
 	pub(crate) fn process_single_connection(
 		conn: &IpcConnection,
-		vk_setup: &VkSetup,
+		vk_instance: &VkInstance,
+		vk_devices: &mut DevicesMap,
 		shmem_prefix: &str,
-		images: &mut Vec<ServerImageData>,
+		images: &mut NameImagesMap,
 		ipc_timeout: Duration,
 	) -> Result<bool, Box<dyn std::error::Error>> {
 		// Try to receive command. If connection was closed by peer, remove this connection from vector
@@ -107,7 +144,8 @@ impl VkServer {
 			CommandTag::InitImage => VkServer::process_cmd_init_image(
 				conn,
 				unsafe { &cmd.data.init_img },
-				vk_setup,
+				vk_instance,
+				vk_devices,
 				shmem_prefix,
 				images,
 				ipc_timeout,
@@ -115,7 +153,8 @@ impl VkServer {
 			CommandTag::FindImage => VkServer::process_cmd_find_image(
 				conn,
 				unsafe { &cmd.data.find_img },
-				vk_setup,
+				vk_instance,
+				vk_devices,
 				images,
 				ipc_timeout,
 			),
@@ -149,35 +188,103 @@ impl VkServer {
 	fn process_cmd_init_image(
 		connection: &IpcConnection,
 		cmd: &CommInitImage,
-		vk_setup: &VkSetup,
+		vk_instance: &VkInstance,
+		vk_devices: &mut DevicesMap,
 		shmem_prefix: &str,
-		images: &mut Vec<ServerImageData>,
+		images: &mut NameImagesMap,
 		ipc_timeout: Duration,
 	) -> Result<(), Box<dyn std::error::Error>> {
+		// Get or create correct device
+		let vk_device_entry =
+			Self::get_or_create_device(vk_devices, vk_instance, cmd.gpu_device_uuid)?;
+		let vk_device = vk_device_entry.get();
+
 		let img_name_str = ImgData::convert_shmem_array_to_str(&cmd.image_name);
+		let shmem_name_str = shmem_prefix.to_owned() + &img_name_str;
 
-		let image_index = images.iter_mut().position(|it| {
-			let rlock = it
-				.ipc_info
-				.acquire_rlock(Timeout::Val(ipc_timeout))
-				.unwrap();
-			let rdata = IpcShmem::acquire_rdata(&rlock);
-			ImgData::convert_shmem_array_to_str(&rdata.name)
-				.cmp(&img_name_str)
-				.is_eq()
-		});
+		let gpu_images_map = images.entry(img_name_str.clone()).or_default();
 
-		// Update image, keep lock
-		let shmem_name = shmem_prefix.to_owned() + &img_name_str;
-		let (result_msg_data, vk_shared_image, _lock) = VkServer::update_shared_image(
-			cmd,
-			vk_setup,
-			images,
-			&img_name_str,
-			&shmem_name,
-			image_index,
-			ipc_timeout,
-		)?;
+		// Find image data
+		let img_data = gpu_images_map.images.get_mut(&cmd.gpu_device_uuid);
+
+		// Process initialization
+		let (result_msg_data, vk_shared_image, _lock) =
+			if img_data.is_none() || cmd.overwrite_existing {
+				// Only initialize image if none exists or the cmd explicitly allows overriding an image
+				let server_image_data: &mut ServerImageData = match img_data {
+					Some(s) => s,
+					None => {
+						// Explicitly drop img_data_lock to fix ownership issue
+						// It's empty anyway, so it doesn't matter
+						std::mem::drop(img_data);
+
+						// Create image if it doesn't exist yet
+						let ipc_info = IpcShmem::new(&shmem_name_str, &img_name_str, true)?;
+						let vk_shared_image = VkSharedImage::new(
+							&vk_instance,
+							&vk_device,
+							1,
+							1,
+							vk::Format::R8G8B8A8_UNORM,
+							0,
+						)?;
+						let server_image_data = gpu_images_map
+							.images
+							.entry(cmd.gpu_device_uuid)
+							.insert_entry(ServerImageData {
+								ipc_info,
+								vk_shared_image,
+							});
+
+						server_image_data.into_mut()
+					}
+				};
+
+				// Acquire write lock to image
+				let lock = server_image_data
+					.ipc_info
+					.acquire_lock(Timeout::Val(ipc_timeout))
+					.unwrap();
+				let mut data = IpcShmem::acquire_data(&lock);
+
+				// Update VkSharedImage
+				server_image_data.vk_shared_image.resize_image(
+					&vk_instance,
+					&vk_device,
+					cmd.width,
+					cmd.height,
+					VkSharedImage::get_vk_format(cmd.format),
+					data.handle_id + 1,
+				)?;
+
+				// Update Shmem data
+				VkServer::update_shmem_data(&mut data, &server_image_data.vk_shared_image);
+
+				// Generate ResultMsg data
+				let img_data = ImgData::from_shmem_data_internal(
+					ImgData::convert_shmem_str_to_array(server_image_data.ipc_info.get_name()),
+					data.clone(),
+				);
+
+				// Return result, vk_shared_img, and lock
+				(
+					ResultInitImage {
+						image_created: true,
+						img_data,
+					},
+					Some(&server_image_data.vk_shared_image),
+					Some(lock),
+				)
+			} else {
+				(
+					ResultInitImage {
+						image_created: false,
+						img_data: ImgData::default(),
+					},
+					None,
+					None,
+				)
+			};
 
 		// Send result to client
 		let res_msg = ResultMsg {
@@ -188,9 +295,9 @@ impl VkServer {
 		};
 		connection.send_result(res_msg)?;
 
-		// Send shared handles if image was created
+		// If image was created/updated, send handles to client
 		if vk_shared_image.is_some() {
-			let handles = vk_shared_image.unwrap().export_handle(&vk_setup.device)?;
+			let handles = vk_shared_image.unwrap().export_handle(vk_device)?;
 			connection.send_anillary_handles(&[handles.into_raw_fd()])?;
 
 			// Receive ack
@@ -203,36 +310,41 @@ impl VkServer {
 	fn process_cmd_find_image(
 		connection: &IpcConnection,
 		cmd: &CommFindImage,
-		vk_setup: &VkSetup,
-		images: &mut Vec<ServerImageData>,
+		vk_instance: &VkInstance,
+		vk_devices: &mut DevicesMap,
+		images: &mut NameImagesMap,
 		ipc_timeout: Duration,
 	) -> Result<(), Box<dyn std::error::Error>> {
+		// Get or create correct device
+		let vk_device_entry =
+			Self::get_or_create_device(vk_devices, vk_instance, cmd.gpu_device_uuid)?;
+
+		let vk_device = vk_device_entry.get();
+
 		let img_name_str = ImgData::convert_shmem_array_to_str(&cmd.image_name);
 
+		let gpu_images_map = images.entry(img_name_str).or_default();
 		let image_and_lock: Option<(ImgData, &mut VkSharedImage, ReadLockGuard)> =
-			images.iter_mut().find_map(|it| {
-				let rlock = it
-					.ipc_info
-					.acquire_rlock(Timeout::Val(ipc_timeout))
-					.unwrap();
-				let rdata = IpcShmem::acquire_rdata(&rlock);
+			match gpu_images_map.images.entry(cmd.gpu_device_uuid) {
+				Entry::Occupied(e) => {
+					let entry = e.into_mut();
+					let rlock = entry
+						.ipc_info
+						.acquire_rlock(Timeout::Val(ipc_timeout))
+						.unwrap();
+					let rdata = IpcShmem::acquire_rdata(&rlock);
 
-				if ImgData::convert_shmem_array_to_str(&rdata.name)
-					.cmp(&img_name_str)
-					.is_eq()
-				{
 					Some((
 						ImgData::from_shmem_data_internal(
-							ImgData::convert_shmem_str_to_array(it.ipc_info.get_name()),
+							ImgData::convert_shmem_str_to_array(entry.ipc_info.get_name()),
 							rdata.clone(),
 						),
-						&mut it.vk_shared_image,
+						&mut entry.vk_shared_image,
 						rlock,
 					))
-				} else {
-					None
 				}
-			});
+				Entry::Vacant(_) => None,
+			};
 
 		// Keep lock, extract image
 		let (image, vk_shared_image, _opt_lock) = match image_and_lock {
@@ -260,7 +372,7 @@ impl VkServer {
 		})?;
 
 		if vk_shared_image.is_some() {
-			let fd = vk_shared_image.unwrap().export_handle(&vk_setup.device)?;
+			let fd = vk_shared_image.unwrap().export_handle(vk_device)?;
 			connection.send_anillary_handles(&[fd.into_raw_fd()])?;
 			connection.recv_ack()?;
 		}
@@ -276,93 +388,94 @@ impl VkServer {
 	// ) {
 	// }
 
-	fn update_shared_image<'a>(
-		cmd: &CommInitImage,
-		vk_setup: &VkSetup,
-		image_vec: &'a mut Vec<ServerImageData>,
-		image_name: &str,
-		shmem_name: &str,
-		image_index: Option<usize>,
-		ipc_timeout: Duration,
-	) -> Result<
-		(
-			ResultInitImage,
-			Option<&'a mut VkSharedImage>,
-			Option<LockGuard<'a>>,
-		),
-		Box<dyn std::error::Error>,
-	> {
-		// Check if an image with the given name is available
-		let image: &mut ServerImageData = {
-			if image_index.is_some() {
-				// Only overwrite image if explicitly requested
-				if !cmd.overwrite_existing {
-					return Ok((
-						ResultInitImage {
-							image_created: false,
-							img_data: ImgData::default(),
-						},
-						None,
-						None,
-					));
-				}
+	// fn update_shared_image<'a>(
+	// 	cmd: &CommInitImage,
+	// 	vk_instance: &VkInstance,
+	// 	vk_device: &VkDevice,
+	// 	image_vec: &'a mut NameImagesMap,
+	// 	image_name: &str,
+	// 	shmem_name: &str,
+	// 	image_index: Option<usize>,
+	// 	ipc_timeout: Duration,
+	// ) -> Result<
+	// 	(
+	// 		ResultInitImage,
+	// 		Option<&'a mut VkSharedImage>,
+	// 		Option<LockGuard<'a>>,
+	// 	),
+	// 	Box<dyn std::error::Error>,
+	// > {
+	// 	// Check if an image with the given name is available
+	// 	let image: &mut ServerImageData = {
+	// 		if image_index.is_some() {
+	// 			// Only overwrite image if explicitly requested
+	// 			if !cmd.overwrite_existing {
+	// 				return Ok((
+	// 					ResultInitImage {
+	// 						image_created: false,
+	// 						img_data: ImgData::default(),
+	// 					},
+	// 					None,
+	// 					None,
+	// 				));
+	// 			}
 
-				image_vec.get_mut(image_index.unwrap()).unwrap()
-			} else {
-				let ipc_info = IpcShmem::new(shmem_name, image_name, true)?;
-				let vk_shared_image = VkSharedImage::new(
-					&vk_setup.instance,
-					&vk_setup.device,
-					1,
-					1,
-					vk::Format::R8G8B8A8_UNORM,
-					0,
-				)?;
-				image_vec.push(ServerImageData {
-					ipc_info,
-					vk_shared_image,
-				});
-				image_vec.last_mut().unwrap()
-			}
-		};
+	// 			image_vec.get_mut(image_index.unwrap()).unwrap()
+	// 		} else {
+	// 			let ipc_info = IpcShmem::new(shmem_name, image_name, true)?;
+	// 			let vk_shared_image = VkSharedImage::new(
+	// 				&vk_instance,
+	// 				&vk_device,
+	// 				1,
+	// 				1,
+	// 				vk::Format::R8G8B8A8_UNORM,
+	// 				0,
+	// 			)?;
+	// 			image_vec.push(Box::new(ServerImageData {
+	// 				ipc_info,
+	// 				vk_shared_image,
+	// 			}));
+	// 			image_vec.last_mut().unwrap()
+	// 		}
+	// 	};
 
-		// Update VkShared image and Shmem data
-		// Lock access
-		let lock = image
-			.ipc_info
-			.acquire_lock(Timeout::Val(ipc_timeout))
-			.unwrap();
-		let mut data = IpcShmem::acquire_data(&lock);
+	// 	// Update VkShared image and Shmem data
+	// 	// Lock access
+	// 	let lock = image
+	// 		.ipc_info
+	// 		.acquire_lock(Timeout::Val(ipc_timeout))
+	// 		.unwrap();
+	// 	let mut data = IpcShmem::acquire_data(&lock);
 
-		// Update VkSharedImage
-		image.vk_shared_image.resize_image(
-			&vk_setup.instance,
-			&vk_setup.device,
-			cmd.width,
-			cmd.height,
-			VkSharedImage::get_vk_format(cmd.format),
-			data.handle_id + 1,
-		)?;
+	// 	// Update VkSharedImage
+	// 	image.vk_shared_image.resize_image(
+	// 		&vk_instance,
+	// 		&vk_device,
+	// 		cmd.width,
+	// 		cmd.height,
+	// 		VkSharedImage::get_vk_format(cmd.format),
+	// 		data.handle_id + 1,
+	// 	)?;
 
-		// Update Shmem data
-		VkServer::update_shmem_data(&mut data, &image.vk_shared_image);
+	// 	// Update Shmem data
+	// 	VkServer::update_shmem_data(&mut data, &image.vk_shared_image);
 
-		// Generate ResultMsg data
-		let img_data = ImgData::from_shmem_data_internal(
-			ImgData::convert_shmem_str_to_array(image.ipc_info.get_name()),
-			data.clone(),
-		);
+	// 	// Generate ResultMsg data
+	// 	let img_data = ImgData::from_shmem_data_internal(
+	// 		ImgData::convert_shmem_str_to_array(image.ipc_info.get_name()),
+	// 		data.clone(),
+	// 	);
 
-		// Return result, vk_shared_img, and lock
-		return Ok((
-			ResultInitImage {
-				image_created: true,
-				img_data,
-			},
-			Some(&mut image.vk_shared_image),
-			Some(lock),
-		));
-	}
+	// 	// Return result, vk_shared_img, and lock
+	// 	return Ok((
+	// 		ResultInitImage {
+	// 			image_created: true,
+	// 			img_data,
+	// 		},
+	// 		Some(&mut image.vk_shared_image),
+	// 		Some(lock),
+	// 	));
+	// }
 
 	fn update_shmem_data(shmem_data: &mut ShmemDataInternal, vk_shared_image: &VkSharedImage) {
 		let vk_data = vk_shared_image.get_image_data();
@@ -372,6 +485,29 @@ impl VkServer {
 		shmem_data.format = VkSharedImage::get_img_format(vk_data.format);
 		shmem_data.allocation_size = vk_data.allocation_size;
 		shmem_data.handle_id = vk_data.id;
+	}
+
+	fn get_or_create_device<'a>(
+		vk_devices: &'a mut DevicesMap,
+		vk_instance: &VkInstance,
+		gpu_device_uuid: u128,
+	) -> Result<OccupiedEntry<'a, u128, VkDevice>, Box<dyn std::error::Error>> {
+		// Check that a device with the given uuid is initialized
+		let vk_device = match vk_devices.entry(gpu_device_uuid) {
+			Entry::Occupied(o) => o,
+			Entry::Vacant(v) => {
+				let new_vk_device = VkDevice::new(
+					&vk_instance,
+					Some(VkPhysicalDeviceOptions {
+						device_uuid: Some(uuid::Uuid::from_u128(gpu_device_uuid)),
+						..Default::default()
+					}),
+				)
+				.map_err(|err| err)?; // TODO: Handle wrong UUID
+				v.insert_entry(new_vk_device)
+			}
+		};
+		Ok(vk_device)
 	}
 }
 

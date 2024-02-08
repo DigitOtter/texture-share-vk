@@ -445,7 +445,8 @@ impl VkDevice {
 		unsafe {
 			self.device
 				.queue_submit(self.graphics_queue, &[submit_info], fence)?;
-			self.device.wait_for_fences(&[fence], true, 1000 * 1000)?;
+			self.device
+				.wait_for_fences(&[fence], true, 1000 * 1000 * 1000)?;
 			self.device.reset_fences(&[fence])?;
 		};
 

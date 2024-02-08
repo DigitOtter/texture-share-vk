@@ -30,6 +30,7 @@ impl ImgData {
 		height: u32,
 		format: ImgFormat,
 		allocation_size: u64,
+		gpu_device_uuid: uuid::Uuid,
 	) -> ImgData {
 		ImgData {
 			shmem_name,
@@ -40,6 +41,7 @@ impl ImgData {
 				height,
 				format,
 				allocation_size,
+				gpu_device_uuid.as_u128(),
 			),
 		}
 	}

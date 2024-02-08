@@ -3,6 +3,8 @@ use std::os::fd::{AsFd, AsRawFd};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::SystemTime;
+use texture_share_vk_base::vk_shared_image::VkSharedImage;
+use texture_share_vk_base::{ash, ipc::IpcShmem};
 
 use crate::VkServer;
 
@@ -90,7 +92,8 @@ impl VkServer {
 						let conn = &connections[ev.key];
 						if !VkServer::process_single_connection(
 							&conn.borrow(),
-							&self.vk_setup,
+							&self.vk_instance,
+							&mut self.vk_devices,
 							&self.shmem_prefix,
 							&mut self.images,
 							self.ipc_timeout,

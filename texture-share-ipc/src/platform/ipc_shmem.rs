@@ -23,6 +23,8 @@ pub struct ShmemDataInternal {
 	pub height: u32,
 	pub format: ImgFormat,
 	pub allocation_size: u64,
+	pub gpu_device_uuid_0: u64,
+	pub gpu_device_uuid_1: u64,
 }
 
 #[repr(C)]
@@ -38,6 +40,7 @@ pub struct IpcShmem {
 
 impl Default for ShmemDataInternal {
 	fn default() -> Self {
+		let nil = uuid::Uuid::nil().as_u64_pair();
 		ShmemDataInternal {
 			name: [0 as u8; size_of::<ImgName>()],
 			handle_id: 0,
@@ -45,6 +48,8 @@ impl Default for ShmemDataInternal {
 			height: 0,
 			format: ImgFormat::default(),
 			allocation_size: 0,
+			gpu_device_uuid_0: nil.0,
+			gpu_device_uuid_1: nil.1,
 		}
 	}
 }
@@ -127,7 +132,9 @@ impl ShmemDataInternal {
 		height: u32,
 		format: ImgFormat,
 		allocation_size: u64,
+		gpu_device_uuid: u128,
 	) -> ShmemDataInternal {
+		let gpu_uuid_pair = uuid::Uuid::from_u128(gpu_device_uuid).as_u64_pair();
 		ShmemDataInternal {
 			name,
 			handle_id,
@@ -135,6 +142,8 @@ impl ShmemDataInternal {
 			height,
 			format,
 			allocation_size,
+			gpu_device_uuid_0: gpu_uuid_pair.0,
+			gpu_device_uuid_1: gpu_uuid_pair.1,
 		}
 	}
 
@@ -155,6 +164,7 @@ impl ShmemDataInternal {
 				height: 0,
 				format: ImgFormat::Undefined,
 				allocation_size: 0,
+				..Default::default()
 			};
 			Ok(shmem_internal)
 		}

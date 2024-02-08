@@ -12,7 +12,6 @@ use texture_share_vk_base::ipc::platform::ShmemDataInternal;
 use texture_share_vk_base::ipc::platform::{ReadLockGuard, Timeout};
 use texture_share_vk_base::ipc::{IpcConnection, IpcShmem};
 
-use texture_share_vk_base::uuid;
 use texture_share_vk_base::vk_device::VkDevice;
 use texture_share_vk_base::vk_setup::VkSetup;
 use texture_share_vk_base::vk_shared_image::VkSharedImage;
@@ -27,7 +26,7 @@ pub struct VkClient {
 	connection: IpcConnection,
 	vk_setup: Box<VkSetup>,
 	shared_images: HashMap<String, ImageData>,
-	gpu_device_uuid: uuid::Uuid,
+	gpu_device_uuid: u128,
 }
 
 impl Drop for VkClient {
@@ -60,7 +59,8 @@ impl VkClient {
 		let gpu_device_uuid = VkDevice::get_gpu_device_uuid(
 			&vk_setup.instance.instance,
 			vk_setup.device.physical_device,
-		);
+		)
+		.as_u128();
 
 		Ok(VkClient {
 			connection: connection.unwrap(),
@@ -123,7 +123,7 @@ impl VkClient {
 				connection,
 				vk_setup,
 				shared_images: HashMap::default(),
-				gpu_device_uuid,
+				gpu_device_uuid: gpu_device_uuid.as_u128(),
 			});
 		} else {
 			return Err(Error::new(
@@ -164,7 +164,7 @@ impl VkClient {
 					height,
 					format,
 					overwrite_existing,
-					gpu_device_uuid: self.gpu_device_uuid.as_u128(),
+					gpu_device_uuid: self.gpu_device_uuid,
 				}),
 			},
 		};
@@ -472,6 +472,7 @@ impl VkClient {
 	) -> Result<Option<&ImageData>, Box<dyn std::error::Error>> {
 		let cmd_dat = ManuallyDrop::new(CommFindImage {
 			image_name: ImgData::convert_shmem_str_to_array(image_name),
+			gpu_device_uuid: self.gpu_device_uuid,
 		});
 		let cmd_msg = CommandMsg {
 			tag: CommandTag::FindImage,

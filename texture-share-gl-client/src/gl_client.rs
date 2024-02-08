@@ -10,7 +10,7 @@ use texture_share_ipc::platform::ipc_commands::{
 	CommFindImage, CommInitImage, CommandData, CommandMsg, CommandTag,
 };
 use texture_share_ipc::platform::ShmemDataInternal;
-use texture_share_ipc::{IpcConnection, IpcShmem};
+use texture_share_ipc::{uuid, IpcConnection, IpcShmem};
 
 use crate::gl_shared_image::{GlImageExtent, GlSharedImage};
 use crate::opengl::glad;
@@ -23,6 +23,7 @@ pub struct ImageData {
 pub struct GlClient {
 	connection: IpcConnection,
 	shared_images: HashMap<String, ImageData>,
+	gpu_device_uuid: u128,
 	//timeout: Duration,
 }
 
@@ -57,7 +58,8 @@ impl GlClient {
 		Ok(GlClient {
 			connection: connection.unwrap(),
 			shared_images,
-			//timeout,
+			gpu_device_uuid: uuid::Uuid::nil().as_u128(), // TODO: Find out how to get Gpu UUID in opengl
+			                                              //timeout,
 		})
 	}
 
@@ -91,7 +93,8 @@ impl GlClient {
 			Ok(Some(GlClient {
 				connection: connection.unwrap(),
 				shared_images,
-				//timeout,
+				gpu_device_uuid: uuid::Uuid::nil().as_u128(), // TODO: Find out how to get Gpu UUID in opengl
+				                                              //timeout,
 			}))
 		};
 
@@ -417,6 +420,7 @@ impl GlClient {
 	) -> Result<Option<&ImageData>, Box<dyn std::error::Error>> {
 		let cmd_dat = ManuallyDrop::new(CommFindImage {
 			image_name: ImgData::convert_shmem_str_to_array(image_name),
+			gpu_device_uuid: self.gpu_device_uuid,
 		});
 		let cmd_msg = CommandMsg {
 			tag: CommandTag::FindImage,
