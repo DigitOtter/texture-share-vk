@@ -7,7 +7,7 @@ use std::{mem::ManuallyDrop, os::fd::OwnedFd, time::Duration};
 
 use texture_share_ipc::platform::img_data::{ImgData, ImgFormat};
 use texture_share_ipc::platform::ipc_commands::{
-	CommFindImage, CommInitImage, CommandData, CommandMsg, CommandTag,
+	CommCopyImage, CommFindImage, CommInitImage, CommandData, CommandMsg, CommandTag,
 };
 use texture_share_ipc::platform::ShmemDataInternal;
 use texture_share_ipc::{uuid, IpcConnection, IpcShmem};
@@ -306,6 +306,9 @@ impl GlClient {
 			.vk_shared_image
 			.recv_blit_image(src_texture_id, src_texture_target, extent, invert, prev_fbo)
 			.unwrap();
+
+		self.copy_image_cmd(image_name)?;
+
 		Ok(Some(()))
 	}
 
@@ -497,6 +500,20 @@ impl GlClient {
 
 		Ok(Some(&self.shared_images.get(image_name).unwrap()))
 	}
+
+	fn copy_image_cmd(&mut self, image_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+		let cmd_dat = ManuallyDrop::new(CommCopyImage {
+			image_name: ImgData::convert_shmem_str_to_array(image_name),
+			gpu_device_uuid: self.gpu_device_uuid,
+		});
+		let cmd_msg = CommandMsg {
+			tag: CommandTag::CopyImage,
+			data: CommandData { copy_img: cmd_dat },
+		};
+		self.connection.send_command(cmd_msg)?;
+
+		Ok(())
+	}
 }
 
 #[cfg(test)]
@@ -506,7 +523,6 @@ mod tests {
 
 	use texture_share_ipc::IpcSocket;
 
-	use super::glad;
 	use super::GlClient;
 	use super::GlSharedImage;
 	use glfw::fail_on_errors;

@@ -6,7 +6,7 @@ use texture_share_vk_base::ash::vk;
 use texture_share_vk_base::ipc::platform::daemon_launch::server_connect_and_daemon_launch;
 use texture_share_vk_base::ipc::platform::img_data::{ImgData, ImgFormat};
 use texture_share_vk_base::ipc::platform::ipc_commands::{
-	CommFindImage, CommInitImage, CommandData, CommandMsg, CommandTag,
+	CommCopyImage, CommFindImage, CommInitImage, CommandData, CommandMsg, CommandTag,
 };
 use texture_share_vk_base::ipc::platform::ShmemDataInternal;
 use texture_share_vk_base::ipc::platform::{ReadLockGuard, Timeout};
@@ -319,6 +319,9 @@ impl VkClient {
 			extents,
 			fence,
 		)?;
+
+		self.copy_image_cmd(image_name)?;
+
 		Ok(Some(()))
 	}
 
@@ -517,6 +520,20 @@ impl VkClient {
 			.map(|x| x.vk_shared_image.destroy(&self.vk_setup.device));
 
 		Ok(Some(&self.shared_images.get(image_name).unwrap()))
+	}
+
+	fn copy_image_cmd(&mut self, image_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+		let cmd_dat = ManuallyDrop::new(CommCopyImage {
+			image_name: ImgData::convert_shmem_str_to_array(image_name),
+			gpu_device_uuid: self.gpu_device_uuid,
+		});
+		let cmd_msg = CommandMsg {
+			tag: CommandTag::CopyImage,
+			data: CommandData { copy_img: cmd_dat },
+		};
+		self.connection.send_command(cmd_msg)?;
+
+		Ok(())
 	}
 }
 

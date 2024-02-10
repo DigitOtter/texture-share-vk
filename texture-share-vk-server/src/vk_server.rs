@@ -166,6 +166,14 @@ impl VkServer {
 				images,
 				ipc_timeout,
 			),
+			CommandTag::CopyImage => VkServer::process_cmd_copy_image(
+				conn,
+				unsafe { &cmd.data.copy_img },
+				vk_instance,
+				vk_devices,
+				images,
+				ipc_timeout,
+			),
 			// CommandTag::RenameImage => Server::process_cmd_rename_image(
 			//     &conn.borrow(),
 			//     unsafe { &cmd.data.rename_img },
