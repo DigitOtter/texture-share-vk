@@ -1,6 +1,6 @@
 use std::{
 	borrow::Cow,
-	ffi::{c_char, c_int, c_uint, CStr},
+	ffi::{c_char, c_int, CStr},
 	ptr::{null_mut, NonNull},
 	sync::{atomic::AtomicBool, Arc},
 	time::Duration,

@@ -312,13 +312,6 @@ impl VkSharedImage {
 		})
 	}
 
-	fn get_memory_properties_flags(host_visible: bool) -> vk::MemoryPropertyFlags {
-		match host_visible {
-			false => vk::MemoryPropertyFlags::DEVICE_LOCAL,
-			true => vk::MemoryPropertyFlags::DEVICE_LOCAL | vk::MemoryPropertyFlags::HOST_VISIBLE,
-		}
-	}
-
 	fn _set_image_layout(
 		image: &vk::Image,
 		vk_device: &VkDevice,

@@ -1,14 +1,14 @@
 mod vk_copy_images;
 
-use std::borrow::{Borrow, BorrowMut};
-use std::cell::{RefCell, RefMut};
+use std::borrow::{BorrowMut};
+
 use std::collections::hash_map::{Entry, OccupiedEntry};
-use std::collections::{hash_map, HashMap};
-use std::ffi::{c_void, CStr, CString};
+use std::collections::{HashMap};
+use std::ffi::{CStr};
 use std::fs;
 use std::io::{Error, ErrorKind};
 use std::mem::{ManuallyDrop, MaybeUninit};
-use std::{alloc, ptr};
+
 
 use std::os::fd::IntoRawFd;
 use std::time::Duration;
@@ -18,13 +18,13 @@ use texture_share_vk_base::ipc::platform::ipc_commands::{
 	ResultInitImage, ResultMsg,
 };
 use texture_share_vk_base::ipc::platform::ShmemDataInternal;
-use texture_share_vk_base::ipc::platform::{LockGuard, ReadLockGuard, Timeout};
+use texture_share_vk_base::ipc::platform::{ReadLockGuard, Timeout};
 use texture_share_vk_base::ipc::{IpcConnection, IpcShmem, IpcSocket};
 use texture_share_vk_base::vk_cpu_shared_image::{AlignedRamBuffer, VkCpuSharedImage};
-use texture_share_vk_base::vk_device::{self, VkDevice, VkPhysicalDeviceOptions};
+use texture_share_vk_base::vk_device::{VkDevice, VkPhysicalDeviceOptions};
 use texture_share_vk_base::vk_instance::VkInstance;
-use texture_share_vk_base::vk_setup::VkSetup;
-use texture_share_vk_base::vk_shared_image::{self, VkSharedImage};
+
+use texture_share_vk_base::vk_shared_image::{VkSharedImage};
 use texture_share_vk_base::{ash::vk, uuid};
 
 use self::vk_copy_images::VkCopyImages;
@@ -410,9 +410,9 @@ impl VkServer {
 	}
 
 	fn process_cmd_copy_image(
-		connection: &IpcConnection,
+		_connection: &IpcConnection,
 		cmd: &CommCopyImage,
-		vk_instance: &VkInstance,
+		_vk_instance: &VkInstance,
 		vk_devices: &mut DevicesMap,
 		images: &mut NameImagesMap,
 		ipc_timeout: Duration,

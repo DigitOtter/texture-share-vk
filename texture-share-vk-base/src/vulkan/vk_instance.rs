@@ -4,6 +4,7 @@ use std::ffi::CStr;
 use super::vk_entry::VkEntry;
 
 pub struct VkInstance {
+	#[allow(dead_code)]
 	entry: Box<VkEntry>,
 	pub instance: Instance,
 	import_only: bool,

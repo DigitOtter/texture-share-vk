@@ -1,11 +1,9 @@
 use std::{
-	borrow::{Borrow, BorrowMut},
 	os::raw::c_void,
 	ptr::{self, NonNull},
 };
 
-use ash::vk::{self, ExternalMemoryBufferCreateInfo};
-use vk_mem::Alloc;
+use ash::vk::{self};
 
 use crate::{
 	vk_device::{VkBuffer, VkDevice},
@@ -613,14 +611,9 @@ mod tests {
 	use std::{ffi::CStr, ptr::NonNull, slice};
 
 	use ash::vk;
-	use libc::c_void;
 
 	use super::VkCpuBuffer;
-	use crate::{
-		vk_device::VkDevice,
-		vk_instance::{self, VkInstance},
-		vk_shared_image::{self, VkSharedImage},
-	};
+	use crate::{vk_device::VkDevice, vk_instance::VkInstance, vk_shared_image::VkSharedImage};
 
 	fn _init_vk_device() -> (VkInstance, VkDevice) {
 		let vk_instance =

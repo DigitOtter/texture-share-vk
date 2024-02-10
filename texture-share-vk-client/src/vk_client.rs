@@ -544,7 +544,7 @@ mod tests {
 	use std::{fs, thread};
 
 	use texture_share_vk_base::ipc::IpcSocket;
-	use texture_share_vk_base::vk_device::{self, VkDevice};
+	use texture_share_vk_base::vk_device::{VkDevice};
 	use texture_share_vk_base::vk_instance::VkInstance;
 	use texture_share_vk_base::vk_setup::VkSetup;
 

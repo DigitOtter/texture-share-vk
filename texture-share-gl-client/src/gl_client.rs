@@ -10,7 +10,7 @@ use texture_share_ipc::platform::ipc_commands::{
 	CommCopyImage, CommFindImage, CommInitImage, CommandData, CommandMsg, CommandTag,
 };
 use texture_share_ipc::platform::ShmemDataInternal;
-use texture_share_ipc::{uuid, IpcConnection, IpcShmem};
+use texture_share_ipc::{IpcConnection, IpcShmem};
 
 use crate::gl_shared_image::{GlImageExtent, GlSharedImage};
 use crate::opengl::glad;
