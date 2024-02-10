@@ -1,4 +1,7 @@
 use ash::vk;
+use libc::c_void;
+use std::ptr::NonNull;
+use std::{alloc, ptr};
 
 use super::vk_cpu_buffer::VkCpuBuffer;
 use super::vk_shared_image::VkSharedImage;
@@ -6,14 +9,50 @@ use crate::vk_device::VkDevice;
 use crate::vk_instance::VkInstance;
 use crate::vk_shared_image::ImageBlit;
 
-struct VkCpuSharedImage {
-	image: VkSharedImage,
-	cpu_buffer: VkCpuBuffer,
+pub struct VkCpuSharedImage {
+	pub image: VkSharedImage,
+	pub cpu_buffer: VkCpuBuffer,
+}
+
+pub struct AlignedRamBuffer {
+	pub layout: alloc::Layout,
+	pub ptr: *mut c_void,
 }
 
 impl Drop for VkCpuSharedImage {
 	fn drop(&mut self) {
 		println!("Warning: VkCpuSharedImage should be manually destroyed, not dropped");
+	}
+}
+
+impl Drop for AlignedRamBuffer {
+	fn drop(&mut self) {
+		if !self.ptr.is_null() {
+			unsafe { alloc::dealloc(self.ptr as *mut _, self.layout) };
+			self.ptr = ptr::null_mut();
+		}
+	}
+}
+
+impl Default for AlignedRamBuffer {
+	fn default() -> Self {
+		Self {
+			layout: alloc::Layout::new::<u8>(),
+			ptr: ptr::null_mut(),
+		}
+	}
+}
+
+impl AlignedRamBuffer {
+	pub fn new(min_size: usize, align: usize) -> AlignedRamBuffer {
+		let layout = alloc::Layout::from_size_align(min_size, align)
+			.expect("Unable to create memory layout");
+		let ptr = unsafe { alloc::alloc(layout) };
+
+		AlignedRamBuffer {
+			layout,
+			ptr: ptr as *mut _,
+		}
 	}
 }
 
@@ -36,7 +75,8 @@ impl VkCpuSharedImage {
 		vk_device: &VkDevice,
 		image: VkSharedImage,
 	) -> Result<VkCpuSharedImage, vk::Result> {
-		let cpu_buffer = VkCpuBuffer::new(vk_instance, vk_device, image.data.allocation_size)?;
+		let cpu_buffer =
+			VkCpuBuffer::new(vk_instance, vk_device, image.data.allocation_size, None)?;
 		Ok(VkCpuSharedImage { image, cpu_buffer })
 	}
 
@@ -45,6 +85,48 @@ impl VkCpuSharedImage {
 		self.image._destroy(vk_device);
 
 		std::mem::forget(self);
+	}
+
+	pub fn gen_device_aligned_ram_buffer(
+		min_size: usize,
+		vk_instance: &VkInstance,
+		physical_device: vk::PhysicalDevice,
+	) -> AlignedRamBuffer {
+		let align =
+			VkDevice::get_external_memory_host_properties(&vk_instance.instance, physical_device)
+				.min_imported_host_pointer_alignment as usize;
+
+		AlignedRamBuffer::new(min_size, align)
+	}
+
+	pub fn resize_image(
+		&mut self,
+		vk_instance: &VkInstance,
+		vk_device: &VkDevice,
+		width: u32,
+		height: u32,
+		format: vk::Format,
+		id: u32,
+		ram_buffer: &mut AlignedRamBuffer,
+	) -> Result<(), vk::Result> {
+		self.image
+			.resize_image(vk_instance, vk_device, width, height, format, id)?;
+		if self.image.data.allocation_size as usize > ram_buffer.layout.align() {
+			*ram_buffer = VkCpuSharedImage::gen_device_aligned_ram_buffer(
+				self.image.data.allocation_size as usize,
+				vk_instance,
+				vk_device.physical_device,
+			);
+		}
+
+		self.cpu_buffer.resize(
+			vk_instance,
+			vk_device,
+			ram_buffer.layout.align() as u64,
+			Some(NonNull::new(ram_buffer.ptr).unwrap()),
+		)?;
+
+		Ok(())
 	}
 
 	// pub fn to_shared_image(self, vk_setup: &VkDevice) -> VkSharedImage {

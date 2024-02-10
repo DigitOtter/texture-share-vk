@@ -2,6 +2,8 @@ use super::glad;
 use std::{os::fd::OwnedFd, ptr};
 
 use texture_share_ipc::platform::{img_data::ImgFormat, ShmemDataInternal};
+use texture_share_ipc::uuid;
+
 #[cfg(target_os = "linux")]
 type GlMemoryHandle = OwnedFd;
 
@@ -77,6 +79,38 @@ impl GlSharedImage {
 			0 => Err(()),
 			v => Ok(v),
 		}
+	}
+
+	pub fn get_gpu_device_uuid() -> Result<uuid::Uuid, glad::GLuint> {
+		let mut uuid_buffer = [0 as u8; glad::GL_UUID_SIZE_EXT as usize];
+
+		// Get driver UUID of current context
+		let device_count = unsafe {
+			let mut device_count: glad::GLint = 0;
+			check_gl(|| {
+				glad::glad_glGetIntegerv.unwrap()(
+					glad::GL_NUM_DEVICE_UUIDS_EXT,
+					&mut device_count as *mut _,
+				)
+			})?;
+			device_count
+		};
+
+		if device_count <= 0 {
+			return Err(glad::GL_INVALID_VALUE);
+		}
+
+		unsafe {
+			check_gl(|| {
+				glad::glad_glGetUnsignedBytei_vEXT.unwrap()(
+					glad::GL_DEVICE_UUID_EXT,
+					0,
+					&mut uuid_buffer as *mut _,
+				)
+			})?;
+		};
+
+		Ok(uuid::Uuid::from_bytes(uuid_buffer))
 	}
 
 	pub fn get_gl_format(img_format: ImgFormat) -> glad::GLenum {

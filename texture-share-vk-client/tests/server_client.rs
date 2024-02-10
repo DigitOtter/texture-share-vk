@@ -115,8 +115,8 @@ fn server_client_init_image() {
 		}
 	}
 
-	client_thread.join().unwrap();
 	server_thread.join().unwrap();
+	client_thread.join().unwrap();
 }
 
 #[test]

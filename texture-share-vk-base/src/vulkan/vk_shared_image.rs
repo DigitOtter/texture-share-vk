@@ -142,7 +142,7 @@ impl VkSharedImage {
 			})
 			.usage(
 				vk::ImageUsageFlags::COLOR_ATTACHMENT
-					| vk::ImageUsageFlags::SAMPLED
+//					| vk::ImageUsageFlags::SAMPLED
 					| vk::ImageUsageFlags::TRANSFER_SRC
 					| vk::ImageUsageFlags::TRANSFER_DST,
 			)
@@ -164,7 +164,7 @@ impl VkSharedImage {
 						memory_requirements.memory_type_bits,
 						vk::MemoryPropertyFlags::DEVICE_LOCAL,
 					)
-					.unwrap(),
+					.expect("Couldn't find memory type"),
 			)
 			.push_next(&mut export_memory_alloc_info)
 			.build();
@@ -217,8 +217,8 @@ impl VkSharedImage {
 	pub(crate) fn _destroy(&self, vk_device: &VkDevice) {
 		unsafe {
 			vk_device.device.device_wait_idle().unwrap();
-			vk_device.device.destroy_image(self.image, None);
 			vk_device.device.free_memory(self.memory, None);
+			vk_device.device.destroy_image(self.image, None);
 		}
 	}
 
@@ -312,6 +312,13 @@ impl VkSharedImage {
 		})
 	}
 
+	fn get_memory_properties_flags(host_visible: bool) -> vk::MemoryPropertyFlags {
+		match host_visible {
+			false => vk::MemoryPropertyFlags::DEVICE_LOCAL,
+			true => vk::MemoryPropertyFlags::DEVICE_LOCAL | vk::MemoryPropertyFlags::HOST_VISIBLE,
+		}
+	}
+
 	fn _set_image_layout(
 		image: &vk::Image,
 		vk_device: &VkDevice,
@@ -379,26 +386,6 @@ impl VkSharedImage {
 		};
 
 		Ok(fd)
-	}
-
-	pub fn set_image_layout(
-		&mut self,
-		vk_device: &VkDevice,
-		src_image_layout: vk::ImageLayout,
-		dst_image_layout: vk::ImageLayout,
-		src_access_mask: vk::AccessFlags,
-		dst_access_mask: vk::AccessFlags,
-	) -> Result<vk::ImageLayout, vk::Result> {
-		self.image_layout = Self::_set_image_layout(
-			&self.image,
-			vk_device,
-			src_image_layout,
-			dst_image_layout,
-			src_access_mask,
-			dst_access_mask,
-		)?;
-
-		Ok(self.image_layout)
 	}
 
 	pub fn gen_img_mem_barrier(

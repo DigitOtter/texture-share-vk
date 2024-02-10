@@ -55,11 +55,25 @@ impl GlClient {
 
 		let shared_images = HashMap::default();
 
+		if !Self::initialize_gl_external() {
+			return Err(Error::new(
+				ErrorKind::InvalidData,
+				"Unable to initialize Gl context",
+			));
+		}
+
+		let gpu_device_uuid = GlSharedImage::get_gpu_device_uuid().map_err(|e| {
+			Error::new(
+				ErrorKind::NotFound,
+				format!("GPU device UUID not found: {}", e.to_string()),
+			)
+		})?;
+
 		Ok(GlClient {
 			connection: connection.unwrap(),
 			shared_images,
-			gpu_device_uuid: uuid::Uuid::nil().as_u128(), // TODO: Find out how to get Gpu UUID in opengl
-			                                              //timeout,
+			gpu_device_uuid: gpu_device_uuid.as_u128(),
+			//timeout,
 		})
 	}
 
@@ -76,6 +90,20 @@ impl GlClient {
 		server_lockfile_timeout: Duration,
 		server_spawn_timeout: Duration,
 	) -> Result<GlClient, Error> {
+		if !Self::initialize_gl_external() {
+			return Err(Error::new(
+				ErrorKind::InvalidData,
+				"Unable to initialize Gl context",
+			));
+		}
+
+		let gpu_device_uuid = GlSharedImage::get_gpu_device_uuid().map_err(|e| {
+			Error::new(
+				ErrorKind::NotFound,
+				format!("GPU device UUID not found: {}", e.to_string()),
+			)
+		})?;
+
 		let conn_fn = || {
 			let connection = match IpcConnection::try_connect(socket_path, client_timeout) {
 				Err(e) => match e.kind() {
@@ -93,8 +121,7 @@ impl GlClient {
 			Ok(Some(GlClient {
 				connection: connection.unwrap(),
 				shared_images,
-				gpu_device_uuid: uuid::Uuid::nil().as_u128(), // TODO: Find out how to get Gpu UUID in opengl
-				                                              //timeout,
+				gpu_device_uuid: gpu_device_uuid.as_u128(), //timeout,
 			}))
 		};
 
@@ -108,7 +135,7 @@ impl GlClient {
 			server_ipc_timeout,
 			server_lockfile_timeout,
 			server_spawn_timeout,
-			None,
+			Some(gpu_device_uuid),
 			&conn_fn,
 		)?;
 
@@ -479,7 +506,18 @@ mod tests {
 
 	use texture_share_ipc::IpcSocket;
 
+	use super::glad;
 	use super::GlClient;
+	use super::GlSharedImage;
+	use glfw::fail_on_errors;
+	use glfw::Context;
+
+	#[allow(dead_code)]
+	struct GlfwData<R> {
+		glfw: glfw::Glfw,
+		window: glfw::PWindow,
+		events: glfw::GlfwReceiver<R>,
+	}
 
 	const TIMEOUT: Duration = Duration::from_millis(2000);
 	const SOCKET_PATH: &str = "test_socket.sock";
@@ -488,8 +526,28 @@ mod tests {
 		IpcSocket::new(SOCKET_PATH, TIMEOUT).unwrap()
 	}
 
+	fn _init_gl() -> GlfwData<(f64, glfw::WindowEvent)> {
+		let mut glfw = glfw::init(fail_on_errors!()).unwrap();
+		glfw.window_hint(glfw::WindowHint::Visible(false));
+
+		// Create a windowed mode window and its OpenGL context
+		let (mut window, events) = glfw
+			.create_window(300, 300, "Hello this is window", glfw::WindowMode::Windowed)
+			.expect("Failed to create GLFW window.");
+		window.make_current();
+
+		GlSharedImage::init_gl().unwrap();
+
+		GlfwData {
+			glfw,
+			window,
+			events,
+		}
+	}
+
 	#[test]
 	fn gl_client_create() {
+		let _gl_context = _init_gl();
 		let _ = fs::remove_file(SOCKET_PATH);
 
 		let server_socket_fcn = || {

@@ -59,7 +59,7 @@ impl Drop for VkDevice {
 
 impl Drop for VkBuffer {
 	fn drop(&mut self) {
-		println!("Warning: VkBuffer should be manually destroyed, not dropped");
+		//println!("Warning: VkBuffer should be manually destroyed, not dropped");
 	}
 }
 
@@ -92,6 +92,7 @@ impl VkDevice {
 				vk::KhrExternalSemaphoreFdFn::name(),
 				vk::KhrExternalSemaphoreWin32Fn::name(),
 			]),
+			ExtensionOptions::Name(vk::ExtExternalMemoryHostFn::name()),
 		];
 
 		let mut physical_device_vk_12_features = vk::PhysicalDeviceVulkan12Features::builder()
@@ -333,6 +334,20 @@ impl VkDevice {
 	) -> (u32, u32) {
 		let props = unsafe { vk_instance.get_physical_device_properties(physical_device) };
 		(props.vendor_id, props.device_id)
+	}
+
+	pub fn get_external_memory_host_properties(
+		vk_instance: &Instance,
+		physical_device: vk::PhysicalDevice,
+	) -> vk::PhysicalDeviceExternalMemoryHostPropertiesEXT {
+		let mut external_host_props = vk::PhysicalDeviceExternalMemoryHostPropertiesEXT::default();
+		let mut prop = vk::PhysicalDeviceProperties2::builder()
+			.push_next(&mut external_host_props)
+			.build();
+
+		unsafe { vk_instance.get_physical_device_properties2(physical_device, &mut prop) };
+
+		external_host_props
 	}
 
 	fn _create_command_pool(

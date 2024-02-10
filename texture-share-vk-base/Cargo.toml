@@ -12,9 +12,6 @@ cxx = "1.0.107"
 libc = "0.2.148"
 texture-share-ipc = { path = "../texture-share-ipc" }
 vk-mem = "0.3.0"
-# vulkano = "0.33.0"
-
-[dev-dependencies]
 #tempfile = "3.8.0"
 #texture-share-vk-server = { path = "../texture-share-vk-server" }
 

@@ -1,35 +1,43 @@
+mod vk_copy_images;
+
+use std::borrow::{Borrow, BorrowMut};
+use std::cell::{RefCell, RefMut};
 use std::collections::hash_map::{Entry, OccupiedEntry};
 use std::collections::{hash_map, HashMap};
-use std::ffi::{CStr, CString};
+use std::ffi::{c_void, CStr, CString};
 use std::fs;
 use std::io::{Error, ErrorKind};
-use std::mem::ManuallyDrop;
+use std::mem::{ManuallyDrop, MaybeUninit};
+use std::{alloc, ptr};
 
 use std::os::fd::IntoRawFd;
 use std::time::Duration;
 use texture_share_vk_base::ipc::platform::img_data::ImgData;
 use texture_share_vk_base::ipc::platform::ipc_commands::{
-	CommFindImage, CommInitImage, CommandTag, ResultData, ResultFindImage, ResultInitImage,
-	ResultMsg,
+	CommCopyImage, CommFindImage, CommInitImage, CommandTag, ResultData, ResultFindImage,
+	ResultInitImage, ResultMsg,
 };
 use texture_share_vk_base::ipc::platform::ShmemDataInternal;
 use texture_share_vk_base::ipc::platform::{LockGuard, ReadLockGuard, Timeout};
 use texture_share_vk_base::ipc::{IpcConnection, IpcShmem, IpcSocket};
+use texture_share_vk_base::vk_cpu_shared_image::{AlignedRamBuffer, VkCpuSharedImage};
 use texture_share_vk_base::vk_device::{self, VkDevice, VkPhysicalDeviceOptions};
 use texture_share_vk_base::vk_instance::VkInstance;
 use texture_share_vk_base::vk_setup::VkSetup;
 use texture_share_vk_base::vk_shared_image::{self, VkSharedImage};
 use texture_share_vk_base::{ash::vk, uuid};
 
+use self::vk_copy_images::VkCopyImages;
+
 pub(super) struct ServerImageData {
 	pub ipc_info: IpcShmem,
-	pub vk_shared_image: VkSharedImage,
+	pub vk_shared_image: VkCpuSharedImage,
 }
 
 #[derive(Default)]
 pub(super) struct GpuImageData {
-	pub buffer: Vec<u8>,
 	pub images: GpuImagesMap,
+	pub ram_buffer: AlignedRamBuffer,
 }
 
 type DevicesMap = HashMap<u128, VkDevice>;
@@ -98,7 +106,7 @@ impl VkServer {
 		let mut vk_devices = HashMap::default();
 		vk_devices.insert(gpu_device_uuid.as_u128(), vk_device);
 
-		let mut images = HashMap::default();
+		let images = HashMap::default();
 
 		Ok(VkServer {
 			socket,
@@ -205,86 +213,99 @@ impl VkServer {
 		let gpu_images_map = images.entry(img_name_str.clone()).or_default();
 
 		// Find image data
-		let img_data = gpu_images_map.images.get_mut(&cmd.gpu_device_uuid);
+		let img_loaded = gpu_images_map.images.contains_key(&cmd.gpu_device_uuid);
 
 		// Process initialization
-		let (result_msg_data, vk_shared_image, _lock) =
-			if img_data.is_none() || cmd.overwrite_existing {
-				// Only initialize image if none exists or the cmd explicitly allows overriding an image
-				let server_image_data: &mut ServerImageData = match img_data {
-					Some(s) => s,
-					None => {
-						// Explicitly drop img_data_lock to fix ownership issue
-						// It's empty anyway, so it doesn't matter
-						std::mem::drop(img_data);
-
-						// Create image if it doesn't exist yet
-						let ipc_info = IpcShmem::new(&shmem_name_str, &img_name_str, true)?;
-						let vk_shared_image = VkSharedImage::new(
-							&vk_instance,
-							&vk_device,
-							1,
-							1,
-							vk::Format::R8G8B8A8_UNORM,
-							0,
-						)?;
-						let server_image_data = gpu_images_map
-							.images
-							.entry(cmd.gpu_device_uuid)
-							.insert_entry(ServerImageData {
-								ipc_info,
-								vk_shared_image,
-							});
-
-						server_image_data.into_mut()
-					}
-				};
-
-				// Acquire write lock to image
-				let lock = server_image_data
-					.ipc_info
-					.acquire_lock(Timeout::Val(ipc_timeout))
-					.unwrap();
-				let mut data = IpcShmem::acquire_data(&lock);
-
-				// Update VkSharedImage
-				server_image_data.vk_shared_image.resize_image(
+		let (result_msg_data, vk_shared_image, _lock) = if !img_loaded || cmd.overwrite_existing {
+			// Only initialize image if none exists or the cmd explicitly allows overriding an image
+			if !img_loaded {
+				// Create image if it doesn't exist yet
+				let ipc_info = IpcShmem::new(&shmem_name_str, &img_name_str, true)?;
+				let vk_shared_image = VkCpuSharedImage::new(
 					&vk_instance,
 					&vk_device,
-					cmd.width,
-					cmd.height,
-					VkSharedImage::get_vk_format(cmd.format),
-					data.handle_id + 1,
+					1,
+					1,
+					vk::Format::R8G8B8A8_UNORM,
+					0,
 				)?;
-
-				// Update Shmem data
-				VkServer::update_shmem_data(&mut data, &server_image_data.vk_shared_image);
-
-				// Generate ResultMsg data
-				let img_data = ImgData::from_shmem_data_internal(
-					ImgData::convert_shmem_str_to_array(server_image_data.ipc_info.get_name()),
-					data.clone(),
-				);
-
-				// Return result, vk_shared_img, and lock
-				(
-					ResultInitImage {
-						image_created: true,
-						img_data,
-					},
-					Some(&server_image_data.vk_shared_image),
-					Some(lock),
-				)
-			} else {
-				(
-					ResultInitImage {
-						image_created: false,
-						img_data: ImgData::default(),
-					},
-					None,
-					None,
-				)
+				let _ = gpu_images_map
+					.images
+					.entry(cmd.gpu_device_uuid)
+					.insert_entry(ServerImageData {
+						ipc_info,
+						vk_shared_image,
+					});
 			};
+
+			// Acquire write lock to image
+			// let lock = server_image_data
+			// 	.acquire_lock(Timeout::Val(ipc_timeout))
+			// 	.unwrap();
+			// let mut data = IpcShmem::acquire_data(&lock);
+
+			let format = VkSharedImage::get_vk_format(cmd.format);
+			let mut cur_img_lock = MaybeUninit::uninit();
+			let mut cur_img_data = MaybeUninit::uninit();
+			let _locks = gpu_images_map
+				.images
+				.iter_mut()
+				.map(|image| {
+					// Update all shared images with the new size
+					let lock = image.1.ipc_info.acquire_lock(Timeout::Val(ipc_timeout))?;
+					let data = IpcShmem::acquire_data(&lock);
+
+					image.1.vk_shared_image.borrow_mut().resize_image(
+						&vk_instance,
+						&vk_device,
+						cmd.width,
+						cmd.height,
+						format,
+						data.handle_id + 1,
+						&mut gpu_images_map.ram_buffer,
+					)?;
+
+					// Update Shmem data
+					VkServer::update_shmem_data(data, &image.1.vk_shared_image.image);
+
+					if *image.0 == cmd.gpu_device_uuid {
+						cur_img_lock = MaybeUninit::new(lock);
+						cur_img_data = MaybeUninit::new(&image.1.vk_shared_image);
+						Ok::<_, Box<dyn std::error::Error>>(None)
+					} else {
+						Ok::<_, Box<dyn std::error::Error>>(Some(lock))
+					}
+				})
+				.collect::<Result<Vec<_>, _>>()?;
+
+			let data = IpcShmem::acquire_data(unsafe { cur_img_lock.assume_init_ref() });
+
+			// Generate ResultMsg data
+			let img_data = ImgData::from_shmem_data_internal(
+				ImgData::convert_shmem_str_to_array(&shmem_name_str),
+				data.clone(),
+			);
+
+			// Return result, vk_shared_img, and lock
+			(
+				ResultInitImage {
+					image_created: true,
+					img_data,
+				},
+				Some(unsafe { cur_img_data.assume_init() }),
+				Some(unsafe { cur_img_lock.assume_init() }),
+			)
+		} else {
+			// If image not loaded or cmd.overwrite_existing is false, send empty result back
+			(
+				ResultInitImage {
+					image_created: false,
+					img_data: ImgData::default(),
+				},
+				None,
+				None,
+			)
+		};
 
 		// Send result to client
 		let res_msg = ResultMsg {
@@ -297,7 +318,7 @@ impl VkServer {
 
 		// If image was created/updated, send handles to client
 		if vk_shared_image.is_some() {
-			let handles = vk_shared_image.unwrap().export_handle(vk_device)?;
+			let handles = vk_shared_image.unwrap().image.export_handle(vk_device)?;
 			connection.send_anillary_handles(&[handles.into_raw_fd()])?;
 
 			// Receive ack
@@ -324,7 +345,7 @@ impl VkServer {
 		let img_name_str = ImgData::convert_shmem_array_to_str(&cmd.image_name);
 
 		let gpu_images_map = images.entry(img_name_str).or_default();
-		let image_and_lock: Option<(ImgData, &mut VkSharedImage, ReadLockGuard)> =
+		let image_and_lock: Option<(ImgData, &mut VkCpuSharedImage, ReadLockGuard)> =
 			match gpu_images_map.images.entry(cmd.gpu_device_uuid) {
 				Entry::Occupied(e) => {
 					let entry = e.into_mut();
@@ -372,9 +393,60 @@ impl VkServer {
 		})?;
 
 		if vk_shared_image.is_some() {
-			let fd = vk_shared_image.unwrap().export_handle(vk_device)?;
+			let fd = vk_shared_image.unwrap().image.export_handle(vk_device)?;
 			connection.send_anillary_handles(&[fd.into_raw_fd()])?;
 			connection.recv_ack()?;
+		}
+
+		Ok(())
+	}
+
+	fn process_cmd_copy_image(
+		connection: &IpcConnection,
+		cmd: &CommCopyImage,
+		vk_instance: &VkInstance,
+		vk_devices: &mut DevicesMap,
+		images: &mut NameImagesMap,
+		ipc_timeout: Duration,
+	) -> Result<(), Box<dyn std::error::Error>> {
+		let img_name_str = ImgData::convert_shmem_array_to_str(&cmd.image_name);
+
+		// Get gpu map
+		let gpu_images_map = images.get(&img_name_str);
+		if let Some(gpu_images_map) = gpu_images_map {
+			// If only there's only one image in the map, no copy is necessary
+			if gpu_images_map.images.len() <= 1 {
+				return Ok(());
+			}
+
+			// Get read and write images
+			let mut read_image = None;
+			let mut read_lock = None;
+			let mut write_images = Vec::new();
+			write_images.reserve(gpu_images_map.images.len() - 1);
+			let _write_locks = gpu_images_map
+				.images
+				.iter()
+				.map(|image| {
+					if *image.0 == cmd.gpu_device_uuid {
+						read_lock =
+							Some(image.1.ipc_info.acquire_rlock(Timeout::Val(ipc_timeout))?);
+						read_image =
+							Some((vk_devices.get(image.0).unwrap(), &image.1.vk_shared_image));
+						Ok::<_, Box<dyn std::error::Error>>(None)
+					} else {
+						let write_lock =
+							image.1.ipc_info.acquire_lock(Timeout::Val(ipc_timeout))?;
+						write_images
+							.push((vk_devices.get(image.0).unwrap(), &image.1.vk_shared_image));
+						Ok::<_, Box<dyn std::error::Error>>(Some(write_lock))
+					}
+				})
+				.collect::<Result<Vec<_>, _>>();
+
+			if let Some(read_image) = read_image {
+				VkCopyImages::copy_images(read_image, &write_images)?;
+			}
 		}
 
 		Ok(())

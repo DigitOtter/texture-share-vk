@@ -1,12 +1,16 @@
-use std::os::raw::c_void;
+use std::{
+	borrow::{Borrow, BorrowMut},
+	os::raw::c_void,
+	ptr::{self, NonNull},
+};
 
-use ash::vk;
+use ash::vk::{self, ExternalMemoryBufferCreateInfo};
 use vk_mem::Alloc;
 
 use crate::{
 	vk_device::{VkBuffer, VkDevice},
 	vk_instance::VkInstance,
-	vk_shared_image::{ImageBlit, VkSharedImage},
+	vk_shared_image::VkSharedImage,
 };
 
 pub struct VkCpuBuffer {
@@ -18,7 +22,10 @@ pub struct VkCpuBuffer {
 
 impl Drop for VkCpuBuffer {
 	fn drop(&mut self) {
-		println!("Warning: VkCpuBuffer should be manually destroyed, not dropped");
+		#[cfg(debug_assertions)]
+		if !self.ram_memory.is_null() {
+			println!("Warning: VkCpuBuffer should be manually destroyed, not dropped");
+		}
 	}
 }
 
@@ -27,13 +34,18 @@ impl VkCpuBuffer {
 		vk_instance: &VkInstance,
 		vk_device: &VkDevice,
 		buffer_size: u64,
+		ram_memory: Option<NonNull<c_void>>,
 	) -> Result<VkCpuBuffer, vk::Result> {
+		let mut external_memory_buffer_info = vk::ExternalMemoryBufferCreateInfo::builder()
+			.handle_types(vk::ExternalMemoryHandleTypeFlags::HOST_ALLOCATION_EXT)
+			.build();
 		let create_info = vk::BufferCreateInfo::builder()
 			.flags(vk::BufferCreateFlags::default())
 			.size(buffer_size)
 			.usage(vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::TRANSFER_SRC)
 			.queue_family_indices(&[vk_device.graphics_queue_family_index])
 			.sharing_mode(vk::SharingMode::EXCLUSIVE)
+			.push_next(&mut external_memory_buffer_info)
 			.build();
 		let buffer = vk_device.create_buffer(&create_info)?;
 
@@ -43,7 +55,7 @@ impl VkCpuBuffer {
 				.get_buffer_memory_requirements(buffer.handle)
 		};
 
-		let memory_allocate_info = vk::MemoryAllocateInfo::builder()
+		let mut memory_allocate_info = vk::MemoryAllocateInfo::builder()
 			.allocation_size(buffer_size)
 			.memory_type_index(
 				vk_instance
@@ -54,8 +66,26 @@ impl VkCpuBuffer {
 							| vk::MemoryPropertyFlags::HOST_CACHED,
 					)
 					.unwrap(),
-			)
-			.build();
+			);
+
+		// Keep value, as a pointer to import_memory_info is used in memory_allocate_info
+		let _import_memory_info = if ram_memory.is_some() {
+			// Ensure that vulkan allocates host memory at the specified location
+			let import_memory_info = Some(
+				vk::ImportMemoryHostPointerInfoEXT::builder()
+					.handle_type(vk::ExternalMemoryHandleTypeFlags::HOST_ALLOCATION_EXT)
+					.host_pointer(ram_memory.as_ref().unwrap().as_ptr())
+					.build(),
+			);
+
+			let ptr = import_memory_info.as_ref().unwrap();
+			memory_allocate_info.p_next =
+				ptr as *const vk::ImportMemoryHostPointerInfoEXT as *const _;
+
+			import_memory_info
+		} else {
+			None
+		};
 
 		let memory = unsafe {
 			vk_device
@@ -70,11 +100,17 @@ impl VkCpuBuffer {
 		}?;
 
 		// Map memory to RAM
-		let ram_memory = unsafe {
+		let mapped_ram_memory = unsafe {
 			vk_device
 				.device
 				.map_memory(memory, 0, buffer_size, vk::MemoryMapFlags::default())
 		}?;
+
+		// map_memory is only guaranteed to return the correct pointer if we don't explicitly state the ram region
+		let ram_memory = match ram_memory {
+			Some(ptr) => ptr.as_ptr(),
+			None => mapped_ram_memory,
+		};
 
 		Ok(VkCpuBuffer {
 			buffer,
@@ -98,6 +134,21 @@ impl VkCpuBuffer {
 	pub fn destroy(self, vk_device: &VkDevice) {
 		self._destroy(vk_device);
 		std::mem::forget(self)
+	}
+
+	pub fn resize(
+		&mut self,
+		vk_instance: &VkInstance,
+		vk_device: &VkDevice,
+		buffer_size: u64,
+		ram_memory: Option<NonNull<c_void>>,
+	) -> Result<(), vk::Result> {
+		self._destroy(vk_device);
+
+		self.ram_memory = ptr::null_mut();
+		*self = VkCpuBuffer::new(vk_instance, vk_device, buffer_size, ram_memory)?;
+
+		Ok(())
 	}
 
 	pub fn gen_buffer_memory_barrier(
@@ -559,9 +610,10 @@ impl VkCpuBuffer {
 
 #[cfg(test)]
 mod tests {
-	use std::{ffi::CStr, slice};
+	use std::{ffi::CStr, ptr::NonNull, slice};
 
 	use ash::vk;
+	use libc::c_void;
 
 	use super::VkCpuBuffer;
 	use crate::{
@@ -580,10 +632,40 @@ mod tests {
 	#[test]
 	fn vk_cpu_buffer_new() {
 		let (vk_instance, vk_device) = _init_vk_device();
-		let vk_cpu_buffer = VkCpuBuffer::new(&vk_instance, &vk_device, 4)
+		let vk_cpu_buffer = VkCpuBuffer::new(&vk_instance, &vk_device, 4, None)
 			.expect("Unable to initialize VkCpuBuffer");
 
 		vk_cpu_buffer.destroy(&vk_device);
+	}
+
+	#[test]
+	fn vk_cpu_buffer_new_preallocated_ram() {
+		const BUFFER_SIZE: usize = 4;
+		let (vk_instance, vk_device) = _init_vk_device();
+
+		let host_mem_props = VkDevice::get_external_memory_host_properties(
+			&vk_instance.instance,
+			vk_device.physical_device,
+		);
+
+		let layout = std::alloc::Layout::from_size_align(
+			BUFFER_SIZE,
+			host_mem_props.min_imported_host_pointer_alignment as usize,
+		)
+		.unwrap();
+		let ram_buffer = unsafe { std::alloc::alloc(layout) };
+
+		let vk_cpu_buffer = VkCpuBuffer::new(
+			&vk_instance,
+			&vk_device,
+			layout.align() as u64,
+			Some(NonNull::new(ram_buffer as *mut _).unwrap()),
+		)
+		.expect("Unable to initialize VkCpuBuffer");
+
+		vk_cpu_buffer.destroy(&vk_device);
+
+		unsafe { std::alloc::dealloc(ram_buffer, layout) };
 	}
 
 	#[test]
@@ -591,9 +673,9 @@ mod tests {
 		let buffer_size: u64 = 4;
 
 		let (vk_instance, vk_device) = _init_vk_device();
-		let vk_cpu_buffer_in = VkCpuBuffer::new(&vk_instance, &vk_device, buffer_size)
+		let vk_cpu_buffer_in = VkCpuBuffer::new(&vk_instance, &vk_device, buffer_size, None)
 			.expect("Unable to initialize vk_cpu_buffer_in");
-		let vk_cpu_buffer_out = VkCpuBuffer::new(&vk_instance, &vk_device, buffer_size)
+		let vk_cpu_buffer_out = VkCpuBuffer::new(&vk_instance, &vk_device, buffer_size, None)
 			.expect("Unable to initialize vk_cpu_buffer_in");
 
 		let in_buffer = unsafe {
@@ -662,12 +744,14 @@ mod tests {
 			&vk_instance,
 			&vk_device,
 			vk_shared_image.data.allocation_size,
+			None,
 		)
 		.expect("Unable to initialize vk_cpu_buffer_in");
 		let vk_cpu_buffer_out = VkCpuBuffer::new(
 			&vk_instance,
 			&vk_device,
 			vk_shared_image.data.allocation_size,
+			None,
 		)
 		.expect("Unable to initialize vk_cpu_buffer_in");
 
