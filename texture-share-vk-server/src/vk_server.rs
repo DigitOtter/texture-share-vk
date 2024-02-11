@@ -1,6 +1,6 @@
 mod vk_copy_images;
 
-use std::borrow::{Borrow, BorrowMut};
+use std::borrow::{BorrowMut};
 
 use std::collections::hash_map::{Entry, OccupiedEntry};
 use std::collections::HashMap;
@@ -11,7 +11,7 @@ use std::mem::{ManuallyDrop, MaybeUninit};
 
 use std::os::fd::IntoRawFd;
 use std::time::Duration;
-use texture_share_vk_base::ipc::platform::img_data::{ImgData, ImgFormat};
+use texture_share_vk_base::ipc::platform::img_data::{ImgData};
 use texture_share_vk_base::ipc::platform::ipc_commands::{
 	CommCopyImage, CommFindImage, CommInitImage, CommandTag, ResultData, ResultFindImage,
 	ResultInitImage, ResultMsg,
@@ -24,7 +24,7 @@ use texture_share_vk_base::vk_device::{VkDevice, VkPhysicalDeviceOptions};
 use texture_share_vk_base::vk_instance::VkInstance;
 
 use texture_share_vk_base::vk_shared_image::VkSharedImage;
-use texture_share_vk_base::{ash::vk, uuid};
+use texture_share_vk_base::{uuid};
 
 use self::vk_copy_images::VkCopyImages;
 

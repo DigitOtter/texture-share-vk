@@ -1,5 +1,5 @@
 use std::{
-	borrow::{Borrow, BorrowMut},
+	borrow::{Borrow},
 	os::raw::c_void,
 	ptr::{self, NonNull},
 };

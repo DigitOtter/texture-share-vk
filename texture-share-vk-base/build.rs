@@ -9,7 +9,6 @@ fn main() {
 	if let Some(c_header_dir) = option_env!("TSV_RUST_GEN_INCLUDE_DIR") {
 		let c_header_dir = Path::new(c_header_dir);
 		let _ = fs::create_dir(c_header_dir);
-		let structs_header_name = "texture_share_vk/texture_share_vk_base_structs.h";
 
 		let mut config = cbindgen::Config::default();
 		config.export.exclude = vec![

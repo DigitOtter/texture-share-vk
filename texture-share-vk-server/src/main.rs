@@ -1,7 +1,6 @@
 #![feature(cstr_count_bytes)]
 
 use std::{
-	borrow::Borrow,
 	ffi::CString,
 	fs::{self, OpenOptions},
 	path::Path,
