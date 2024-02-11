@@ -496,14 +496,14 @@ impl VkDevice {
 
 #[cfg(test)]
 mod tests {
-	
+
 	use std::ffi::CStr;
 
 	use super::VkDevice;
-	use crate::vk_instance::{VkInstance};
+	use crate::vk_instance::VkInstance;
 
 	fn _init_vk_instance() -> VkInstance {
-		VkInstance::new(None, CStr::from_bytes_with_nul(b"Name\0").unwrap()).unwrap()
+		VkInstance::new(None, CStr::from_bytes_with_nul(b"Name\0").unwrap(), true).unwrap()
 	}
 
 	fn _init_vk_device(vk_instance: &VkInstance) -> VkDevice {

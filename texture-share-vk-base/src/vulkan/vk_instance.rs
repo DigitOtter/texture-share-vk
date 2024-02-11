@@ -22,8 +22,8 @@ impl VkInstance {
 	pub fn new(
 		entry: Option<Box<VkEntry>>,
 		instance_name: &CStr,
+		enable_validation: bool,
 	) -> Result<VkInstance, vk::Result> {
-		const ENABLE_VALIDATION: bool = true;
 		let validation_layers: &[&CStr] =
 			&[CStr::from_bytes_with_nul(b"VK_LAYER_KHRONOS_validation\0").unwrap()];
 
@@ -35,11 +35,11 @@ impl VkInstance {
 			vk::KhrExternalMemoryCapabilitiesFn::name().as_ptr(),
 		];
 
-		if ENABLE_VALIDATION {
+		if enable_validation {
 			extensions.push(vk::ExtDebugUtilsFn::name().as_ptr())
 		}
 
-		let layers = if ENABLE_VALIDATION && entry.check_layer_support(validation_layers) {
+		let layers = if enable_validation && entry.check_layer_support(validation_layers) {
 			validation_layers
 				.iter()
 				.map(|&x| x.as_ptr())
@@ -122,8 +122,11 @@ mod tests {
 
 	#[test]
 	fn vk_instance_new() {
-		let _vk_instance =
-			VkInstance::new(None, CStr::from_bytes_with_nul(b"VkInstace\0").unwrap())
-				.expect("Failed to create VkInstance");
+		let _vk_instance = VkInstance::new(
+			None,
+			CStr::from_bytes_with_nul(b"VkInstace\0").unwrap(),
+			true,
+		)
+		.expect("Failed to create VkInstance");
 	}
 }

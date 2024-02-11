@@ -56,13 +56,16 @@ extern "C" fn vk_client_new(
 	let vk_setup = match vk_setup {
 		Some(ptr) => unsafe { vk_setup_from_c(ptr.as_ptr()) },
 		None => {
-			let vk_instance =
-				VkInstance::new(None, CStr::from_bytes_with_nul(b"VkClient\0").unwrap())
-					.map_err(|_| {
-						println!("Failed to instantiate VkInstance");
-						return ptr::null_mut::<VkClient>();
-					})
-					.unwrap();
+			let vk_instance = VkInstance::new(
+				None,
+				CStr::from_bytes_with_nul(b"VkClient\0").unwrap(),
+				false,
+			)
+			.map_err(|_| {
+				println!("Failed to instantiate VkInstance");
+				return ptr::null_mut::<VkClient>();
+			})
+			.unwrap();
 			let vk_device = VkDevice::new(&vk_instance, None)
 				.map_err(|_| {
 					println!("Failed to instantiate VkDevice");
@@ -106,13 +109,16 @@ extern "C" fn vk_client_new_with_server_launch(
 	let vk_setup = match vk_setup {
 		Some(ptr) => unsafe { vk_setup_from_c(ptr.as_ptr()) },
 		None => {
-			let vk_instance =
-				VkInstance::new(None, CStr::from_bytes_with_nul(b"VkClient\0").unwrap())
-					.map_err(|_| {
-						println!("Failed to instantiate VkInstance");
-						return ptr::null_mut::<VkClient>();
-					})
-					.unwrap();
+			let vk_instance = VkInstance::new(
+				None,
+				CStr::from_bytes_with_nul(b"VkClient\0").unwrap(),
+				false,
+			)
+			.map_err(|_| {
+				println!("Failed to instantiate VkInstance");
+				return ptr::null_mut::<VkClient>();
+			})
+			.unwrap();
 			let vk_device = VkDevice::new(&vk_instance, None)
 				.map_err(|_| {
 					println!("Failed to instantiate VkDevice");

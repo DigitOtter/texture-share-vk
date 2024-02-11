@@ -1,14 +1,13 @@
 mod vk_copy_images;
 
-use std::borrow::{BorrowMut};
+use std::borrow::BorrowMut;
 
 use std::collections::hash_map::{Entry, OccupiedEntry};
-use std::collections::{HashMap};
-use std::ffi::{CStr};
+use std::collections::HashMap;
+use std::ffi::CStr;
 use std::fs;
 use std::io::{Error, ErrorKind};
 use std::mem::{ManuallyDrop, MaybeUninit};
-
 
 use std::os::fd::IntoRawFd;
 use std::time::Duration;
@@ -24,7 +23,7 @@ use texture_share_vk_base::vk_cpu_shared_image::{AlignedRamBuffer, VkCpuSharedIm
 use texture_share_vk_base::vk_device::{VkDevice, VkPhysicalDeviceOptions};
 use texture_share_vk_base::vk_instance::VkInstance;
 
-use texture_share_vk_base::vk_shared_image::{VkSharedImage};
+use texture_share_vk_base::vk_shared_image::VkSharedImage;
 use texture_share_vk_base::{ash::vk, uuid};
 
 use self::vk_copy_images::VkCopyImages;
@@ -97,7 +96,11 @@ impl VkServer {
 
 		let socket = IpcSocket::new(socket_path, socket_timeout).map_err(|e| Box::new(e))?;
 
-		let vk_instance = VkInstance::new(None, CStr::from_bytes_with_nul(b"VkServer\0").unwrap())?;
+		let vk_instance = VkInstance::new(
+			None,
+			CStr::from_bytes_with_nul(b"VkServer\0").unwrap(),
+			false,
+		)?;
 		let vk_device = VkDevice::new(&vk_instance, physical_device_options)?;
 
 		let gpu_device_uuid =

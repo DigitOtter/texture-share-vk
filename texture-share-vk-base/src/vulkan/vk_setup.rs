@@ -36,8 +36,12 @@ mod tests {
 
 	#[test]
 	fn vk_setup_new() {
-		let vk_instance =
-			VkInstance::new(None, CStr::from_bytes_with_nul(b"VkInstance\0").unwrap()).unwrap();
+		let vk_instance = VkInstance::new(
+			None,
+			CStr::from_bytes_with_nul(b"VkInstance\0").unwrap(),
+			true,
+		)
+		.unwrap();
 		let vk_device = VkDevice::new(&vk_instance, None).unwrap();
 		let _vk_setup = VkSetup::new(vk_instance, vk_device);
 	}

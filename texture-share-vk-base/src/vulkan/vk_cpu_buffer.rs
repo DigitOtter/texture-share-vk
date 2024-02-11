@@ -616,8 +616,12 @@ mod tests {
 	use crate::{vk_device::VkDevice, vk_instance::VkInstance, vk_shared_image::VkSharedImage};
 
 	fn _init_vk_device() -> (VkInstance, VkDevice) {
-		let vk_instance =
-			VkInstance::new(None, CStr::from_bytes_with_nul(b"VkDevice\0").unwrap()).unwrap();
+		let vk_instance = VkInstance::new(
+			None,
+			CStr::from_bytes_with_nul(b"VkDevice\0").unwrap(),
+			false,
+		)
+		.unwrap();
 		let vk_device = VkDevice::new(&vk_instance, None).unwrap();
 		(vk_instance, vk_device)
 	}

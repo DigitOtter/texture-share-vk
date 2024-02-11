@@ -12,7 +12,7 @@ type VkQueue = vk::Queue;
 
 pub unsafe fn vk_setup_init_c() -> *mut VkSetup {
 	let vk_instance =
-		vk_instance::VkInstance::new(None, CStr::from_bytes_with_nul(b"VkSetup").unwrap())
+		vk_instance::VkInstance::new(None, CStr::from_bytes_with_nul(b"VkSetup").unwrap(), false)
 			.expect("Unable to instantiate VkInstance");
 	let vk_device =
 		vk_device::VkDevice::new(&vk_instance, None).expect("Unable to instantiate VkDevice");

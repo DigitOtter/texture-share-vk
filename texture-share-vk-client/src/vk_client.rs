@@ -544,7 +544,7 @@ mod tests {
 	use std::{fs, thread};
 
 	use texture_share_vk_base::ipc::IpcSocket;
-	use texture_share_vk_base::vk_device::{VkDevice};
+	use texture_share_vk_base::vk_device::VkDevice;
 	use texture_share_vk_base::vk_instance::VkInstance;
 	use texture_share_vk_base::vk_setup::VkSetup;
 
@@ -568,8 +568,12 @@ mod tests {
 
 		let server_thread = thread::spawn(server_socket_fcn);
 
-		let vk_instance =
-			VkInstance::new(None, CStr::from_bytes_with_nul(b"vk_setup\0").unwrap()).unwrap();
+		let vk_instance = VkInstance::new(
+			None,
+			CStr::from_bytes_with_nul(b"vk_setup\0").unwrap(),
+			true,
+		)
+		.unwrap();
 		let vk_device = VkDevice::new(&vk_instance, None).unwrap();
 		let vk_setup = Box::new(VkSetup::new(vk_instance, vk_device));
 

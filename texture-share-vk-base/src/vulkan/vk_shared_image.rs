@@ -657,7 +657,7 @@ mod tests {
 
 	fn _init_vk_device() -> (VkInstance, VkDevice) {
 		let vk_instance =
-			VkInstance::new(None, CStr::from_bytes_with_nul(b"VkSetup\0").unwrap()).unwrap();
+			VkInstance::new(None, CStr::from_bytes_with_nul(b"VkSetup\0").unwrap(), true).unwrap();
 		let vk_device = VkDevice::new(&vk_instance, None).unwrap();
 		(vk_instance, vk_device)
 	}
