@@ -37,7 +37,7 @@ fn main() {
 			.with_tab_width(4)
 			.with_sys_include("vulkan/vulkan.h")
 			.with_include("texture_share_ipc/texture_share_ipc.h")
-			.with_include(structs_header_name)
+			//.with_include(structs_header_name)
 			.generate()
 			.expect("Failed to generate bindings")
 			.write_to_file(&c_header_dir.join("texture_share_vk/texture_share_vk_base.h"));

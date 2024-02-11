@@ -451,11 +451,21 @@ impl VkDevice {
 
 		unsafe { self.device.end_command_buffer(command_buffer) }?;
 
-		let submit_info = vk::SubmitInfo::builder()
-			.command_buffers(&[command_buffer])
-			.signal_semaphores(signal_semaphores)
-			.wait_semaphores(wait_semaphores)
-			.build();
+		// For some reason, optimization breaks the builder() function. Instead, manually build submit_info
+		// let submit_info = vk::SubmitInfo::builder()
+		// 	.command_buffers(&[command_buffer])
+		// 	.signal_semaphores(signal_semaphores)
+		// 	.wait_semaphores(wait_semaphores)
+		// 	.build();
+		let submit_info = vk::SubmitInfo {
+			command_buffer_count: 1,
+			p_command_buffers: &command_buffer as *const _,
+			signal_semaphore_count: signal_semaphores.len() as u32,
+			p_signal_semaphores: signal_semaphores.as_ref() as *const _ as *const _,
+			wait_semaphore_count: wait_semaphores.len() as u32,
+			p_wait_semaphores: wait_semaphores.as_ref() as *const _ as *const _,
+			..Default::default()
+		};
 
 		unsafe {
 			self.device

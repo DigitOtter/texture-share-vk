@@ -45,7 +45,9 @@ impl VkInstance {
 				.map(|&x| x.as_ptr())
 				.collect::<Vec<_>>()
 		} else {
-			println!("Validation layers not supported!");
+			if enable_validation {
+				println!("Validation layers not supported!");
+			}
 			Vec::default()
 		};
 

@@ -1,6 +1,6 @@
 mod vk_copy_images;
 
-use std::borrow::BorrowMut;
+use std::borrow::{Borrow, BorrowMut};
 
 use std::collections::hash_map::{Entry, OccupiedEntry};
 use std::collections::HashMap;
@@ -11,7 +11,7 @@ use std::mem::{ManuallyDrop, MaybeUninit};
 
 use std::os::fd::IntoRawFd;
 use std::time::Duration;
-use texture_share_vk_base::ipc::platform::img_data::ImgData;
+use texture_share_vk_base::ipc::platform::img_data::{ImgData, ImgFormat};
 use texture_share_vk_base::ipc::platform::ipc_commands::{
 	CommCopyImage, CommFindImage, CommInitImage, CommandTag, ResultData, ResultFindImage,
 	ResultInitImage, ResultMsg,
@@ -233,11 +233,11 @@ impl VkServer {
 				// Create image if it doesn't exist yet
 				let ipc_info = IpcShmem::new(&shmem_name_str, &img_name_str, true)?;
 				let vk_shared_image = VkCpuSharedImage::new(
-					&vk_instance,
-					&vk_device,
-					1,
-					1,
-					vk::Format::R8G8B8A8_UNORM,
+					vk_instance,
+					vk_device,
+					cmd.width,
+					cmd.height,
+					VkSharedImage::get_vk_format(cmd.format),
 					0,
 				)?;
 				let _ = gpu_images_map

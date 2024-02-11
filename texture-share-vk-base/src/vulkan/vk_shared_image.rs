@@ -354,7 +354,13 @@ impl VkSharedImage {
 
 			Ok(())
 		};
-		vk_device.immediate_submit(vk_device.command_buffer, image_layout_fcn, &[], &[])?;
+		vk_device.immediate_submit_with_fence(
+			vk_device.command_buffer,
+			image_layout_fcn,
+			&[],
+			&[],
+			fence,
+		)?;
 
 		vk_device.destroy_fence(fence);
 

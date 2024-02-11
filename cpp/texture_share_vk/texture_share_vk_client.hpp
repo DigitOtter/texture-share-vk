@@ -1,7 +1,6 @@
 #pragma once
 
 #include "texture_share_vk/config.hpp"
-#include "texture_share_vk/texture_share_vk_base_structs.h"
 #include "texture_share_vk/texture_share_vk_client.h"
 #include <cstdint>
 #include <string_view>

@@ -131,7 +131,7 @@ fn spawn(
 	];
 	if gpu_device_uuid.is_some() {
 		args.push(format!(
-			"--gpu-device-id={}",
+			"--gpu-device-uuid={}",
 			gpu_device_uuid.unwrap().to_string()
 		));
 	}

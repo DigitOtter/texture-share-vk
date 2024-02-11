@@ -55,12 +55,12 @@ impl GlClient {
 
 		let shared_images = HashMap::default();
 
-		if !Self::initialize_gl_external() {
-			return Err(Error::new(
-				ErrorKind::InvalidData,
-				"Unable to initialize Gl context",
-			));
-		}
+		// if !Self::initialize_gl_external() {
+		// 	return Err(Error::new(
+		// 		ErrorKind::InvalidData,
+		// 		"Unable to initialize Gl context",
+		// 	));
+		// }
 
 		let gpu_device_uuid = GlSharedImage::get_gpu_device_uuid().map_err(|e| {
 			Error::new(
@@ -90,12 +90,12 @@ impl GlClient {
 		server_lockfile_timeout: Duration,
 		server_spawn_timeout: Duration,
 	) -> Result<GlClient, Error> {
-		if !Self::initialize_gl_external() {
-			return Err(Error::new(
-				ErrorKind::InvalidData,
-				"Unable to initialize Gl context",
-			));
-		}
+		// if !Self::initialize_gl_external() {
+		// 	return Err(Error::new(
+		// 		ErrorKind::InvalidData,
+		// 		"Unable to initialize Gl context",
+		// 	));
+		// }
 
 		let gpu_device_uuid = GlSharedImage::get_gpu_device_uuid().map_err(|e| {
 			Error::new(
@@ -172,7 +172,7 @@ impl GlClient {
 					height,
 					format,
 					overwrite_existing,
-					..Default::default() // TODO: Add GPU vendor and device id
+					gpu_device_uuid: self.gpu_device_uuid,
 				}),
 			},
 		};

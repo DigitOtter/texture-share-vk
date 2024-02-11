@@ -1,4 +1,5 @@
 use std::{
+	borrow::{Borrow, BorrowMut},
 	os::raw::c_void,
 	ptr::{self, NonNull},
 };
@@ -67,28 +68,28 @@ impl VkCpuBuffer {
 			);
 
 		// Keep value, as a pointer to import_memory_info is used in memory_allocate_info
-		let _import_memory_info = if ram_memory.is_some() {
+		let import_memory_info = if ram_memory.is_some() {
 			// Ensure that vulkan allocates host memory at the specified location
-			let import_memory_info = Some(
+			Some(
 				vk::ImportMemoryHostPointerInfoEXT::builder()
 					.handle_type(vk::ExternalMemoryHandleTypeFlags::HOST_ALLOCATION_EXT)
 					.host_pointer(ram_memory.as_ref().unwrap().as_ptr())
 					.build(),
-			);
-
-			let ptr = import_memory_info.as_ref().unwrap();
-			memory_allocate_info.p_next =
-				ptr as *const vk::ImportMemoryHostPointerInfoEXT as *const _;
-
-			import_memory_info
+			)
 		} else {
 			None
 		};
 
+		if import_memory_info.is_some() {
+			let ptr = import_memory_info.borrow().as_ref().unwrap();
+			memory_allocate_info.p_next =
+				ptr as *const vk::ImportMemoryHostPointerInfoEXT as *const _;
+		}
+
 		let memory = unsafe {
 			vk_device
 				.device
-				.allocate_memory(&memory_allocate_info, None)
+				.allocate_memory(&memory_allocate_info.build(), None)
 		}?;
 
 		unsafe {
