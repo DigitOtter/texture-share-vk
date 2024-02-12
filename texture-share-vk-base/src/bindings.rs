@@ -3,6 +3,7 @@ use crate::{vk_device, vk_instance};
 
 use ash::{self, vk};
 use std::boxed::Box;
+use std::ptr::NonNull;
 use std::{ffi::CStr, pin::Pin};
 
 type VkInstance = vk::Instance;
@@ -11,9 +12,12 @@ type VkPhysicalDevice = vk::PhysicalDevice;
 type VkQueue = vk::Queue;
 
 pub unsafe fn vk_setup_init_c() -> *mut VkSetup {
-	let vk_instance =
-		vk_instance::VkInstance::new(None, CStr::from_bytes_with_nul(b"VkSetup").unwrap(), false)
-			.expect("Unable to instantiate VkInstance");
+	let vk_instance = vk_instance::VkInstance::new(
+		None,
+		CStr::from_bytes_with_nul(b"VkSetup\0").unwrap(),
+		false,
+	)
+	.expect("Unable to instantiate VkInstance");
 	let vk_device =
 		vk_device::VkDevice::new(&vk_instance, None).expect("Unable to instantiate VkDevice");
 
@@ -39,10 +43,12 @@ extern "C" fn vk_setup_new() -> *mut VkSetup {
 }
 
 #[no_mangle]
-extern "C" fn vk_setup_destroy(vk_setup: *mut VkSetup) {
-	// Expplicitly drop VkSetup
-	let pvk_setup = unsafe { vk_setup_from_c(vk_setup) };
-	std::mem::drop(pvk_setup);
+extern "C" fn vk_setup_destroy(vk_setup: Option<NonNull<VkSetup>>) {
+	if let Some(vk_setup) = vk_setup {
+		// Explicitly drop VkSetup
+		let pvk_setup = unsafe { vk_setup_from_c(vk_setup.as_ptr()) };
+		std::mem::drop(pvk_setup);
+	}
 }
 
 #[no_mangle]

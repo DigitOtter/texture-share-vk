@@ -155,12 +155,10 @@ extern "C" fn vk_client_new_with_server_launch(
 
 #[no_mangle]
 extern "C" fn vk_client_destroy(vk_client: Option<NonNull<VkClient>>) {
-	if vk_client.is_none() {
-		return;
+	if let Some(vk_client) = vk_client {
+		let vk_client = vk_client.as_ptr();
+		drop(unsafe { Box::from_raw(vk_client) });
 	}
-
-	let vk_client = vk_client.unwrap().as_ptr();
-	drop(unsafe { Box::from_raw(vk_client) });
 }
 
 #[no_mangle]
