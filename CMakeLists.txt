@@ -88,7 +88,7 @@ target_include_directories(
 
 target_link_libraries(
   TextureShareIpc INTERFACE $<BUILD_INTERFACE:Rust::TextureShareIpc>
-                            $<INSTALL_INTERFACE:texture-share-ipc>)
+                            $<INSTALL_INTERFACE:texture_share_ipc.so>)
 
 # VkClient
 add_library(TextureShareVkClient INTERFACE)
@@ -103,7 +103,7 @@ target_link_libraries(
   TextureShareVkClient
   INTERFACE $<BUILD_INTERFACE:Rust::TextureShareVkClient>
             # $<BUILD_INTERFACE:Vulkan::Vulkan>
-            $<INSTALL_INTERFACE:texture-share-vk-client>)
+            $<INSTALL_INTERFACE:libtexture_share_vk_client.so>)
 
 # GlClient
 add_library(TextureShareGlClient INTERFACE)
@@ -118,7 +118,7 @@ target_link_libraries(
   TextureShareGlClient
   INTERFACE $<BUILD_INTERFACE:Rust::TextureShareGlClient>
             # $<BUILD_INTERFACE:OpenGL::OpenGL>
-            $<INSTALL_INTERFACE:texture-share-gl-client>)
+            $<INSTALL_INTERFACE:libtexture_share_gl_client.so>)
 
 # #
 # ##############################################################################
