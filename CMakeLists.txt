@@ -1,3 +1,5 @@
+set(Rust_TOOLCHAIN "nightly" CACHE STRING "Rust Toolchain")
+
 set(PROJECT_NAME "TextureShareVk")
 set(HEADER_DIRECTORY "texture_share_vk")
 
