@@ -44,6 +44,13 @@ set(TSV_VK_SERVER_DEFAULT_SOCKET_PATH
     "/tmp/vk_server/vk_server.sock"
     CACHE PATH "Default VkServr socket path")
 
+set(DOWNLOAD_GLAD_SPECS ON CACHE BOOL "Download gl specs")
+if(DOWNLOAD_GLAD_SPECS)
+    set(DGS "ON")
+else()
+    set(DGS "OFF")
+endif()
+
 # ##############################################################################
 # Include Rust internal cmake targets (Only to create compile_commands.json)
 # add_subdirectory("texture-share-vk-base/cpp" EXCLUDE_FROM_ALL)
@@ -75,7 +82,8 @@ corrosion_set_env_vars(texture-share-vk-server
 corrosion_set_env_vars(texture_share_vk_client
                        TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR})
 corrosion_set_env_vars(texture_share_gl_client
-                       TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR})
+                       TSV_RUST_GEN_INCLUDE_DIR=${TSV_RUST_GEN_INCLUDE_DIR}
+                       DOWNLOAD_GLAD_SPECS=${DGS})
 
 # ##############################################################################
 # Libraries
