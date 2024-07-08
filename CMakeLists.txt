@@ -37,6 +37,8 @@ set(TSV_INSTALL_BINDIR
     "${CMAKE_INSTALL_BINDIR}"
     CACHE PATH "Directory to save server executable in")
 
+option(TSV_ABSOLUTE_PATH ON "Library stores absolute path to tsv executable")
+
 set(TSV_VK_SERVER_DEFAULT_LOCKFILE_PATH
     "/tmp/vk_server/vk_server.lock"
     CACHE PATH "Default VkServr lockfile path")
@@ -133,8 +135,11 @@ target_link_libraries(
 # #
 # ##############################################################################
 # Cpp Wrappers
-set(VK_SERVER_EXECUTABLE
-    "${CMAKE_INSTALL_PREFIX}/${TSV_INSTALL_BINDIR}/texture-share-vk-server")
+set(VK_SERVER_EXECUTABLE "texture-share-vk-server")
+if(TSV_ABSOLUTE_PATH)
+  set(VK_SERVER_EXECUTABLE
+      "${CMAKE_INSTALL_PREFIX}/${TSV_INSTALL_BINDIR}/${VK_SERVER_EXECUTABLE}")
+endif()
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cpp/texture_share_vk/config.hpp.in"
                "${TSV_RUST_GEN_INCLUDE_DIR}/texture_share_vk/config.hpp" @ONLY)
 
