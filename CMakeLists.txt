@@ -37,7 +37,7 @@ set(TSV_INSTALL_BINDIR
     "${CMAKE_INSTALL_BINDIR}"
     CACHE PATH "Directory to save server executable in")
 
-option(TSV_ABSOLUTE_PATH ON "Library stores absolute path to tsv executable")
+option(TSV_ABSOLUTE_PATH "Library stores absolute path to tsv executable" ON)
 
 set(TSV_VK_SERVER_DEFAULT_LOCKFILE_PATH
     "/tmp/vk_server/vk_server.lock"
