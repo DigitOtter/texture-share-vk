@@ -118,7 +118,7 @@ impl VkServer {
 			// Stop if no connections active
 			if self.socket.connections.lock().as_ref().unwrap().is_empty() {
 				if SystemTime::now() > conn_timeout {
-					println!("No connections active. Closing server...");
+					//println!("No connections active. Closing server...");
 					break;
 				}
 			} else {
