@@ -1,7 +1,8 @@
 #pragma once
 
+extern "C" {
 #include "texture_share_gl/texture_share_gl_client.h"
-#include "texture_share_vk/config.hpp"
+}
 #include <string_view>
 
 class TextureShareGlClient
@@ -24,7 +25,7 @@ class TextureShareGlClient
 		::ClientImageDataGuard *_data = nullptr;
 	};
 
-	static constexpr std::string_view DEFAULT_SHMEM_PREFIX  = "shmem_img_";
+	static constexpr std::string_view DEFAULT_SHMEM_PREFIX  = VK_SERVER_DEFAULT_SHMEM_PREFIX;
 	static constexpr std::string_view DEFAULT_LOCKFILE_PATH = VK_SERVER_DEFAULT_LOCKFILE_PATH;
 	static constexpr std::string_view DEFAULT_SOCKET_PATH   = VK_SERVER_DEFAULT_SOCKET_PATH;
 

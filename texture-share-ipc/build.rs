@@ -8,7 +8,7 @@ fn main() {
 			Path::new(c_header_filename).join("texture_share_ipc/texture_share_ipc.h");
 
 		cbindgen::Builder::new()
-			.with_language(Language::Cxx)
+			.with_language(Language::C)
 			.with_crate(".")
 			.include_item("ShmemInternalData")
 			.with_pragma_once(true)

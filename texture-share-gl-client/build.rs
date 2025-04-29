@@ -79,11 +79,12 @@ fn main() {
     ];
     cbindgen::Builder::new()
         .with_config(cgen_config)
-        .with_language(Language::Cxx)
+        .with_language(Language::C)
         .with_crate(".")
         .with_pragma_once(true)
         .with_tab_width(4)
         .with_sys_include("GL/gl.h")
+        .with_include("texture_share_vk/config.h")
         .with_include("texture_share_ipc/texture_share_ipc.h")
         .generate()
         .expect("Failed to generate bindings")

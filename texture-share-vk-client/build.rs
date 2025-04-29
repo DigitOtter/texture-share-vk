@@ -24,11 +24,12 @@ fn main() {
 	.map(|x| x.to_string())
 	.collect();
 	cbindgen::Builder::new()
-		.with_language(Language::Cxx)
 		.with_config(config)
+		.with_language(Language::C)
 		.with_crate(".")
 		.with_pragma_once(true)
 		.with_tab_width(4)
+		.with_include("texture_share_vk/config.h")
 		.with_include("texture_share_ipc/texture_share_ipc.h")
 		.with_include("texture_share_vk_base.h")
 		.generate()

@@ -28,8 +28,8 @@ fn main() {
 		.map(|x| x.to_string())
 		.collect();
 		cbindgen::Builder::new()
-			.with_language(Language::Cxx)
 			.with_config(config)
+			.with_language(Language::C)
 			.with_crate(".")
 			.include_item("ShmemInternalData")
 			.with_pragma_once(true)

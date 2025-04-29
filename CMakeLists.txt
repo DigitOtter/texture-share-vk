@@ -45,6 +45,9 @@ set(TSV_VK_SERVER_DEFAULT_LOCKFILE_PATH
 set(TSV_VK_SERVER_DEFAULT_SOCKET_PATH
     "/tmp/vk_server/vk_server.sock"
     CACHE PATH "Default VkServr socket path")
+set(TSV_VK_SERVER_DEFAULT_SHMEM_PREFIX
+    "shmem_img_"
+    CACHE STRING "Default VkServr shared memory prefix")
 
 set(DOWNLOAD_GLAD_SPECS ON CACHE BOOL "Download gl specs")
 if(DOWNLOAD_GLAD_SPECS)
@@ -140,8 +143,8 @@ if(TSV_ABSOLUTE_PATH)
   set(VK_SERVER_EXECUTABLE
       "${CMAKE_INSTALL_PREFIX}/${TSV_INSTALL_BINDIR}/${VK_SERVER_EXECUTABLE}")
 endif()
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cpp/texture_share_vk/config.hpp.in"
-               "${TSV_RUST_GEN_INCLUDE_DIR}/texture_share_vk/config.hpp" @ONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cpp/texture_share_vk/config.h.in"
+               "${TSV_RUST_GEN_INCLUDE_DIR}/texture_share_vk/config.h" @ONLY)
 
 # VkSetup wrapper
 add_library(TextureShareVkSetupCpp SHARED

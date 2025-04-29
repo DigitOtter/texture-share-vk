@@ -1,7 +1,8 @@
 #pragma once
 
-#include "texture_share_vk/config.hpp"
+extern "C" {
 #include "texture_share_vk/texture_share_vk_client.h"
+}
 #include <cstdint>
 #include <string_view>
 #include <vulkan/vulkan_core.h>
@@ -26,7 +27,7 @@ class TextureShareVkClient
 		::ClientImageDataGuard *_data = nullptr;
 	};
 
-	static constexpr std::string_view DEFAULT_SHMEM_PREFIX  = "shmem_img_";
+	static constexpr std::string_view DEFAULT_SHMEM_PREFIX  = VK_SERVER_DEFAULT_SHMEM_PREFIX;
 	static constexpr std::string_view DEFAULT_LOCKFILE_PATH = VK_SERVER_DEFAULT_LOCKFILE_PATH;
 	static constexpr std::string_view DEFAULT_SOCKET_PATH   = VK_SERVER_DEFAULT_SOCKET_PATH;
 

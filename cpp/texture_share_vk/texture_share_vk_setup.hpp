@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "texture_share_vk/texture_share_vk_base.h"
 
 class TextureShareVkSetup
